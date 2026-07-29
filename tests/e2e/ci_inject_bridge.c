@@ -61,6 +61,8 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <unistd.h>
+#include <time.h>
+#include <errno.h>
 
 #include <csp/csp.h>
 #include <csp/csp_buffer.h>
@@ -131,17 +133,45 @@ static int open_iface_spec(const char *spec, const char *name, csp_iface_t **out
 /* Split-horizon counters (see pump below). */
 static unsigned long long g_echo_in = 0;   /* ingress-side echoes dropped (broker reflection) */
 static unsigned long long g_echo_out = 0;  /* egress-side echoes dropped (own TX seen on egress RX) */
+static unsigned long long g_reverse_frames = 0; /* frames pumped egress->ingress (ACKs, re-requests) */
+/* Dedup runs before the direction split, so a duplicate is freed without ever reaching the
+ * forward/reverse counters. Report them per direction rather than letting them vanish: a
+ * reverse-channel result is only trustworthy if the frames the instrument discarded are
+ * visible next to the ones it counted. */
+static unsigned long long g_dup_in = 0, g_dup_out = 0;
+
+/* Half-duplex airtime: hold the channel for the time this frame would occupy on a link of
+ * `rate_bps`, i.e. (payload + protocol overhead) * 8 / rate seconds. The pump is
+ * single-threaded, so sleeping here means exactly one frame is on the channel at a time,
+ * which is what makes the model half-duplex: a reverse ACK and a forward data frame cannot
+ * be in flight together, and every reverse frame consumes budget the uplink could have used.
+ * A DROPPED frame is charged too — on a real link a lost packet has already burned its slot. */
+static void charge_airtime(unsigned int frame_bytes, long rate_bps) {
+    if (rate_bps <= 0) {
+        return;
+    }
+    uint64_t ns = ((uint64_t)frame_bytes * 8ULL * 1000000000ULL) / (uint64_t)rate_bps;
+    struct timespec ts;
+    ts.tv_sec  = (time_t)(ns / 1000000000ULL);
+    ts.tv_nsec = (long)(ns % 1000000000ULL);
+    while (nanosleep(&ts, &ts) == -1 && errno == EINTR && !g_stop) {
+        /* resume the remaining interval; bail out promptly on SIGINT */
+    }
+}
 
 int main(int argc, char **argv) {
     if (argc < 10) {
         fprintf(stderr,
-            "usage: %s <in> <out> <dport> <mtu> <overhead> <loss> <burst> <seed> <drop.csv|-> [src_addr] [pace_us]\n"
+            "usage: %s <in> <out> <dport> <mtu> <overhead> <loss> <burst> <seed> <drop.csv|-> [src_addr] [pace_us] [hd_rate_bps]\n"
             "  <in>/<out> = zmq:PUB_EP,SUB_EP | can:DEVICE   (burst>0 => per-attempt GE)\n"
             "  [src_addr] = CSP addr of the data source on the INGRESS side (default 5424);\n"
             "               split-horizon: ingress only forwards frames FROM it, egress only\n"
             "               forwards frames NOT from it (anything else is our own echo)\n"
             "  [pace_us]  = delay after each egress forward (default 0 = line rate); use to\n"
-            "               slow below the receiver's drop threshold for reliable file deploys\n",
+            "               slow below the receiver's drop threshold for reliable file deploys\n"
+            "  [hd_rate_bps] = half-duplex link rate (default 0 = off). Charges every frame\n"
+            "               (payload+overhead)*8/rate seconds of airtime in BOTH directions,\n"
+            "               dropped frames included, so reverse ACKs cost uplink budget\n",
             argv[0]);
         return 2;
     }
@@ -156,6 +186,7 @@ int main(int argc, char **argv) {
     const char *log      = argv[9];
     uint16_t    src_addr = (argc > 10) ? (uint16_t)atoi(argv[10]) : 5424;
     useconds_t  pace_us  = (argc > 11) ? (useconds_t)atoi(argv[11]) : 0;
+    long        hd_rate  = (argc > 12) ? atol(argv[12]) : 0;   /* bit/s; 0 = no airtime model */
 
     if (overhead < CI_DTP_OFFSET_SIZE || overhead >= mtu) {
         fprintf(stderr, "ci_inject_bridge: invalid overhead %d (need %d <= overhead < mtu %d)\n",
@@ -214,10 +245,10 @@ int main(int argc, char **argv) {
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
 
-    printf("ci_inject_bridge: %s -> [shim: %s] -> %s | dport=%d mtu=%d overhead=%d loss=%.3f%s seed=%llu src=%u\n",
+    printf("ci_inject_bridge: %s -> [shim: %s] -> %s | dport=%d mtu=%d overhead=%d loss=%.3f%s seed=%llu src=%u hd_rate=%ld\n",
            in_spec, burst > 0.0 ? "per-attempt GE" : "i.i.d. per-index", out_spec,
            dport, mtu, overhead, loss, burst > 0.0 ? " burst" : "", (unsigned long long)seed,
-           src_addr);
+           src_addr, hd_rate);
     fflush(stdout);
 
     /* Split-horizon bridge pump (replaces csp_bridge_work, which forwards blindly).
@@ -244,6 +275,7 @@ int main(int argc, char **argv) {
             continue;
         }
         if (csp_dedup_is_duplicate(packet)) {
+            if (input.iface == in_iface) { g_dup_in++; } else { g_dup_out++; }
             csp_buffer_free(packet);
             continue;
         }
@@ -253,7 +285,11 @@ int main(int argc, char **argv) {
                 csp_buffer_free(packet);
                 continue;
             }
+            /* Read the length BEFORE the send: csp_send_direct_iface takes ownership and
+             * the shim may free the packet (drop) or hand it downstream. */
+            unsigned int on_air = packet->length + (unsigned int)overhead;
             csp_send_direct_iface(&packet->id, packet, &shim.iface, CSP_NO_VIA_ADDRESS, 0);
+            charge_airtime(on_air, hd_rate);
             if (pace_us) {
                 usleep(pace_us);   /* receiver-side overrun guard for deploys */
             }
@@ -263,16 +299,20 @@ int main(int argc, char **argv) {
                 csp_buffer_free(packet);
                 continue;
             }
+            g_reverse_frames++;
+            unsigned int on_air = packet->length + (unsigned int)overhead;
             csp_send_direct_iface(&packet->id, packet, in_iface, CSP_NO_VIA_ADDRESS, 0);
+            charge_airtime(on_air, hd_rate);
         }
     }
 
     if (drop_log) { fflush(drop_log); fclose(drop_log); }
     printf("ci_inject_bridge: stopped. injected_drops=%llu forwarded=%llu passthrough=%llu "
-           "echoes_dropped(in=%llu out=%llu)\n",
+           "reverse_frames=%llu echoes_dropped(in=%llu out=%llu)\n",
            (unsigned long long)shim.injected_drops,
            (unsigned long long)shim.forwarded,
            (unsigned long long)shim.passthrough,
-           g_echo_in, g_echo_out);
+           g_reverse_frames, g_echo_in, g_echo_out);
+    printf("ci_inject_bridge: duplicates_dropped(fwd=%llu rev=%llu)\n", g_dup_in, g_dup_out);
     return 0;
 }

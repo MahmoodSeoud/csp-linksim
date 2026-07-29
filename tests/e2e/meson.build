@@ -138,10 +138,26 @@ ci_inject_bridge = executable('ci_inject_bridge', 'ci_inject_bridge.c',
   dependencies: [ci_drop_dep, e2e_zmq, e2e_threads],
   override_options: ['c_std=gnu11', 'werror=false'])
 
+# The half-duplex airtime model must actually charge airtime. The rate argument was
+# accepted and silently ignored for a long time, so "19200 bit/s half-duplex" cells ran at
+# line rate and every reverse-channel number derived from them was unbacked. Also guards the
+# reverse_frames= summary field that svu-stageb and rdp-repro-5431 parse.
+test('injector half-duplex airtime is charged per frame',
+  find_program('airtime_guard.sh'),
+  args: [zmqproxy_lossy, ci_gen, ci_inject_bridge],
+  timeout: 120)
+
 # vmem_node: a minimal CSP node serving a big flat RAM vmem region on a CAN bus, as a
 # clean byte-faithful integrity oracle for the RDP/upload arm (DIPP stora is 10 KB and
 # wedges; a csh instance serves no vmem). Full param dep for vmem_server_loop.
 e2e_param_full = dependency('param', fallback: ['param', 'param_dep'])
 vmem_node = executable('vmem_node', 'vmem_node.c',
-  dependencies: [e2e_csp, e2e_param_full, e2e_threads],
+  dependencies: [e2e_csp, e2e_param_full, e2e_threads, e2e_zmq],
+  override_options: ['c_std=gnu11', 'werror=false'])
+
+# rdp_push: drives libparam's vmem_upload/vmem_download (the RDP+CRC32 reference path) with
+# no csh dependency, so the RDP arm runs behind the injector on any host rather than only on
+# the bench. csh's `upload` is a thin wrapper over the same call.
+rdp_push = executable('rdp_push', 'rdp_push.c',
+  dependencies: [e2e_csp, e2e_param_full, e2e_threads, e2e_zmq],
   override_options: ['c_std=gnu11', 'werror=false'])
