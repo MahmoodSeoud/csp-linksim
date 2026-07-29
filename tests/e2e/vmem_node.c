@@ -10,6 +10,11 @@
  * In-project (this repo) — no vendor / disco/src edits. Built by tests/e2e/meson.build.
  *
  * Usage:  vmem_node -c can0 -a 5431            (default: can0, addr 5431, 1 MiB region)
+ *         vmem_node -z 127.0.0.2 -a 5431       (join a zmqproxy broker instead of CAN)
+ *
+ * The -z form exists so the RDP arm can run behind the loss injector with no CAN bus and no
+ * flatsat, the same way svu_server/-client do. It is the difference between an arm that only
+ * runs on the bench and one a reviewer can reproduce on a laptop.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +27,7 @@
 #include <string.h>
 #include <csp/csp.h>
 #include <csp/drivers/can_socketcan.h>
+#include <csp/interfaces/csp_if_zmqhub.h>
 #include <vmem/vmem.h>
 #include <vmem/vmem_server.h>
 
@@ -74,15 +80,19 @@ int main(int argc, char **argv)
      * bounces the live bus and disrupts every other node. Default 0 is the safe choice on
      * a shared flatsat; override with -B only on a dedicated interface. */
     int bitrate = 0;
+    const char *zmq_host = NULL;
     int opt;
-    while ((opt = getopt(argc, argv, "c:a:B:h")) != -1) {
+    while ((opt = getopt(argc, argv, "c:a:B:z:h")) != -1) {
         switch (opt) {
         case 'c': dev = optarg; break;
         case 'a': addr = (unsigned int)atoi(optarg); break;
         case 'B': bitrate = atoi(optarg); break;
+        case 'z': zmq_host = optarg; break;
         case 'h':
         default:
-            printf("usage: %s -c <can-device> -a <address> [-B bitrate]\n"
+            printf("usage: %s [-c <can-device> | -z <broker-host>] -a <address> [-B bitrate]\n"
+                   "  -c <dev>   join a SocketCAN bus (default: can0)\n"
+                   "  -z <host>  join a zmqproxy broker instead (publish->6000, subscribe->7000)\n"
                    "  -B 0 (default) leaves the interface alone; >0 reconfigures it (bounces the bus)\n", argv[0]);
             return opt == 'h' ? 0 : 1;
         }
@@ -91,10 +101,23 @@ int main(int argc, char **argv)
     csp_init();
 
     csp_iface_t *iface = NULL;
-    int err = csp_can_socketcan_open_and_add_interface(dev, "CAN", addr, bitrate, true, &iface);
-    if (err != CSP_ERR_NONE) {
-        fprintf(stderr, "vmem_node: failed to open CAN [%s], error %d\n", dev, err);
-        return 1;
+    int err;
+    if (zmq_host != NULL) {
+        /* Same endpoint convention as svu_net.c and the injector's zmq side. */
+        char pub_ep[128], sub_ep[128];
+        snprintf(pub_ep, sizeof(pub_ep), "tcp://%s:6000", zmq_host);
+        snprintf(sub_ep, sizeof(sub_ep), "tcp://%s:7000", zmq_host);
+        err = csp_zmqhub_init_w_endpoints(addr, pub_ep, sub_ep, 0, &iface);
+        if (err != CSP_ERR_NONE) {
+            fprintf(stderr, "vmem_node: failed to join broker at %s, error %d\n", zmq_host, err);
+            return 1;
+        }
+    } else {
+        err = csp_can_socketcan_open_and_add_interface(dev, "CAN", addr, bitrate, true, &iface);
+        if (err != CSP_ERR_NONE) {
+            fprintf(stderr, "vmem_node: failed to open CAN [%s], error %d\n", dev, err);
+            return 1;
+        }
     }
     iface->is_default = 1;
 
@@ -105,7 +128,9 @@ int main(int argc, char **argv)
     pthread_create(&rt, NULL, router_task, NULL);
     pthread_create(&vt, NULL, vmem_task, NULL);
 
-    printf("vmem_node up: addr=%u dev=%s region=bigmem size=1048576\n", addr, dev);
+    printf("vmem_node up: addr=%u %s=%s region=bigmem size=1048576 vaddr=0x%llx\n",
+           addr, zmq_host ? "broker" : "dev", zmq_host ? zmq_host : dev,
+           (unsigned long long)BIGMEM_VADDR);
     fflush(stdout);
 
     while (1) { sleep(3600); }
