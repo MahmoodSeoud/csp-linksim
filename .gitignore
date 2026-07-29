@@ -43,6 +43,12 @@ captures/*
 !captures/rq3_corruption.csv
 !captures/flight_dtp_*.csv
 !captures/*_finding.md
+# rate_*: the RDP failure-mode-vs-link-rate comparison. Backs the rate caveat in the
+# evaluation's threats section, so it is evidence, not scratch.
+!captures/rate_*.csv
+# repro_*: demo output from scripts/reproduce. Regenerated on every run by design, so it
+# must NOT be tracked even though it matches the *_sweep.csv negation above.
+captures/repro_*
 
 # stray VM memory dumps (flatsat sim scratch; not part of the instrument)
 *.vmem
