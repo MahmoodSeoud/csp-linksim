@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#
+# bench - run the Linux front-ends from any host (macOS included) in a container.
+#
+# The front-ends need libzmq + SocketCAN headers, so they do not build on macOS. This wraps
+# docker so the same commands work everywhere. Build artifacts go to a named volume, not the
+# source tree, so the host's native lib/ build directory is untouched.
+#
+#   scripts/bench build              configure + compile everything
+#   scripts/bench test               run the meson test suite
+#   scripts/bench <script> [args]    run scripts/<script> inside the container
+#   scripts/bench shell              interactive shell
+#
+# The repo is mounted read-WRITE so sweeps can append to captures/.
+set -uo pipefail
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE=csp-bench
+VOLUME=csp-bench-build
+
+command -v docker >/dev/null 2>&1 || { echo "FAIL: docker not found"; exit 1; }
+docker info >/dev/null 2>&1 || { echo "FAIL: docker is installed but not running (start Docker Desktop)"; exit 1; }
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    echo "[bench] building $IMAGE ..."
+    docker build -q -t "$IMAGE" -f "$REPO/docker/Dockerfile.bench" "$REPO/docker" || exit 1
+fi
+
+# Forward the knobs the sweep drivers read, so `LOSSES=... scripts/bench svu-zmq-sweep` works
+# the same way it would on the bench host. Only forwards vars that are actually set.
+ENVARGS=()
+for v in LOSSES NSEEDS CSV PBYTES PAYLOAD_SEED BLOCK MTU OVH BURST HD_RATE N RATE SEED; do
+    [ -n "${!v-}" ] && ENVARGS+=(-e "$v=${!v}")
+done
+
+# ${arr[@]+"${arr[@]}"} so an EMPTY forward-list does not trip `set -u` (bash treats an
+# unset-length array expansion as an unbound variable).
+run() { docker run --rm -it ${ENVARGS[@]+"${ENVARGS[@]}"} -v "$REPO":/src -v "$VOLUME":/build -w /src "$IMAGE" "$@"; }
+run_quiet() { docker run --rm ${ENVARGS[@]+"${ENVARGS[@]}"} -v "$REPO":/src -v "$VOLUME":/build -w /src "$IMAGE" "$@"; }
+
+cmd="${1:-build}"; shift || true
+case "$cmd" in
+  build)
+    run_quiet bash -c 'meson setup /build /src -Dfrontends=true >/dev/null 2>&1 || \
+                       meson setup --reconfigure /build /src -Dfrontends=true >/dev/null 2>&1
+                       ninja -C /build'
+    ;;
+  test)
+    run_quiet bash -c 'ninja -C /build >/dev/null 2>&1; meson test -C /build --print-errorlogs "$@"' _ "$@"
+    ;;
+  shell)
+    run bash
+    ;;
+  *)
+    [ -x "$REPO/scripts/$cmd" ] || { echo "FAIL: no scripts/$cmd"; exit 1; }
+    run_quiet bash -c 'ninja -C /build >/dev/null 2>&1; exec "/src/scripts/$0" "$@"' "$cmd" "$@"
+    ;;
+esac

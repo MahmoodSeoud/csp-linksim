@@ -1,0 +1,17 @@
+# Linux bench environment for csp-intercept.
+#
+# The front-ends (proxy, monitor APM, injector, SVU) are Linux-only: they need libzmq,
+# SocketCAN headers, and libcsp's Linux transport layer. This image is the reproducible
+# way to build and run them from any host, including macOS, where the pure lib/ still
+# builds natively but nothing else does.
+#
+# Build and run through scripts/bench, which wires the mounts:
+#   scripts/bench build          # configure + compile the front-ends
+#   scripts/bench test           # meson test suite
+#   scripts/bench svu-zmq-sweep  # the host SVU arm, no CAN bus and no payload board
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -qq && apt-get install -y -qq \
+    build-essential meson ninja-build pkg-config \
+    libzmq3-dev libsocketcan-dev python3 git iproute2 procps coreutils
+WORKDIR /src
