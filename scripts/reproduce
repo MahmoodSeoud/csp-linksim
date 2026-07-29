@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# reproduce - run everything in this thesis that can be reproduced on a laptop, live.
+#
+# Requires only Docker. No CAN bus, no flatsat, no payload board, no vendor binaries.
+# Everything runs inside a container; nothing touches the host's build tree.
+#
+#   scripts/reproduce            same as 'quick'
+#   scripts/reproduce quick      test suite + 2 loss levels x 1 seed per arm  (~5 min)
+#   scripts/reproduce full       test suite + 6 loss levels x 3 seeds per arm (~1 h)
+#   scripts/reproduce test       the regression suite only                    (~40 s)
+#
+# WHAT THIS COVERS, AND WHAT IT DOES NOT
+# Four transfer mechanisms appear in the evaluation. Two are reproducible anywhere:
+#
+#   SVU  (self-verifying uploader)   -> scripts/svu-zmq-sweep   captures/svu_sweep.csv
+#   RDP  (reliable vmem reference)   -> scripts/rdp-zmq-sweep   captures/rdp_zmq_sweep.csv
+#
+# Two are not, and no amount of packaging fixes that:
+#
+#   Deployed uploader (DTP)  needs DISCO's upload_gs-server / upload_client, which are
+#                            mission binaries and are not part of this repository.
+#   satdeploy                needs the payload board (aarch64) reachable over CAN; its
+#                            results live in captures/satdeploy_sweep.csv.
+#
+# So this script reproduces the instrument, the regression suite, and the two arms whose
+# evidence a reader can re-derive from source. The other two are reported from committed
+# data. That distinction is deliberate and is stated in the thesis rather than blurred.
+#
+# WHAT TO LOOK FOR WHILE IT RUNS
+# Each cell prints claimed= (what the mechanism said) and sha= (what actually arrived,
+# checked outside the mechanism). The failure this thesis is about is the disagreement:
+#   claimed=VERIFIED/DELIVERED with sha=MISMATCH  ==  silent corruption.
+# SVU should never show it. RDP should show it at 20-30% loss, in the artifact's tail.
+set -uo pipefail
+
+MODE="${1:-quick}"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO" || exit 1
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+rule() { printf '%s\n' "----------------------------------------------------------------------"; }
+
+command -v docker >/dev/null 2>&1 || { echo "FAIL: docker not found. Install Docker Desktop."; exit 1; }
+docker info >/dev/null 2>&1 || { echo "FAIL: docker is installed but not running. Start Docker Desktop."; exit 1; }
+
+case "$MODE" in
+  # 0.30 seed 1 is a cell where the RDP reference path reports success over a truncated
+  # tail, so quick mode actually exhibits the finding rather than only the clean control.
+  quick) LOSSES="0 0.30"; NSEEDS=1 ;;
+  full)  LOSSES="0 0.02 0.05 0.10 0.20 0.30"; NSEEDS=3 ;;
+  test)  LOSSES=""; NSEEDS=0 ;;
+  *) echo "usage: $0 [quick|full|test]"; exit 2 ;;
+esac
+
+rule; bold "csp-intercept :: reproduce ($MODE)"; rule
+echo "Everything below runs in a container. Host build tree untouched."
+echo
+
+bold "[1/4] Building the instrument and both arms"
+scripts/bench build || { echo "FAIL: build failed"; exit 1; }
+echo "  ok"
+echo
+
+bold "[2/4] Regression suite"
+echo "  Includes the two-oracle agreement tests (injector drop-log vs live monitor),"
+echo "  proxy determinism (same seed -> identical drop vector), and the half-duplex"
+echo "  airtime model. These guard the instrument itself."
+echo
+scripts/bench test || { echo "FAIL: regression suite failed"; exit 1; }
+echo
+
+if [ "$MODE" = "test" ]; then
+    rule; bold "Suite only. Re-run with 'quick' or 'full' to measure the arms."; rule
+    exit 0
+fi
+
+bold "[3/4] SVU arm  (contributed design; per-block manifest + selective resume)"
+echo "  Expect: every cell VERIFIED with sha=MATCH. Rounds grow with loss."
+echo "  A VERIFIED cell with sha=MISMATCH would falsify the mechanism's core claim."
+echo
+LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_svu_sweep.csv \
+    scripts/bench svu-zmq-sweep
+echo
+
+bold "[4/4] RDP arm  (reliable vmem reference path, CSP_O_RDP | CSP_O_CRC32)"
+echo "  Expect: clean at low loss. At 20-30% expect DELIVERED with sha=MISMATCH --"
+echo "  the reference path reporting success over a truncated tail. That is the"
+echo "  finding; vmem_upload counts bytes queued, not bytes acknowledged."
+echo
+LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_rdp_zmq_sweep.csv \
+    scripts/bench rdp-zmq-sweep
+echo
+
+rule; bold "Summary"; rule
+sum() {  # $1=label $2=csv $3=claim-token $4=claimed-col $5=sha-col
+    local f="$REPO/captures/$2"
+    [ -f "$f" ] || { printf '  %-28s (no data)\n' "$1"; return; }
+    awk -F, -v lbl="$1" -v tok="$3" -v cc="$4" -v sc="$5" '
+        NR>1 { n++; if ($cc==tok) { c++; if ($sc=="MISMATCH") silent++ } }
+        END { printf "  %-28s %2d cells, %2d claimed success, %d SILENT CORRUPTION\n",
+                     lbl, n+0, c+0, silent+0 }' "$f"
+}
+sum "SVU (reproduced here)"  repro_svu_sweep.csv     VERIFIED  5 8
+sum "RDP (reproduced here)"  repro_rdp_zmq_sweep.csv DELIVERED 5 6
+echo
+echo "  Not reproducible on a laptop, reported from committed data:"
+awk -F, 'NR>1{n++; if($8=="yes") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rq3_corruption.csv)\n","Deployed uploader (DTP)",n+0,s+0}' "$REPO/captures/rq3_corruption.csv" 2>/dev/null
+awk -F, 'NR>1{n++; if($10=="MISMATCH") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rawdtp_sweep.csv)\n","Raw DTP",n+0,s+0}' "$REPO/captures/rawdtp_sweep.csv" 2>/dev/null
+awk -F, 'NR>1{n++} END{printf "  %-28s %2d cells, payload board over CAN (captures/satdeploy_sweep.csv)\n","satdeploy + naive",n+0}' "$REPO/captures/satdeploy_sweep.csv" 2>/dev/null
+echo
+echo "  Per-cell drop logs (oracle A) written to captures/*_oracleA.csv"
+rule

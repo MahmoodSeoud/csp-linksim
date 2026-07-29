@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+#
+# svu-zmq-sweep - the SVU host arm over a pure-ZMQ path. No CAN bus, no payload board.
+#
+# WHY THIS EXISTS, AND HOW IT DIFFERS FROM svu-point
+# svu-point wires the client onto can0, so it needs the flatsat. This runs the identical
+# mechanism with both ends on ZMQ, which makes the host arm reproducible on any laptop:
+#
+#   svu_server -z 127.0.0.1 -> broker A -> ci_inject_bridge -> broker B -> svu_client -z 127.0.0.2
+#                                            (drops SVU data frames, dport 9 = oracle A)
+#
+# Two brokers are required because svu_server/-client hardcode broker ports 6000/7000, so the
+# two CSP segments are separated by loopback ALIAS (127.0.0.1 vs 127.0.0.2) rather than port.
+# The injector bridges them; zmq-to-zmq is a first-class mode of ci_inject_bridge.
+#
+# TRANSPORT CAVEAT (read before citing these numbers)
+# Frame counts here are CSP packets on ZMQ. On the can0 path each CSP packet fragments into
+# many CAN frames, so forward/reverse FRAME counts are NOT comparable between the two
+# topologies. Delivery verdicts (verified, sha, rounds) ARE comparable: they are properties of
+# the mechanism, not the link. The CSV records transport= so a reader cannot mix them up.
+#
+# Integrity is rate-independent, so this runs unpaced by default (as svu-point does). Set
+# HD_RATE to charge half-duplex airtime; expect cells to take minutes, not seconds.
+#
+# Per cell: pull the payload through the injector; the client self-verifies against its
+# per-block manifest. Then an EXTERNAL sha256 confirms the self-verification did not lie.
+#   SILENT CORRUPTION == claimed VERIFIED & sha MISMATCH. Expected: never.
+#
+# Usage: svu-zmq-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
+# Resumable: an already-recorded (loss, seed) is skipped.
+set -uo pipefail
+
+LOSSES="${LOSSES:-${1:-0 0.02 0.05 0.10 0.20 0.30}}"
+NSEEDS="${NSEEDS:-${2:-3}}"
+SRV_ADDR=25; CLI_ADDR=26; DPORT=9
+MTU="${MTU:-200}"; OVH="${OVH:-8}"; BLOCK="${BLOCK:-4096}"; BURST="${BURST:-4}"
+HD_RATE="${HD_RATE:-0}"
+PBYTES="${PBYTES:-262144}"          # 256 KiB, the size the other arms use
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
+
+BUILD="${BUILD:-/build}"
+REPO="${REPO:-/src}"
+CAP="$REPO/captures"
+CSV="${CSV:-$CAP/svu_sweep.csv}"
+PROXY="$BUILD/proxy/zmqproxy-lossy"
+INJ="$BUILD/tests/e2e/ci_inject_bridge"
+SRV="$BUILD/svu/svu_server"
+CLI="$BUILD/svu/svu_client"
+
+for b in "$PROXY" "$INJ" "$SRV" "$CLI"; do
+    [ -x "$b" ] || { echo "FAIL: missing $b (run: scripts/bench build)"; exit 1; }
+done
+mkdir -p "$CAP"
+
+# Deterministic payload. The pinned captures/payload_256k.bin is not in the repo (gitignored,
+# lives on the bench host), so the exact bytes of the other arms cannot be reproduced here.
+# A seeded PRNG gives a payload that IS reproducible by anyone who runs this script, and its
+# digest is recorded alongside the results.
+IN=/tmp/svu_zmq_payload_${PBYTES}_${PAYLOAD_SEED}.bin
+if [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" != "$PBYTES" ]; then
+    python3 -c "
+import random, sys
+r = random.Random($PAYLOAD_SEED)
+sys.stdout.buffer.write(bytes(r.getrandbits(8) for _ in range($PBYTES)))
+" > "$IN" || exit 1
+fi
+IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
+echo "svu-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "  losses=[$LOSSES] nseeds=$NSEEDS block=$BLOCK mtu=$MTU burst=$BURST hd_rate=$HD_RATE"
+echo "  csv=$CSV"
+
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,rounds,rev_frames,sha,size,transport,payload_sha256,ts" > "$CSV"
+
+cleanup_procs() {
+    pkill -x svu_server 2>/dev/null
+    pkill -f 'ci_inject_bridge' 2>/dev/null
+    pkill -f 'zmqproxy-lossy' 2>/dev/null
+    sleep 0.5
+}
+trap 'cleanup_procs; exit 130' INT TERM
+
+for loss in $LOSSES; do
+  for s in $(seq 1 "$NSEEDS"); do
+    if awk -F, -v l="$loss" -v sd="$s" 'NR>1 && $1==l && $2==sd {found=1} END{exit !found}' "$CSV"; then
+        echo "[L${loss}_s${s}] already recorded, skipping"
+        continue
+    fi
+    L="svuz_L${loss}_s${s}"
+    ORA="$CAP/${L}_oracleA.csv"; OUT="/tmp/${L}_out.bin"; ILOG="/tmp/${L}_inj.log"
+    rm -f "$OUT" "$ORA"
+    cleanup_procs
+
+    "$PROXY" -s tcp://127.0.0.1:6000 -p tcp://127.0.0.1:7000 >/tmp/${L}_brokerA.log 2>&1 &
+    "$PROXY" -s tcp://127.0.0.2:6000 -p tcp://127.0.0.2:7000 >/tmp/${L}_brokerB.log 2>&1 &
+    sleep 1
+
+    "$SRV" -z 127.0.0.1 -a $SRV_ADDR -f "$IN" -b "$BLOCK" >/tmp/${L}_srv.log 2>&1 &
+    for i in $(seq 1 80); do grep -qi serving /tmp/${L}_srv.log 2>/dev/null && break; sleep 0.1; done
+
+    "$INJ" "zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,$CLI_ADDR" \
+           "zmq:tcp://127.0.0.2:6000,tcp://127.0.0.2:7000" \
+           $DPORT "$MTU" "$OVH" "$loss" "$BURST" "$s" "$ORA" $SRV_ADDR 0 "$HD_RATE" >"$ILOG" 2>&1 &
+    INJPID=$!
+    sleep 2
+
+    out=$(timeout 1800 "$CLI" -z 127.0.0.2 -a $CLI_ADDR -C $SRV_ADDR -o "$OUT" -b "$BLOCK" -m "$MTU" 2>&1)
+    kill -INT "$INJPID" 2>/dev/null; sleep 0.3
+    kill "$INJPID" 2>/dev/null; wait "$INJPID" 2>/dev/null || true
+    cleanup_procs
+
+    claimed=INCOMPLETE; rounds='?'
+    if echo "$out" | grep -qE "VERIFIED $PBYTES bytes"; then
+        claimed=VERIFIED
+        rounds=$(echo "$out" | grep -oE 'in [0-9]+ round' | grep -oE '[0-9]+' | head -1)
+    fi
+    inj=$(awk -F, '!/^#/{c++} END{print c+0}' "$ORA" 2>/dev/null)
+    drp=$(awk -F, '!/^#/ && $8==1{c++} END{print c+0}' "$ORA" 2>/dev/null)
+    rev=$(grep -oE 'reverse_frames=[0-9]+' "$ILOG" | grep -oE '[0-9]+' | tail -1)
+    got=$(sha256sum "$OUT" 2>/dev/null | cut -d' ' -f1)
+    sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
+    gsz=$(stat -c%s "$OUT" 2>/dev/null || echo 0)
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    warn=""
+    [ "$claimed" = VERIFIED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
+    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,${rounds:-?},${rev:-0},$sha,$gsz,zmq,$IN_SHA,$ts" >> "$CSV"
+    echo "[$L] claimed=$claimed rounds=${rounds:-?} sha=$sha inj=${inj:-0} drop=${drp:-0} rev=${rev:-0}$warn"
+  done
+done
+
+echo
+echo "=== $CSV ==="
+column -t -s, "$CSV" 2>/dev/null || cat "$CSV"
+echo
+echo "--- completion (VERIFIED per cell) ---"
+awk -F, 'NR>1{n++; if($5=="VERIFIED") v++} END{print v+0"/"n+0" VERIFIED"}' "$CSV"
+echo "--- silent corruption (VERIFIED & sha MISMATCH, expect 0) ---"
+awk -F, 'NR>1 && $5=="VERIFIED" && $8=="MISMATCH"{c++} END{print c+0}' "$CSV"
