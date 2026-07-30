@@ -15,7 +15,7 @@ int ci_frame_from_fields(uint16_t dport, uint8_t csp_flags,
     if (out->is_rdp) {
         ci_rdp_header_t h;
         /* ci_rdp_parse_trailer guards NULL/len<5 and returns -1; leave flags 0. */
-        if (ci_rdp_parse_trailer(data, len, &h) == 0) {
+        if (ci_rdp_parse_trailer(data, len, csp_flags, &h) == 0) {
             out->rdp_flags = h.flags;
         }
     }
@@ -72,7 +72,7 @@ uint64_t ci_flow_index(ci_flow_tracker_t *t, const ci_frame_t *f,
     }
     if (f->is_rdp) {
         ci_rdp_header_t h;
-        if (ci_rdp_parse_trailer(data, len, &h) == 0) {
+        if (ci_rdp_parse_trailer(data, len, f->csp_flags, &h) == 0) {
             /* Advance the wrap epoch exactly as the proxy does (proxy_flow_index). */
             if (t->have_last_seq && ci_rdp_seq_is_wrap(t->last_seq, h.seq)) {
                 t->epoch++;

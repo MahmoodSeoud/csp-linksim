@@ -105,7 +105,7 @@ static void *mon_drainer(void *arg) {
                 ci_frame_from_fields(pk->id.dport, pk->id.flags, pk->data, pk->length, &f);
                 if (f.is_rdp) {
                     ci_rdp_header_t h;
-                    int ok = (ci_rdp_parse_trailer(pk->data, pk->length, &h) == 0);
+                    int ok = (ci_rdp_parse_trailer(pk->data, pk->length, pk->id.flags, &h) == 0);
                     uint32_t rtt = 0;
                     int paired = 0;
                     if (ok) {

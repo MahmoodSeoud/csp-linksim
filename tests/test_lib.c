@@ -33,7 +33,7 @@ static void test_rdp_parse(void) {
     /* 10-byte buffer; last 5 are the trailer: flags=0x08(SYN), seq=0x002A=42, ack=0x0105=261 */
     uint8_t buf[10] = {0xAA,0xBB,0xCC,0xDD,0xEE, 0x08, 0x00,0x2A, 0x01,0x05};
     ci_rdp_header_t h;
-    CHECK(ci_rdp_parse_trailer(buf, sizeof buf, &h) == 0, "rdp parse returns 0");
+    CHECK(ci_rdp_parse_trailer(buf, sizeof buf, 0, &h) == 0, "rdp parse returns 0");
     CHECK(h.flags == CI_RDP_SYN, "rdp flags = SYN");
     CHECK(h.seq == 42, "rdp seq big-endian decode = 42");
     CHECK(h.ack == 261, "rdp ack big-endian decode = 261");
@@ -42,14 +42,35 @@ static void test_rdp_parse(void) {
      * Without `& 0x0F` this would read 0x18 and fail SYN classification. */
     uint8_t masked[5] = {0x18, 0x00,0x01, 0x00,0x02};
     ci_rdp_header_t m;
-    CHECK(ci_rdp_parse_trailer(masked, sizeof masked, &m) == 0, "rdp parse (mask case)");
+    CHECK(ci_rdp_parse_trailer(masked, sizeof masked, 0, &m) == 0, "rdp parse (mask case)");
     CHECK(m.flags == CI_RDP_SYN, "rdp high-nibble counter masked off -> SYN");
     CHECK((m.flags & CI_RDP_SYN) != 0, "masked flags still classify as SYN");
 
     /* too short */
     uint8_t tiny[4] = {0,0,0,0};
-    CHECK(ci_rdp_parse_trailer(tiny, sizeof tiny, &m) == -1, "rdp len<5 -> -1");
-    CHECK(ci_rdp_parse_trailer(NULL, 10, &m) == -1, "rdp NULL data -> -1");
+    CHECK(ci_rdp_parse_trailer(tiny, sizeof tiny, 0, &m) == -1, "rdp len<5 -> -1");
+    CHECK(ci_rdp_parse_trailer(NULL, 10, 0, &m) == -1, "rdp NULL data -> -1");
+
+    /* CRC32 case. libcsp appends the RDP trailer first and the CRC32 after it
+     * (csp_io.c:298 then :252-254), so with CSP_FCRC32 the trailer is NOT the last
+     * five bytes. Reading the last five here would yield seq = 0xDEAD (two bytes of
+     * checksum) instead of 42 -- which is exactly the defect this guards. */
+    uint8_t crc_buf[14] = {0xAA,0xBB,0xCC,0xDD,0xEE,
+                           0x08, 0x00,0x2A, 0x01,0x05,      /* RDP trailer */
+                           0xDE,0xAD,0xBE,0xEF};            /* CRC32 */
+    ci_rdp_header_t c;
+    CHECK(ci_rdp_parse_trailer(crc_buf, sizeof crc_buf, CI_CSP_FCRC32, &c) == 0,
+          "rdp parse skips CRC32 when CSP_FCRC32 set");
+    CHECK(c.flags == CI_RDP_SYN, "crc32 case: flags = SYN");
+    CHECK(c.seq == 42,  "crc32 case: seq = 42 (not two bytes of checksum)");
+    CHECK(c.ack == 261, "crc32 case: ack = 261");
+    /* And the same buffer parsed as if there were no CRC32 must NOT yield 42,
+     * proving the flag is what distinguishes them rather than luck. */
+    ci_rdp_header_t w;
+    CHECK(ci_rdp_parse_trailer(crc_buf, sizeof crc_buf, 0, &w) == 0, "no-flag parse returns 0");
+    CHECK(w.seq != 42, "without the flag the same buffer misparses (regression witness)");
+    /* buffer too short for trailer + crc32 */
+    CHECK(ci_rdp_parse_trailer(crc_buf, 8, CI_CSP_FCRC32, &w) == -1, "len<9 with crc32 -> -1");
 
     /* pinned constants */
     CHECK(CI_RDP_HEADER_SIZE == 5, "RDP header size == 5");

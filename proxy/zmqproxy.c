@@ -606,7 +606,7 @@ static void proxy_shutdown(void) {
 static uint64_t proxy_flow_index(const csp_packet_t * packet, const ci_frame_t * f) {
     if (f->is_rdp) {
         ci_rdp_header_t h;
-        if (ci_rdp_parse_trailer(packet->data, packet->length, &h) == 0) {
+        if (ci_rdp_parse_trailer(packet->data, packet->length, packet->id.flags, &h) == 0) {
             if (g_have_last_seq && ci_rdp_seq_is_wrap(g_last_seq, h.seq)) {
                 g_epoch++;
             }

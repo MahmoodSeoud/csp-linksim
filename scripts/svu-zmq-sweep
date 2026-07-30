@@ -55,7 +55,7 @@ echo "svu-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS block=$BLOCK mtu=$MTU burst=$BURST hd_rate=$HD_RATE"
 echo "  csv=$CSV"
 
-[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,rounds,rev_frames,sha,size,transport,payload_sha256,ts" > "$CSV"
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,rounds,rev_frames,sha,size,transport,harness,payload_sha256,ts" > "$CSV"
 
 sweep_trap
 
@@ -90,6 +90,7 @@ for loss in $LOSSES; do
         rounds=$(echo "$out" | grep -oE 'in [0-9]+ round' | grep -oE '[0-9]+' | head -1)
     fi
     sweep_oracle_counts "$ORA"
+    sweep_harness_health "$ILOG"
     rev=$(grep -oE 'reverse_frames=[0-9]+' "$ILOG" | grep -oE '[0-9]+' | tail -1)
     got=$(sweep_sha "$OUT")
     sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
@@ -98,8 +99,8 @@ for loss in $LOSSES; do
 
     warn=""
     [ "$claimed" = VERIFIED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
-    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,${rounds:-?},${rev:-0},$sha,$gsz,zmq,$IN_SHA,$ts" >> "$CSV"
-    echo "[$L] claimed=$claimed rounds=${rounds:-?} sha=$sha inj=${inj:-0} drop=${drp:-0} rev=${rev:-0}$warn"
+    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,${rounds:-?},${rev:-0},$sha,$gsz,zmq,$harness,$IN_SHA,$ts" >> "$CSV"
+    echo "[$L] claimed=$claimed rounds=${rounds:-?} sha=$sha inj=${inj:-0} drop=${drp:-0} rev=${rev:-0} harness=$harness$warn"
   done
 done
 

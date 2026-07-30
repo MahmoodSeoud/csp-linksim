@@ -97,3 +97,29 @@ sweep_oracle_counts() {
 sweep_size() { stat -c%s "$1" 2>/dev/null || echo 0; }
 sweep_sha()  { sha256sum "$1" 2>/dev/null | cut -d' ' -f1; }
 sweep_ts()   { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# sweep_harness_health <injector-log> - sets `harness` to `clean` when the injector
+# reports no unlogged loss, or to a compact diagnostic otherwise.
+#
+# This exists because the instrument has twice been caught contributing loss the oracles
+# could not see: once at the receive-buffer pool and once at the egress. Recording the
+# verdict per cell turns "there was no unlogged loss" from an assumption into evidence,
+# and makes a regression loud instead of silent. A cell whose harness column is not
+# `clean` is not a valid measurement.
+sweep_harness_health() {
+    local log="$1" ne di
+    ne=$(grep -oE 'nexthop_errors=[0-9]+' "$log" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
+    di=$(grep -oE 'harness_health nexthop_errors=[0-9]+ dup_in=[0-9]+' "$log" 2>/dev/null |
+         grep -oE 'dup_in=[0-9]+' | grep -oE '[0-9]+' | tail -1)
+    ne="${ne:-0}"; di="${di:-0}"
+    # nexthop_errors is a hard invariant: any non-zero value means a frame was logged as
+    # kept but never left, so oracle A over-counts delivery and the cell is invalid.
+    # dup_in is recorded as a number rather than judged, because dedup legitimately
+    # discards broker reflections; what matters is that it stays stable across runs and
+    # that a dedup-off control delivers the same verdict.
+    if [ "$ne" = "0" ]; then
+        harness="clean;dup_in=${di}"
+    else
+        harness="INVALID_nexthop_err=${ne};dup_in=${di}"
+    fi
+}

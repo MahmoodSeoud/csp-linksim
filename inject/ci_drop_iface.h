@@ -67,6 +67,12 @@ typedef struct {
     uint64_t           injected_drops;  /* our own counter (NOT iface->drop/tx_err) */
     uint64_t           forwarded;       /* in-scope frames delegated downstream     */
     uint64_t           passthrough;     /* out-of-scope frames delegated untouched  */
+    /* Frames we delegated that the downstream nexthop REJECTED. These were logged as
+     * kept in the drop log but never reached the wire, so a non-zero value means
+     * oracle A over-counts delivery -- exactly the failure mode that inflated the
+     * reliable-path corruption count before the receive pool was sized correctly.
+     * Any sweep that reports a non-zero value here has an invalid cell. */
+    uint64_t           nexthop_errors;
 } ci_drop_iface_t;
 
 /*

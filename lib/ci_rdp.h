@@ -40,6 +40,10 @@
 
 /* csp id.flags bit marking an RDP packet (csp_types.h:72). */
 #define CI_CSP_FRDP 0x02
+/* csp id.flags bit marking a CRC32-protected packet (csp_types.h:73). */
+#define CI_CSP_FCRC32 0x01
+/* Bytes libcsp appends AFTER the RDP trailer when CRC32 is enabled. */
+#define CI_CRC32_SIZE 4
 
 typedef struct {
     uint8_t  flags;   /* already masked with CI_RDP_FLAG_MASK */
@@ -48,12 +52,26 @@ typedef struct {
 } ci_rdp_header_t;
 
 /*
- * Parse the 5-byte big-endian RDP trailer from the LAST 5 bytes of [data, len].
- * Returns 0 on success, -1 if data is NULL or len < CI_RDP_HEADER_SIZE.
- * This does NOT decide whether the packet is RDP -- the caller must gate on
- * (csp id.flags & CI_CSP_FRDP) first; raw payload bytes are otherwise
- * indistinguishable from a trailer.
+ * Parse the 5-byte big-endian RDP trailer out of the wire buffer [data, len].
+ *
+ * `csp_flags` is the packet's csp id.flags, and it is REQUIRED, because the RDP
+ * trailer is not always the last 5 bytes. libcsp appends the trailer in
+ * csp_rdp_send() and only afterwards appends the CRC32 in csp_send_direct_iface()
+ * (csp_io.c:298 then :252-254), so a CSP_FCRC32 packet is laid out
+ *
+ *     [ payload ][ flags seq_hi seq_lo ack_hi ack_lo ][ crc0 crc1 crc2 crc3 ]
+ *
+ * and reading the last 5 bytes yields two bytes of checksum where the sequence
+ * number should be. The reliable arm of this instrument runs CSP_O_RDP|CSP_O_CRC32,
+ * so that is the common case, not a corner case. Passing the flags lets this
+ * function skip the CRC32 when it is present.
+ *
+ * Returns 0 on success, -1 if data is NULL or the buffer is too short for the
+ * trailer plus whatever follows it. This does NOT decide whether the packet is
+ * RDP -- the caller must gate on (csp_flags & CI_CSP_FRDP) first; raw payload
+ * bytes are otherwise indistinguishable from a trailer.
  */
-int ci_rdp_parse_trailer(const uint8_t *data, size_t len, ci_rdp_header_t *out);
+int ci_rdp_parse_trailer(const uint8_t *data, size_t len, uint8_t csp_flags,
+                         ci_rdp_header_t *out);
 
 #endif /* CI_RDP_H */

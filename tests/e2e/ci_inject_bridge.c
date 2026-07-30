@@ -140,6 +140,9 @@ static unsigned long long g_reverse_frames = 0; /* frames pumped egress->ingress
  * reverse-channel result is only trustworthy if the frames the instrument discarded are
  * visible next to the ones it counted. */
 static unsigned long long g_dup_in = 0, g_dup_out = 0;
+/* CI_BRIDGE_DEDUP=0 disables the bridge's own dedup call (not just libcsp's internal
+ * one), so a control run can show whether the window discards anything load-bearing. */
+static int g_dedup_on = 1;
 
 /* Half-duplex airtime: hold the channel for the time this frame would occupy on a link of
  * `rate_bps`, i.e. (payload + protocol overhead) * 8 / rate seconds. The pump is
@@ -201,7 +204,13 @@ int main(int argc, char **argv) {
      * csp_bridge_work() dedups every forwarded frame, but only when dedup is on (it is OFF
      * by default). The window is small (16 packets / 100 ms), so it kills the sub-ms echo
      * without touching legitimate retransmits/re-requests, which are RTT-spaced (>100 ms). */
-    csp_conf.dedup = CSP_DEDUP_ALL;
+    /* CI_BRIDGE_DEDUP=0 turns dedup off, so a sweep can establish empirically that the
+     * window is not swallowing legitimate traffic rather than asserting it. The comment
+     * above reasons from a radio RTT; the loopback arms have a microsecond RTT, which is
+     * well inside the 100 ms window, so the premise needs testing on those paths. */
+    const char *dedup_env = getenv("CI_BRIDGE_DEDUP");
+    g_dedup_on = !(dedup_env && dedup_env[0] == '0');
+    csp_conf.dedup = g_dedup_on ? CSP_DEDUP_ALL : CSP_DEDUP_OFF;
     csp_init();
 
     csp_iface_t *in_iface = NULL, *out_raw = NULL;
@@ -275,7 +284,7 @@ int main(int argc, char **argv) {
         if (packet == NULL) {
             continue;
         }
-        if (csp_dedup_is_duplicate(packet)) {
+        if (g_dedup_on && csp_dedup_is_duplicate(packet)) {
             if (input.iface == in_iface) { g_dup_in++; } else { g_dup_out++; }
             csp_buffer_free(packet);
             continue;
@@ -315,5 +324,17 @@ int main(int argc, char **argv) {
            (unsigned long long)shim.passthrough,
            g_reverse_frames, g_echo_in, g_echo_out);
     printf("ci_inject_bridge: duplicates_dropped(fwd=%llu rev=%llu)\n", g_dup_in, g_dup_out);
+    /* HARNESS HEALTH. These two must be zero for a cell to be valid, and the sweep
+     * drivers record them per cell so that "no unlogged loss" is evidence rather than
+     * an assumption:
+     *   nexthop_errors - frames logged as kept that the egress then refused
+     *   dup_in         - ingress frames discarded by csp dedup. Benign for reflections
+     *                    of our own TX (that is dup_out), but on a loopback path, whose
+     *                    RTT is microseconds rather than the radio RTT the 100 ms dedup
+     *                    window was reasoned against, a legitimate retransmit could land
+     *                    inside the window and be swallowed here, unlogged.
+     * Machine-readable on one line so a driver can grep it without parsing prose. */
+    printf("ci_inject_bridge: harness_health nexthop_errors=%llu dup_in=%llu\n",
+           (unsigned long long)shim.nexthop_errors, g_dup_in);
     return 0;
 }

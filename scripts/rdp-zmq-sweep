@@ -65,7 +65,7 @@ echo "rdp-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU burst=$BURST hd_rate=$HD_RATE vaddr=$VADDR"
 echo "  csv=$CSV"
 
-[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,sha,size,transport,payload_sha256,ts" > "$CSV"
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,sha,size,transport,harness,payload_sha256,ts" > "$CSV"
 
 sweep_trap
 
@@ -138,12 +138,13 @@ for loss in $LOSSES; do
     sweep_cleanup
 
     sweep_oracle_counts "$ORA"
+    sweep_harness_health "/tmp/${L}_inj.log"
     ts=$(sweep_ts)
 
     warn=""
     [ "$claimed" = DELIVERED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
-    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,$sha,$gsz,zmq,$IN_SHA,$ts" >> "$CSV"
-    echo "[$L] claimed=$claimed sha=$sha inj=${inj:-0} drop=${drp:-0}$warn"
+    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,$sha,$gsz,zmq,$harness,$IN_SHA,$ts" >> "$CSV"
+    echo "[$L] claimed=$claimed sha=$sha inj=${inj:-0} drop=${drp:-0} harness=$harness$warn"
   done
 done
 

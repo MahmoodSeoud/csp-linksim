@@ -64,7 +64,7 @@ static int stub_nexthop(csp_iface_t *iface, uint16_t via, csp_packet_t *packet, 
     /* Record the RDP seq (our crafted frames put seq in the trailer) before freeing. */
     if (packet->id.dport == RDP_PORT && packet->length >= CI_RDP_HEADER_SIZE) {
         ci_rdp_header_t h;
-        if (ci_rdp_parse_trailer(packet->data, packet->length, &h) == 0 && h.seq < MAXSEQ) {
+        if (ci_rdp_parse_trailer(packet->data, packet->length, packet->id.flags, &h) == 0 && h.seq < MAXSEQ) {
             stub_seen[h.seq] = 1;
         }
     }

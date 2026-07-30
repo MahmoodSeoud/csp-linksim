@@ -50,7 +50,14 @@ int ci_drop_iface_nexthop(csp_iface_t *iface, uint16_t via,
     }
 
     s->forwarded++;
-    return s->target->nexthop(s->target, via, packet, from_me);
+    int rc = s->target->nexthop(s->target, via, packet, from_me);
+    if (rc != CSP_ERR_NONE) {
+        /* The frame is already logged as kept. Downstream refusing it (a full TX queue
+         * on a paced egress, typically) is unlogged loss the oracles cannot see, so it
+         * is counted separately rather than folded into forwarded. */
+        s->nexthop_errors++;
+    }
+    return rc;
 }
 
 int ci_drop_iface_init(ci_drop_iface_t *s, const char *name, csp_iface_t *target,

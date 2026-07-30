@@ -28,16 +28,19 @@
 # so HD_RATE=9600 reproduces their pacing and HD_RATE=4800 runs at the flight uplink rate.
 #
 # TWO PROPERTIES OF THE CLIENT THAT SHAPE THIS SCRIPT
-# 1. Its idle timeout is effectively unreachable. dtp_client.c loops on
-#    `idle_ms <= (session->timeout * 1000)` while upload_sat-client sets timeout = 10000,
-#    already in milliseconds, so a lossy transfer sits idle for ~10^7 ms (about 2h46m)
-#    before bailing. The driver therefore does NOT wait for the client to finish; it waits
-#    for the server to report the send complete, lets the write settle, and then hashes.
+# 1. Its idle timeout is 16 seconds, and not by design. upload_sat-client/src/main.c sets
+#    `opts->timeout = 10000` as an unsigned int, but dtp_client_main takes it as a uint8_t
+#    (dtp.h:283), so it truncates to 16; dtp_client.c then loops on
+#    `idle_ms <= (session->timeout * 1000)` = 16000 ms. Observed exactly: the client logs
+#    "No data received for 16000 ms" and exits on the next tick.
 # 2. Its status is initialised to success. `dtp_result result = DTP_OK` at dtp_client.c:104
-#    is only ever reassigned in the csp_bind failure branch, so the transfer-complete log
-#    line reports success on every path that actually moved data, whole or not.
-# Both are recorded per cell rather than smoothed over: client_verdict is the status the
-# mechanism printed within the observation window, or NO_VERDICT if it printed none.
+#    is only ever reassigned in the csp_bind failure branch, so after bailing out it logs
+#    e.g. "Received 242740 bytes, last seq: 1040, status: 0" -- its own short byte count
+#    next to a success verdict. That line IS the silent corruption, in the mechanism's
+#    own words.
+# Note the delivered file's SIZE is useless as a completion signal: the client preallocates
+# it to full length on the first packet, so a short transfer still leaves a 262144-byte
+# file. The driver watches the client's received-bytes progress counter instead.
 #
 # Per cell: pre-fill nothing (the client creates the destination fresh), run the transfer
 # through the injector, then an EXTERNAL sha256 decides delivery.
@@ -100,7 +103,7 @@ echo "dtp-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST hd_rate=$HD_RATE"
 echo "  csv=$CSV"
 
-[ -f "$CSV" ] || echo "loss,seed,injected,dropped,client_verdict,bytes,sha,size,transport,rate_bps,payload_sha256,ts" > "$CSV"
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,client_verdict,bytes,sha,size,transport,rate_bps,harness,payload_sha256,ts" > "$CSV"
 
 sweep_trap
 
@@ -129,8 +132,9 @@ for loss in $LOSSES; do
 
     "$TRIG" -z 127.0.0.2 -a $TRIG_ADDR -n $CLI_ADDR -s $SRV_ADDR -d "$OUT" -f file.bin >/dev/null 2>&1
 
-    # Wait for the SERVER to finish sending, not for the client to admit defeat: see the
-    # unreachable-idle-timeout note in the header.
+    # Wait for the SERVER to finish sending; the client needs its own 16 s idle timeout
+    # on top of that before it reports, and on a paced link the queue drains for minutes
+    # after the server is done.
     for i in $(seq 1 "$WINDOW"); do
         grep -q "Transfer done" "$SRVLOG" 2>/dev/null && break
         sleep 1
@@ -174,6 +178,7 @@ for loss in $LOSSES; do
     sweep_cleanup
 
     sweep_oracle_counts "$ORA"
+    sweep_harness_health "$ILOG"
     got=$(sweep_sha "$OUT")
     sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
     gsz=$(sweep_size "$OUT")
@@ -182,8 +187,8 @@ for loss in $LOSSES; do
     warn=""
     [ "$verdict" != "REPORTED_ERR" ] && [ "$sha" = MISMATCH ] && [ "$gsz" -gt 0 ] && \
         warn="  *** SILENT CORRUPTION ***"
-    echo "$loss,$s,${inj:-0},${drp:-0},$verdict,${rxbytes:-0},$sha,$gsz,zmq,$HD_RATE,$IN_SHA,$ts" >> "$CSV"
-    echo "[$L] verdict=$verdict sha=$sha size=$gsz inj=${inj:-0} drop=${drp:-0}$warn"
+    echo "$loss,$s,${inj:-0},${drp:-0},$verdict,${rxbytes:-0},$sha,$gsz,zmq,$HD_RATE,$harness,$IN_SHA,$ts" >> "$CSV"
+    echo "[$L] verdict=$verdict sha=$sha size=$gsz inj=${inj:-0} drop=${drp:-0} harness=$harness$warn"
   done
 done
 
