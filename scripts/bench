@@ -29,7 +29,7 @@ fi
 # the same way it would on the bench host. Only forwards vars that are actually set.
 ENVARGS=()
 for v in LOSSES NSEEDS CSV PBYTES PAYLOAD_SEED BLOCK MTU OVH BURST HD_RATE N RATE SEED \
-         SETTLE WINDOW RUN_TAG; do
+         SETTLE WINDOW RUN_TAG MAX_PASSES PUSH_TO; do
     [ -n "${!v-}" ] && ENVARGS+=(-e "$v=${!v}")
 done
 
