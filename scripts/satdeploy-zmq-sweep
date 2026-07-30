@@ -35,13 +35,12 @@ case "$ARM" in smart|naive) ;; *) echo "usage: $0 <smart|naive> [losses] [nseeds
 LOSSES="${LOSSES:-${2:-0 0.02 0.05 0.10 0.20 0.30}}"
 NSEEDS="${NSEEDS:-${3:-5}}"
 GS_ADDR=5425; AGENT_ADDR=5427; DPORT=8
-# 1024, not the board sweep's 256. satdeploy-apm hardcodes deploy_req.dtp_mtu =
-# DTP_DEFAULT_MTU (satdeploy_apm.c:543) with no CLI override, and the agent uses mtu-8 as
-# the payload span (dtp_client.c:182). On CAN that request is clamped by the bus, which is
-# why the board sweep saw ~248 B fragments and 1058 of them; over ZMQ nothing clamps it, so
-# the real fragment span here is 1016 B. The injector MUST be told the true span or its
-# fragment index -- and therefore which packets it drops -- does not line up with the
-# transfer. This is a genuine container-vs-board difference and is recorded, not hidden.
+# MTU goes to BOTH the push command (-m, requested end to end since satdeploy-apm 71a6676)
+# and the injector, so the wire grid and the drop schedule always agree; sweep_grid_guard
+# verifies that per cell from oracle A rather than trusting this configuration. The default
+# matches DTP_DEFAULT_MTU (span mtu-8, dtp_client.c:182). The board value is 256: CAN clamps
+# the request there, giving the committed board sweep its 248 B spans and 1058-fragment
+# grid -- run MTU=256 for board-grid-parity cells.
 MTU="${MTU:-1024}"; OVH="${OVH:-8}"; BURST="${BURST:-4}"
 HD_RATE="${HD_RATE:-0}"
 PBYTES="${PBYTES:-262144}"
@@ -67,15 +66,15 @@ echo "satdeploy-zmq-sweep[$ARM]: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST max_passes=$MAX_PASSES"
 echo "  csv=$CSV"
 
-[ -f "$CSV" ] || echo "arm,loss,seed,passes,injected,dropped,overhead,result,sha,transport,harness,payload_sha256,ts" > "$CSV"
+[ -f "$CSV" ] || echo "arm,loss,seed,passes,injected,dropped,overhead,result,sha,transport,harness,payload_sha256,ts,mtu,rev_frames" > "$CSV"
 
 APMDIR=/tmp/sd_apm; mkdir -p "$APMDIR"; cp -f "$APMSO" "$APMDIR/"
 sweep_trap
 
 for loss in $LOSSES; do
   for s in $(seq 1 "$NSEEDS"); do
-    if awk -F, -v a="$ARM" -v l="$loss" -v sd="$s" \
-        'NR>1 && $1==a && $2==l && $3==sd {f=1} END{exit !f}' "$CSV"; then
+    if awk -F, -v a="$ARM" -v l="$loss" -v sd="$s" -v m="$MTU" \
+        'NR>1 && $1==a && $2==l && $3==sd && $14==m {f=1} END{exit !f}' "$CSV"; then
         echo "[${ARM}_L${loss}_s${s}] already recorded, skipping"; continue
     fi
     L="sdz_${ARM}_L${loss}_s${s}"
@@ -99,8 +98,8 @@ for loss in $LOSSES; do
     while [ "$passes" -lt "$MAX_PASSES" ]; do
         passes=$((passes+1))
         INIT=/tmp/${L}_p${passes}.csh
-        printf 'csp init\ncsp add zmq -d %s 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n %s\nsleep 20000\nexit\n' \
-            "$GS_ADDR" "$APMDIR" "$IN" "$DEST" "$AGENT_ADDR" > "$INIT"
+        printf 'csp init\ncsp add zmq -d %s 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n %s -m %s\nsleep 20000\nexit\n' \
+            "$GS_ADDR" "$APMDIR" "$IN" "$DEST" "$AGENT_ADDR" "$MTU" > "$INIT"
         timeout "$PUSH_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null \
             >/tmp/${L}_p${passes}.log 2>&1 || true
         if grep -aq "installed at" /tmp/${L}_agent.log 2>/dev/null; then result=DEPLOYED; break; fi
@@ -109,6 +108,8 @@ for loss in $LOSSES; do
     sweep_stop_pid "$INJPID"
     sweep_oracle_counts "$ORA"
     sweep_harness_health "$ILOG"
+    sweep_grid_guard "$ORA" "$MTU" "$OVH" "$PBYTES"
+    sweep_rev_frames "$ILOG"
     got=$(sweep_sha "$DEST"); sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
     base=$(( (PBYTES + MTU - OVH - 1) / (MTU - OVH) ))
     ovr=$(awk -v i="${inj:-0}" -v b="$base" 'BEGIN{printf "%.2f", b?i/b:0}')
@@ -117,8 +118,8 @@ for loss in $LOSSES; do
 
     warn=""
     [ "$result" = DEPLOYED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
-    echo "$ARM,$loss,$s,$passes,${inj:-0},${drp:-0},$ovr,$result,$sha,zmq,$harness,$IN_SHA,$ts" >> "$CSV"
-    echo "[$L] result=$result passes=$passes sha=$sha inj=${inj:-0} drop=${drp:-0} ovh=${ovr}x$warn"
+    echo "$ARM,$loss,$s,$passes,${inj:-0},${drp:-0},$ovr,$result,$sha,zmq,$harness,$IN_SHA,$ts,$MTU,${rev:-0}" >> "$CSV"
+    echo "[$L] result=$result passes=$passes sha=$sha inj=${inj:-0} drop=${drp:-0} rev=${rev:-0} ovh=${ovr}x harness=$harness$warn"
   done
 done
 

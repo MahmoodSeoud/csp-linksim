@@ -55,13 +55,13 @@ echo "svu-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS block=$BLOCK mtu=$MTU burst=$BURST hd_rate=$HD_RATE"
 echo "  csv=$CSV"
 
-[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,rounds,rev_frames,sha,size,transport,harness,payload_sha256,ts" > "$CSV"
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,rounds,rev_frames,sha,size,transport,harness,payload_sha256,ts,mtu" > "$CSV"
 
 sweep_trap
 
 for loss in $LOSSES; do
   for s in $(seq 1 "$NSEEDS"); do
-    if sweep_cell_recorded "$CSV" "$loss" "$s"; then
+    if sweep_cell_recorded "$CSV" "$loss" "$s" "$MTU"; then
         echo "[L${loss}_s${s}] already recorded, skipping"
         continue
     fi
@@ -91,7 +91,8 @@ for loss in $LOSSES; do
     fi
     sweep_oracle_counts "$ORA"
     sweep_harness_health "$ILOG"
-    rev=$(grep -oE 'reverse_frames=[0-9]+' "$ILOG" | grep -oE '[0-9]+' | tail -1)
+    sweep_grid_guard "$ORA" "$MTU" "$OVH" "$PBYTES"
+    sweep_rev_frames "$ILOG"
     got=$(sweep_sha "$OUT")
     sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
     gsz=$(sweep_size "$OUT")
@@ -99,7 +100,7 @@ for loss in $LOSSES; do
 
     warn=""
     [ "$claimed" = VERIFIED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
-    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,${rounds:-?},${rev:-0},$sha,$gsz,zmq,$harness,$IN_SHA,$ts" >> "$CSV"
+    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,${rounds:-?},${rev:-0},$sha,$gsz,zmq,$harness,$IN_SHA,$ts,$MTU" >> "$CSV"
     echo "[$L] claimed=$claimed rounds=${rounds:-?} sha=$sha inj=${inj:-0} drop=${drp:-0} rev=${rev:-0} harness=$harness$warn"
   done
 done

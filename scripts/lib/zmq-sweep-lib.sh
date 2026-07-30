@@ -45,9 +45,13 @@ sys.stdout.buffer.write(bytes(r.getrandbits(8) for _ in range($bytes)))
     IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
 }
 
-# sweep_cell_recorded <csv> <loss> <seed> - resumability: 0 if this (loss, seed) is done.
+# sweep_cell_recorded <csv> <loss> <seed> [mtu] - resumability: 0 if this cell is done.
+# The optional mtu term exists because a multi-MTU file would otherwise skip every
+# rerun cell: (loss, seed) alone matches the rows from a previous operating point.
+# Drivers whose schema carries an mtu column (field 14) pass it; the others omit it.
 sweep_cell_recorded() {
-    awk -F, -v l="$2" -v sd="$3" 'NR>1 && $1==l && $2==sd {found=1} END{exit !found}' "$1" 2>/dev/null
+    awk -F, -v l="$2" -v sd="$3" -v m="${4:-}" \
+        'NR>1 && $1==l && $2==sd && (m=="" || $14==m) {found=1} END{exit !found}' "$1" 2>/dev/null
 }
 
 # sweep_cleanup - kill the arm's processes plus the shared topology, settle briefly.
@@ -92,6 +96,36 @@ sweep_wait_log() {
 sweep_oracle_counts() {
     inj=$(awk -F, '!/^#/{c++} END{print c+0}' "$1" 2>/dev/null)
     drp=$(awk -F, '!/^#/ && $8==1{c++} END{print c+0}' "$1" 2>/dev/null)
+}
+
+# sweep_rev_frames <injector-log> - sets rev to the injector's reverse-direction CSP
+# packet count (agent-to-ground: requests, acknowledgements, deploy responses).
+sweep_rev_frames() {
+    rev=$(grep -oE 'reverse_frames=[0-9]+' "$1" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
+    rev="${rev:-0}"
+}
+
+# sweep_grid_guard <oracleA.csv> <mtu> <ovh> <payload_bytes> - verify the fragment grid
+# that ran on the wire is the one this cell claims. Prepends a diagnostic to `harness`
+# on mismatch, so the cell self-labels invalid. Call AFTER sweep_harness_health.
+#
+# Opt-in by call site: only the DTP-grid drivers (satdeploy/svu/dtp) call this. The RDP
+# drivers have no fragment grid, so the guard does not belong in their harness verdict.
+#
+# The check is requested-vs-observed: every fragment is transmitted at least once and
+# oracle A sees every forward packet including dropped ones, so max(index)+1 is the base
+# grid regardless of loss, retransmission, or the final short fragment. This exists
+# because config-vs-wire divergence has already happened once (the APM hardcoded its
+# MTU while the injector was told another; the h2h grid had to be reverse-engineered
+# from fragment counts to prove the cells were comparable).
+sweep_grid_guard() {
+    local ora="$1" mtu="$2" ovh="$3" bytes="$4" span obs exp
+    span=$(( mtu - ovh ))
+    exp=$(( (bytes + span - 1) / span ))
+    obs=$(awk -F, '!/^#/{if ($6+0 > m) m = $6+0; seen=1} END{print seen ? m+1 : 0}' "$ora" 2>/dev/null)
+    if [ "${obs:-0}" != "$exp" ]; then
+        harness="frag_mismatch(obs=${obs:-0}/exp=${exp});${harness:-unset}"
+    fi
 }
 
 sweep_size() { stat -c%s "$1" 2>/dev/null || echo 0; }
