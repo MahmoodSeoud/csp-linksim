@@ -11,21 +11,26 @@
 #   scripts/reproduce test       the regression suite only                    (~40 s)
 #
 # WHAT THIS COVERS, AND WHAT IT DOES NOT
-# Four transfer mechanisms appear in the evaluation. Two are reproducible anywhere:
+# Four transfer mechanisms appear in the evaluation. Three are reproducible from source:
 #
 #   SVU  (self-verifying uploader)   -> scripts/svu-zmq-sweep   captures/svu_sweep.csv
 #   RDP  (reliable vmem reference)   -> scripts/rdp-zmq-sweep   captures/rdp_zmq_sweep.csv
+#   Deployed uploader (DTP)          -> scripts/dtp-zmq-sweep   captures/dtp_zmq_sweep.csv
 #
-# Two are not, and no amount of packaging fixes that:
+# The deployed arm needs one thing this repository cannot ship: DISCO's upload_gs-server
+# and upload_sat-client sources, which are mission code. Given a checkout of that tree it
+# builds and runs here with no bus and no board -- csh and the uploader APM are replaced by
+# tests/e2e/dtp_trigger, which reproduces the single packet `upload_file` puts on the wire.
+# Set DISCO_SRC (default ~/DISCOSAT); this step is skipped when the tree is absent.
 #
-#   Deployed uploader (DTP)  needs DISCO's upload_gs-server / upload_client, which are
-#                            mission binaries and are not part of this repository.
+# One is genuinely out of reach:
+#
 #   satdeploy                needs the payload board (aarch64) reachable over CAN; its
 #                            results live in captures/satdeploy_sweep.csv.
 #
-# So this script reproduces the instrument, the regression suite, and the two arms whose
-# evidence a reader can re-derive from source. The other two are reported from committed
-# data. That distinction is deliberate and is stated in the thesis rather than blurred.
+# So this script reproduces the instrument, the regression suite, and every arm whose
+# evidence a reader can re-derive from source. satdeploy is reported from committed data.
+# That distinction is deliberate and is stated in the thesis rather than blurred.
 #
 # WHAT TO LOOK FOR WHILE IT RUNS
 # Each cell prints claimed= (what the mechanism said) and sha= (what actually arrived,
@@ -92,6 +97,24 @@ LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_rdp_zmq_sweep.csv \
     scripts/bench rdp-zmq-sweep
 echo
 
+DISCO_HOST="${DISCO_SRC:-$HOME/DISCOSAT}"
+if [ -d "$DISCO_HOST/upload_gs-server" ]; then
+    bold "[5/5] Deployed uploader arm  (DISCO upload_gs-server -> upload_client over DTP)"
+    echo "  Built from the mission sources at $DISCO_HOST; fired by tests/e2e/dtp_trigger"
+    echo "  instead of csh. Expect: clean at 0% loss. Under loss expect a full-size file"
+    echo "  whose sha does NOT match, with no error raised -- the headline finding."
+    echo
+    LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_dtp_zmq_sweep.csv \
+        scripts/bench dtp-zmq-sweep
+    echo
+else
+    bold "[5/5] Deployed uploader arm  -- SKIPPED"
+    echo "  No DISCO source tree at $DISCO_HOST. This arm builds DISCO's upload_gs-server"
+    echo "  and upload_sat-client, which are mission code and are not vendored here."
+    echo "  Set DISCO_SRC to a checkout to include it. Reported from committed data below."
+    echo
+fi
+
 rule; bold "Summary"; rule
 sum() {  # $1=label $2=csv $3=claim-token $4=claimed-col $5=sha-col
     local f="$REPO/captures/$2"
@@ -103,9 +126,17 @@ sum() {  # $1=label $2=csv $3=claim-token $4=claimed-col $5=sha-col
 }
 sum "SVU (reproduced here)"  repro_svu_sweep.csv     VERIFIED  5 8
 sum "RDP (reproduced here)"  repro_rdp_zmq_sweep.csv DELIVERED 5 6
+# The deployed arm's own columns differ: client_verdict is col 5, sha col 7. A lossy cell
+# normally prints no verdict at all, because the client's idle timeout is unreachable
+# (see the header of scripts/dtp-zmq-sweep), so "claimed success" is not the right test --
+# "delivered bytes and never reported an error" is.
+awk -F, 'NR>1{n++; if($5!="REPORTED_ERR"){c++; if($7=="MISMATCH" && $8>0) silent++}}
+    END{printf "  %-28s %2d cells, %2d without a loud failure, %d SILENT CORRUPTION\n",
+        "DTP deployed (reproduced here)", n+0, c+0, silent+0}' \
+    "$REPO/captures/repro_dtp_zmq_sweep.csv" 2>/dev/null
 echo
-echo "  Not reproducible on a laptop, reported from committed data:"
-awk -F, 'NR>1{n++; if($8=="yes") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rq3_corruption.csv)\n","Deployed uploader (DTP)",n+0,s+0}' "$REPO/captures/rq3_corruption.csv" 2>/dev/null
+echo "  Reported from committed data:"
+awk -F, 'NR>1{n++; if($8=="yes") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rq3_corruption.csv)\n","DTP deployed, payload board",n+0,s+0}' "$REPO/captures/rq3_corruption.csv" 2>/dev/null
 awk -F, 'NR>1{n++; if($10=="MISMATCH") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rawdtp_sweep.csv)\n","Raw DTP",n+0,s+0}' "$REPO/captures/rawdtp_sweep.csv" 2>/dev/null
 awk -F, 'NR>1{n++} END{printf "  %-28s %2d cells, payload board over CAN (captures/satdeploy_sweep.csv)\n","satdeploy + naive",n+0}' "$REPO/captures/satdeploy_sweep.csv" 2>/dev/null
 echo

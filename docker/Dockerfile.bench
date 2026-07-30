@@ -11,7 +11,12 @@
 #   scripts/bench svu-zmq-sweep  # the host SVU arm, no CAN bus and no payload board
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
+# libprotobuf-c and libssl are not needed by csp-intercept itself. They are the only two
+# external dependencies of DISCO's upload_gs-server and upload_sat-client, whose sources
+# build here so the deployed-uploader arm can run without the flatsat (scripts/dtp-zmq-sweep
+# mounts that tree; it is mission code and is deliberately not vendored into this repo).
 RUN apt-get update -qq && apt-get install -y -qq \
     build-essential meson ninja-build pkg-config \
-    libzmq3-dev libsocketcan-dev python3 git iproute2 procps coreutils
+    libzmq3-dev libsocketcan-dev python3 git iproute2 procps coreutils \
+    libprotobuf-c-dev protobuf-c-compiler libssl-dev
 WORKDIR /src

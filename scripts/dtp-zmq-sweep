@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+#
+# dtp-zmq-sweep - the deployed-uploader arm over a pure-ZMQ path. No CAN bus, no payload
+# board, no built csh.
+#
+# WHY THIS EXISTS
+# This is the arm that carries the thesis's headline result, and until now it was the only
+# one a reader could not re-derive: it needed DISCO's upload_gs-server and upload_client on
+# the flatsat, plus csh with the uploader APM to fire the transfer. All three dependencies
+# are removed here:
+#
+#   * The two uploader ends are built FROM SOURCE out of the DISCOSAT tree. They are mission
+#     code and are deliberately NOT vendored into this repository; point DISCO_SRC at a
+#     checkout. Their only external deps (libprotobuf-c, libssl) are in docker/Dockerfile.bench.
+#   * csh and the APM are replaced by tests/e2e/dtp_trigger, which reproduces the single
+#     packet `upload_file` puts on the wire. Same move rdp_push made for the reliable path.
+#   * The CAN segment is replaced by two brokers on loopback aliases, exactly as
+#     svu-zmq-sweep does, because both uploader ends already support -z (the vendor's own
+#     run-server.sh / run-client.sh use -z localhost; this is their dev configuration).
+#
+#   upload_gs-server -z 127.0.0.1 -> broker A -> ci_inject_bridge -> broker B -> upload_client
+#                                       (drops DTP data frames, dport 8 = oracle A)
+#
+# TRANSPORT AND RATE CAVEAT (read before citing these numbers)
+# Frame counts here are CSP packets on ZMQ and are not comparable to can0 frame counts.
+# Delivery verdicts (size, sha) ARE comparable: they are properties of the mechanism.
+# Set HD_RATE to charge half-duplex airtime; the committed board cells ran at 9600 bit/s,
+# so HD_RATE=9600 reproduces their pacing and HD_RATE=4800 runs at the flight uplink rate.
+#
+# TWO PROPERTIES OF THE CLIENT THAT SHAPE THIS SCRIPT
+# 1. Its idle timeout is effectively unreachable. dtp_client.c loops on
+#    `idle_ms <= (session->timeout * 1000)` while upload_sat-client sets timeout = 10000,
+#    already in milliseconds, so a lossy transfer sits idle for ~10^7 ms (about 2h46m)
+#    before bailing. The driver therefore does NOT wait for the client to finish; it waits
+#    for the server to report the send complete, lets the write settle, and then hashes.
+# 2. Its status is initialised to success. `dtp_result result = DTP_OK` at dtp_client.c:104
+#    is only ever reassigned in the csp_bind failure branch, so the transfer-complete log
+#    line reports success on every path that actually moved data, whole or not.
+# Both are recorded per cell rather than smoothed over: client_verdict is the status the
+# mechanism printed within the observation window, or NO_VERDICT if it printed none.
+#
+# Per cell: pre-fill nothing (the client creates the destination fresh), run the transfer
+# through the injector, then an EXTERNAL sha256 decides delivery.
+#   SILENT CORRUPTION == full-size delivery, no loud failure, and sha MISMATCH.
+#
+# Usage: dtp-zmq-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
+# Resumable: an already-recorded (loss, seed) is skipped.
+set -uo pipefail
+
+LOSSES="${LOSSES:-${1:-0 0.02 0.05 0.10 0.20 0.30}}"
+NSEEDS="${NSEEDS:-${2:-5}}"
+SRV_ADDR=5424; CLI_ADDR=5426; TRIG_ADDR=5425; DPORT=8
+MTU="${MTU:-256}"; OVH="${OVH:-4}"; BURST="${BURST:-4}"
+HD_RATE="${HD_RATE:-0}"
+PBYTES="${PBYTES:-262144}"          # 256 KiB, the size the other arms use
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
+SETTLE="${SETTLE:-5}"               # seconds after the server finishes, before read-back
+WINDOW="${WINDOW:-120}"             # max seconds to observe one cell
+
+BUILD="${BUILD:-/build}"
+REPO="${REPO:-/src}"
+DISCO_SRC="${DISCO_SRC:-/disco}"
+DISCO_BUILD="${DISCO_BUILD:-/tmp/disco-build}"
+CAP="$REPO/captures"
+CSV="${CSV:-$CAP/dtp_zmq_sweep.csv}"
+PROXY="$BUILD/proxy/zmqproxy-lossy"
+INJ="$BUILD/tests/e2e/ci_inject_bridge"
+TRIG="$BUILD/tests/e2e/dtp_trigger"
+SRV="$DISCO_BUILD/gs-server/upload_gs-server"
+CLI="$DISCO_BUILD/sat-client/upload_client"
+
+for b in "$PROXY" "$INJ" "$TRIG"; do
+    [ -x "$b" ] || { echo "FAIL: missing $b (run: scripts/bench build)"; exit 1; }
+done
+[ -d "$DISCO_SRC/upload_gs-server" ] || {
+    echo "FAIL: no upload_gs-server under DISCO_SRC=$DISCO_SRC"
+    echo "      This arm builds DISCO's mission sources, which are not vendored here."
+    echo "      Mount the tree and set DISCO_SRC (scripts/bench does not mount it by default)."
+    exit 1
+}
+
+# Build the two uploader ends once. Kept out of the csp-intercept build tree entirely:
+# separate meson projects, separate build dirs, nothing written into /build.
+build_disco() {
+    local src="$1" dst="$2" name="$3"
+    if [ -x "$dst/$name" ]; then return 0; fi
+    echo "[dtp-zmq-sweep] building $name ..."
+    meson setup "$dst" "$src" >/dev/null 2>&1 || \
+        meson setup --reconfigure "$dst" "$src" >/dev/null 2>&1 || {
+            echo "FAIL: meson setup $name"; return 1; }
+    ninja -C "$dst" >/dev/null 2>&1 || { echo "FAIL: ninja $name"; return 1; }
+}
+build_disco "$DISCO_SRC/upload_gs-server"  "$DISCO_BUILD/gs-server"  upload_gs-server || exit 1
+build_disco "$DISCO_SRC/upload_sat-client" "$DISCO_BUILD/sat-client" upload_client   || exit 1
+mkdir -p "$CAP"
+
+# Deterministic payload, same seed and size as the SVU and RDP laptop arms so the three are
+# byte-comparable with each other. Note they are NOT byte-comparable with the board cells,
+# which used the pinned captures/payload_256k.bin (not in this repo).
+SRVDIR=/tmp/dtp_srvdir
+mkdir -p "$SRVDIR"
+IN="$SRVDIR/file.bin"     # the server hardcodes fopen("file.bin") relative to its cwd
+if [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" != "$PBYTES" ]; then
+    python3 -c "
+import random, sys
+r = random.Random($PAYLOAD_SEED)
+sys.stdout.buffer.write(bytes(r.getrandbits(8) for _ in range($PBYTES)))
+" > "$IN" || exit 1
+fi
+IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
+echo "dtp-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST hd_rate=$HD_RATE"
+echo "  csv=$CSV"
+
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,client_verdict,bytes,sha,size,transport,rate_bps,payload_sha256,ts" > "$CSV"
+
+cleanup_procs() {
+    pkill -f upload_gs-server 2>/dev/null
+    pkill -f upload_client 2>/dev/null
+    pkill -f 'ci_inject_bridge' 2>/dev/null
+    pkill -f 'zmqproxy-lossy' 2>/dev/null
+    sleep 0.5
+}
+trap 'cleanup_procs; exit 130' INT TERM
+
+for loss in $LOSSES; do
+  for s in $(seq 1 "$NSEEDS"); do
+    if awk -F, -v l="$loss" -v sd="$s" 'NR>1 && $1==l && $2==sd {found=1} END{exit !found}' "$CSV"; then
+        echo "[L${loss}_s${s}] already recorded, skipping"
+        continue
+    fi
+    L="dtpz_L${loss}_s${s}"
+    ORA="$CAP/${L}_oracleA.csv"; OUT="/tmp/${L}_out.bin"
+    SRVLOG="/tmp/${L}_srv.log"; CLILOG="/tmp/${L}_cli.log"; ILOG="/tmp/${L}_inj.log"
+    rm -f "$OUT" "$ORA"
+    cleanup_procs
+
+    "$PROXY" -s tcp://127.0.0.1:6000 -p tcp://127.0.0.1:7000 >/tmp/${L}_brokerA.log 2>&1 &
+    "$PROXY" -s tcp://127.0.0.2:6000 -p tcp://127.0.0.2:7000 >/tmp/${L}_brokerB.log 2>&1 &
+    sleep 1
+
+    ( cd "$SRVDIR" && "$SRV" -z 127.0.0.1 -a $SRV_ADDR >"$SRVLOG" 2>&1 & )
+    "$CLI" -z 127.0.0.2 -a $CLI_ADDR -s $SRV_ADDR >"$CLILOG" 2>&1 &
+    sleep 2
+
+    "$INJ" "zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,$CLI_ADDR" \
+           "zmq:tcp://127.0.0.2:6000,tcp://127.0.0.2:7000" \
+           $DPORT "$MTU" "$OVH" "$loss" "$BURST" "$s" "$ORA" $SRV_ADDR 0 "$HD_RATE" >"$ILOG" 2>&1 &
+    INJPID=$!
+    sleep 2
+
+    "$TRIG" -z 127.0.0.2 -a $TRIG_ADDR -n $CLI_ADDR -s $SRV_ADDR -d "$OUT" -f file.bin >/dev/null 2>&1
+
+    # Wait for the SERVER to finish sending, not for the client to admit defeat: see the
+    # unreachable-idle-timeout note in the header. Then settle, so a still-finalising write
+    # is not mistaken for a short delivery (the mistake the RDP arm had to refute).
+    for i in $(seq 1 "$WINDOW"); do
+        grep -q "Transfer done" "$SRVLOG" 2>/dev/null && break
+        sleep 1
+    done
+    sleep "$SETTLE"
+    # Let the file stop growing before hashing.
+    prev=-1
+    for i in $(seq 1 30); do
+        cur=$(stat -c%s "$OUT" 2>/dev/null || echo 0)
+        [ "$cur" = "$prev" ] && break
+        prev=$cur; sleep 1
+    done
+
+    kill -INT "$INJPID" 2>/dev/null; sleep 0.3
+    kill "$INJPID" 2>/dev/null; wait "$INJPID" 2>/dev/null || true
+
+    # What the mechanism itself claimed, within the window. The status line is emitted only
+    # when the receive loop returns, which under loss it does not, so NO_VERDICT is the
+    # normal lossy outcome and is itself the RQ2 observation: no loud failure was raised.
+    verdict=NO_VERDICT
+    if grep -q "Received .* status: 0" "$CLILOG" 2>/dev/null; then
+        verdict=REPORTED_OK
+    elif grep -q "Received .* status: [^0]" "$CLILOG" 2>/dev/null; then
+        verdict=REPORTED_ERR
+    fi
+    rxbytes=$(grep -oE 'Received [0-9]+ bytes' "$CLILOG" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
+
+    cleanup_procs
+
+    inj=$(awk -F, '!/^#/{c++} END{print c+0}' "$ORA" 2>/dev/null)
+    drp=$(awk -F, '!/^#/ && $8==1{c++} END{print c+0}' "$ORA" 2>/dev/null)
+    got=$(sha256sum "$OUT" 2>/dev/null | cut -d' ' -f1)
+    sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
+    gsz=$(stat -c%s "$OUT" 2>/dev/null || echo 0)
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    warn=""
+    [ "$verdict" != "REPORTED_ERR" ] && [ "$sha" = MISMATCH ] && [ "$gsz" -gt 0 ] && \
+        warn="  *** SILENT CORRUPTION ***"
+    echo "$loss,$s,${inj:-0},${drp:-0},$verdict,${rxbytes:-0},$sha,$gsz,zmq,$HD_RATE,$IN_SHA,$ts" >> "$CSV"
+    echo "[$L] verdict=$verdict sha=$sha size=$gsz inj=${inj:-0} drop=${drp:-0}$warn"
+  done
+done
+
+echo
+echo "=== $CSV ==="
+column -t -s, "$CSV" 2>/dev/null || cat "$CSV"
+echo
+echo "--- full-size deliveries (size == payload) ---"
+awk -F, -v p="$PBYTES" 'NR>1{n++; if($8==p) f++} END{print f+0"/"n+0}' "$CSV"
+echo "--- loud failures (mechanism reported an error, expect 0) ---"
+awk -F, 'NR>1 && $5=="REPORTED_ERR"{c++} END{print c+0}' "$CSV"
+echo "--- silent corruption (no loud failure & sha MISMATCH & bytes delivered) ---"
+awk -F, 'NR>1 && $5!="REPORTED_ERR" && $7=="MISMATCH" && $8>0{c++} END{print c+0}' "$CSV"

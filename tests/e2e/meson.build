@@ -123,7 +123,7 @@ test('in-path drop shim (deterministic CAN/KISS injection, leak-free, partitions
 
 # CAN bench injector: opens a real socketcan iface (sandbox vcan0), wraps it with the
 # drop shim, and transmits a deterministic RDP/DTP stream through it. NOT a registered
-# test (needs vcan0 + root); built so scripts/can-bench can drive a live two-oracle loop
+# test (needs vcan0 + root); built so scripts/can0-bench can drive a live two-oracle loop
 # over CAN with the csh monitor. ci_drop_dep brings csp + ci + the shim.
 ci_inject_can = executable('ci_inject_can', 'ci_inject_can.c',
   dependencies: [ci_drop_dep, e2e_threads],
@@ -160,4 +160,13 @@ vmem_node = executable('vmem_node', 'vmem_node.c',
 # the bench. csh's `upload` is a thin wrapper over the same call.
 rdp_push = executable('rdp_push', 'rdp_push.c',
   dependencies: [e2e_csp, e2e_param_full, e2e_threads, e2e_zmq],
+  override_options: ['c_std=gnu11', 'werror=false'])
+
+# dtp_trigger: fires the deployed uploader's transfer by reproducing the single packet
+# csh's `upload_file` puts on the wire (a packed UploadMetadataItem to the client on port
+# 10, CSP_O_RDP). Removes the built-csh and APM dependency that confined the deployed arm
+# to the bench, the same way rdp_push did for the reliable path. The protobuf is encoded
+# inline so this repo gains no protobuf-c dependency.
+dtp_trigger = executable('dtp_trigger', 'dtp_trigger.c',
+  dependencies: [e2e_csp, e2e_threads, e2e_zmq],
   override_options: ['c_std=gnu11', 'werror=false'])
