@@ -81,6 +81,21 @@
   via the independent two-oracle.
 - **Depends on:** the sweep (T3/T4) and the monitor 8-byte DTP header fix (T5) landing first.
 
+## 7. Paced-rate head-to-head variant at MTU 256 (eng review 2026-07-30)
+- **What:** Rerun the smart + SVU head-to-head arms paced at 9600 bit/s (HD_RATE knob,
+  already supported by both drivers) at MTU 256, a subset of the loss grid.
+- **Why:** The 2026-07-30 matched grid is unpaced while the committed board satdeploy
+  data is paced at 9600 bps, so the comparison establishes fragment-grid parity, not
+  timing-regime parity. Rate dependence is a proven effect in this stack:
+  `scripts/rdp-rate-compare` showed the same defect manifesting as silent corruption
+  unpaced and as loud aborts at 4800 bit/s. The appendix currently carries this as a
+  one-sentence caveat; this run would close it with data.
+- **Context:** Both `scripts/satdeploy-zmq-sweep` and `scripts/svu-zmq-sweep` accept
+  HD_RATE; the injector's airtime model charges both directions including dropped
+  frames (`charge_airtime`, red-green guarded by `tests/e2e/airtime_guard.sh`).
+- **Depends on:** the 2026-07-30 MTU-256 head-to-head grid landing first. Post-thesis
+  unless an examiner question makes it urgent.
+
 > Local-only notes (DTP internals, a reliability issue to raise with the team, and
 > the full review findings) are kept out of this repo - see NOTES.local.md and the
 > design doc under ~/.gstack/projects/csp-intercept/.
