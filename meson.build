@@ -16,11 +16,17 @@ project('csp-intercept', 'c',
     # ignores its argument, so the promisc queue depth is fixed here at build time
     # (eng review Arch-4). use_promisc is required for the monitor.
     'csp:packet_padding_bytes=42',
-    'csp:buffer_count=1000',
+    # 4096, not 1000: a fire-and-forget sender bursts the whole transfer (1041 packets
+    # for 256 KiB) into the bridge faster than a paced egress drains it, so the pool must
+    # hold a full transfer or packets die BEFORE the drop shim and oracle A undercounts.
+    # The bench host ran with exactly this override (HANDOFF: "REQUIRED ... defaults
+    # silently truncate") but it was never committed; the 4800 bit/s paced DTP arm is
+    # where the truncation finally reproduced locally (26 of 1041 packets seen).
+    'csp:buffer_count=4096',
     'csp:buffer_size=2048',
     'csp:conn_max=20',
     'csp:conn_rxqueue_len=1000',
-    'csp:qfifo_len=1000',
+    'csp:qfifo_len=4096',
     'csp:rdp_max_window=1000',
     'csp:port_max_bind=16',
     'csp:use_rtable=true',

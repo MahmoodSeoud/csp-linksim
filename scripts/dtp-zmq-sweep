@@ -130,20 +130,33 @@ for loss in $LOSSES; do
     "$TRIG" -z 127.0.0.2 -a $TRIG_ADDR -n $CLI_ADDR -s $SRV_ADDR -d "$OUT" -f file.bin >/dev/null 2>&1
 
     # Wait for the SERVER to finish sending, not for the client to admit defeat: see the
-    # unreachable-idle-timeout note in the header. Then settle, so a still-finalising write
-    # is not mistaken for a short delivery (the mistake the RDP arm had to refute).
+    # unreachable-idle-timeout note in the header.
     for i in $(seq 1 "$WINDOW"); do
         grep -q "Transfer done" "$SRVLOG" 2>/dev/null && break
         sleep 1
     done
-    sleep "$SETTLE"
-    # Let the file stop growing before hashing.
-    prev=-1
-    for i in $(seq 1 30); do
-        cur=$(sweep_size "$OUT")
-        [ "$cur" = "$prev" ] && break
-        prev=$cur; sleep 1
+    # The server finishing says nothing about DELIVERY on a paced link: the whole burst
+    # sits queued in the bridge and drains at HD_RATE, so the client can lag the server by
+    # the full transfer airtime. The delivered FILE's size is useless as a signal -- the
+    # client preallocates it to full size with a dummy end write on the first packet -- so
+    # watch the client's own received-bytes progress counter instead. Done when it reaches
+    # the payload size (clean cell), when it stalls for a minute (lossy cell: the queue
+    # has drained and only holes remain), or at twice the transfer airtime (backstop).
+    if [ "$HD_RATE" -gt 0 ]; then
+        drain_deadline=$(( PBYTES * 8 * 2 / HD_RATE + 120 ))
+    else
+        drain_deadline=90
+    fi
+    prev=-1; stall=0; waited=0
+    while [ "$waited" -lt "$drain_deadline" ]; do
+        got=$(grep -aoE "[0-9]+/$PBYTES" "$CLILOG" 2>/dev/null | tail -1 | cut -d/ -f1)
+        if [ "${got:-0}" -ge "$PBYTES" ] 2>/dev/null; then break; fi
+        sz=$(sweep_size "$CLILOG")
+        if [ "$sz" = "$prev" ]; then stall=$((stall+5)); else stall=0; fi
+        [ "$stall" -ge 60 ] && break
+        prev=$sz; sleep 5; waited=$((waited+5))
     done
+    sleep "$SETTLE"   # let the last write finalise before hashing
 
     sweep_stop_pid "$INJPID"
 
