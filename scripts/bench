@@ -41,6 +41,15 @@ DISCOARGS=()
 if [ -d "$DISCO_HOST/upload_gs-server" ]; then
     DISCOARGS+=(-v "$DISCO_HOST":/disco -e DISCO_SRC=/disco)
 fi
+# satDeploy is the contributed tool's own repo (agent + csh APM). Mounted on the same
+# terms as the DISCO tree so scripts/flatsat-build can stand up the whole mission stack
+# in the container; absent, only the arms that do not need it are runnable.
+SAT_HOST="${SAT_SRC:-$HOME/projects/satDeploy}"
+if [ -d "$SAT_HOST/satdeploy-agent" ]; then
+    DISCOARGS+=(-v "$SAT_HOST":/satdeploy -e SAT_SRC=/satdeploy)
+fi
+# Persist the mission-stack build across container runs, as /build already is.
+DISCOARGS+=(-v csp-flatsat-build:/tmp/flatsat -e FLATSAT_BUILD=/tmp/flatsat)
 
 # ${arr[@]+"${arr[@]}"} so an EMPTY forward-list does not trip `set -u` (bash treats an
 # unset-length array expansion as an unbound variable).

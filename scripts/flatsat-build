@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+#
+# flatsat-build - build the mission software stack inside the bench container.
+#
+# WHAT THIS IS FOR
+# The flatsat is a wired replica of the DISCO-2 avionics: a payload board running the
+# mission's Linux stack, a ground station running csh, and a CAN bus between them. Board
+# access is intermittent. Everything on it EXCEPT the board hardware and the CAN driver is
+# ordinary userspace software that builds and runs in a container, so the stack can be
+# stood up here, developed against, and ported back to the board unchanged when the
+# flatsat is available again.
+#
+# What this builds, and where each piece lives (none of it is vendored into this repo):
+#
+#   csh                     DISCOSAT/upload_gs-server/csh   the ground shell
+#   libcsh_satdeploy_apm.so satDeploy/satdeploy-apm         `satdeploy push`, the ground side
+#   satdeploy-agent (smart) satDeploy/satdeploy-agent       the board side, recovery ON
+#   satdeploy-agent (naive) satDeploy/satdeploy-agent       the control, recovery compiled out
+#   upload_gs-server        DISCOSAT/upload_gs-server       the deployed uploader, ground
+#   upload_client           DISCOSAT/upload_sat-client      the deployed uploader, board
+#
+# WHAT DOES NOT PORT
+# The CAN segment. Docker's kernel has no vcan and the container has no CAN hardware, so
+# the arms run over the loopback ZMQ topology the sweep drivers already use. The mission
+# binaries take that transport natively (`-i ZMQ`, `-z host`), so no source changes are
+# needed in either direction: the same binaries take `-i CAN -p can0` on the board.
+# What a container cannot reproduce is CAN framing, real bus arbitration and board timing.
+#
+# Usage:  scripts/bench flatsat-build          (build everything, idempotent)
+#         scripts/bench flatsat-build --check  (report what is present, build nothing)
+set -uo pipefail
+
+DISCO_SRC="${DISCO_SRC:-/disco}"
+SAT_SRC="${SAT_SRC:-/satdeploy}"
+OUT="${FLATSAT_BUILD:-/tmp/flatsat}"
+mkdir -p "$OUT"
+
+want_check=0
+[ "${1:-}" = "--check" ] && want_check=1
+
+# name : source dir : meson args : artifact produced
+TARGETS=(
+  "csh:$DISCO_SRC/upload_gs-server/csh::csh"
+  "apm:$SAT_SRC/satdeploy-apm::libcsh_satdeploy_apm.so"
+  "agent-smart:$SAT_SRC/satdeploy-agent:-Dnaive_baseline=false:satdeploy-agent"
+  "agent-naive:$SAT_SRC/satdeploy-agent:-Dnaive_baseline=true:satdeploy-agent"
+  "gs-server:$DISCO_SRC/upload_gs-server::upload_gs-server"
+  "sat-client:$DISCO_SRC/upload_sat-client::upload_client"
+)
+
+missing_src=0
+for t in "${TARGETS[@]}"; do
+    IFS=: read -r name src args artifact <<<"$t"
+    [ -d "$src" ] || { echo "MISSING SOURCE  $name  ($src)"; missing_src=1; }
+done
+if [ "$missing_src" = 1 ]; then
+    echo
+    echo "This builds mission sources that are deliberately not part of this repository."
+    echo "Mount them and set DISCO_SRC (default /disco) and SAT_SRC (default /satdeploy);"
+    echo "scripts/bench mounts both automatically when they exist on the host."
+    exit 1
+fi
+
+rc=0
+for t in "${TARGETS[@]}"; do
+    IFS=: read -r name src args artifact <<<"$t"
+    dst="$OUT/$name"
+    if [ -e "$dst/$artifact" ]; then
+        [ "$want_check" = 1 ] && echo "  present  $name -> $dst/$artifact" || echo "  cached   $name"
+        continue
+    fi
+    if [ "$want_check" = 1 ]; then echo "  ABSENT   $name"; rc=1; continue; fi
+
+    echo "  building $name ..."
+    # shellcheck disable=SC2086
+    if ! meson setup "$dst" "$src" $args >/dev/null 2>&1; then
+        # shellcheck disable=SC2086
+        meson setup --reconfigure "$dst" "$src" $args >/dev/null 2>&1 || {
+            echo "  FAIL     $name (meson setup)"; rc=1; continue; }
+    fi
+    ninja -C "$dst" >/dev/null 2>&1 || { echo "  FAIL     $name (ninja)"; rc=1; continue; }
+    [ -e "$dst/$artifact" ] || { echo "  FAIL     $name (no $artifact)"; rc=1; continue; }
+    echo "  ok       $name -> $dst/$artifact"
+done
+
+echo
+if [ "$rc" = 0 ]; then
+    echo "flatsat stack ready under $OUT"
+    echo "  ground : $OUT/csh/csh  (+ $OUT/apm/libcsh_satdeploy_apm.so)"
+    echo "  board  : $OUT/agent-smart/satdeploy-agent, $OUT/agent-naive/satdeploy-agent"
+    echo "  dipp   : $OUT/gs-server/upload_gs-server, $OUT/sat-client/upload_client"
+fi
+exit $rc

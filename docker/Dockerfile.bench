@@ -11,12 +11,19 @@
 #   scripts/bench svu-zmq-sweep  # the host SVU arm, no CAN bus and no payload board
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
-# libprotobuf-c and libssl are not needed by csp-intercept itself. They are the only two
-# external dependencies of DISCO's upload_gs-server and upload_sat-client, whose sources
-# build here so the deployed-uploader arm can run without the flatsat (scripts/dtp-zmq-sweep
-# mounts that tree; it is mission code and is deliberately not vendored into this repo).
+# The extra packages below are not needed by csp-intercept itself. They are the external
+# dependencies of the MISSION sources this bench builds from outside the repo, so that the
+# flatsat's software stack can be stood up in a container and later ported back to the
+# board unchanged. None of that source is vendored here.
+#
+#   libprotobuf-c, libssl   DISCO's upload_gs-server / upload_sat-client (scripts/dtp-zmq-sweep)
+#                           and satdeploy's agent + APM
+#   libcurl, libyaml,       csh itself (DISCOSAT/upload_gs-server/csh), which is the ground
+#   libelf, libbsd,         side for the satdeploy arm: `satdeploy push` is a csh APM command,
+#   libjxl, python3-dev     so there is no driving that arm without a built csh
 RUN apt-get update -qq && apt-get install -y -qq \
     build-essential meson ninja-build pkg-config \
     libzmq3-dev libsocketcan-dev python3 git iproute2 procps coreutils \
-    libprotobuf-c-dev protobuf-c-compiler libssl-dev
+    libprotobuf-c-dev protobuf-c-compiler libssl-dev \
+    libcurl4-openssl-dev libyaml-dev libelf-dev libbsd-dev libjxl-dev python3-dev socat
 WORKDIR /src
