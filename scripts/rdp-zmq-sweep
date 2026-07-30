@@ -112,7 +112,10 @@ for loss in $LOSSES; do
         echo "[L${loss}_s${s}] already recorded, skipping"
         continue
     fi
-    L="rdpz_L${loss}_s${s}"
+    # RUN_TAG keeps oracle logs from different experiments out of each other's way. Without
+    # it a paced 32 KiB rate-comparison cell overwrites the 256 KiB sweep cell's drop log,
+    # destroying oracle A for a result the thesis cites.
+    L="rdpz_${RUN_TAG:-p${PBYTES}r${HD_RATE}}_L${loss}_s${s}"
     ORA="$CAP/${L}_oracleA.csv"; GOT="/tmp/${L}_got.bin"
     rm -f "$GOT" "$ORA"
     cleanup_procs

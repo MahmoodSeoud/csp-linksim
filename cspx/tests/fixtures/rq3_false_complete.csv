@@ -1,4 +1,0 @@
-loss,seed,label,bytes,delivered_sha256,matches_original,client_reported_success,corrupt_but_accepted
-0.02,1,csp_sw_L0.02_s1,262144,169fd39ca5a03464d06a8499508b0b92e0ea287eff1d3c237cbf3881d515d94b,no,yes,yes
-0.02,2,csp_sw_L0.02_s2,262144,9b8306b1ad1f4ffe5ecb41c2b44a19a4401d847c82b82012842e4f149ad91a29,no,yes,yes
-0.02,3,csp_sw_L0.02_s3,262144,1b465a82b60c3d2deff9c0545c22077755cf1b53a1d6db7639eef714b2585253,no,yes,yes

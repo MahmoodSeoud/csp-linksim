@@ -1,7 +1,0 @@
-# pinned measurement payload (csp-intercept loss sweep)
-file: payload_256k.bin
-bytes: 262144
-sha256: 2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5
-created: 2026-06-09T10:03:25Z
-used_by: deployed-dipp (as upload_gs-server/file.bin) AND satDeploy push (-f this path)
-frags@mtu200: dipp ~1337 (196B payload), satDeploy ~1365 (192B payload, 8B hdr)
