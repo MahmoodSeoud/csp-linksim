@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+#
+# satdeploy-zmq-sweep - the satdeploy arm over the loopback-ZMQ path, no flatsat.
+#
+# WHY THIS EXISTS
+# The committed satdeploy data (captures/satdeploy_sweep.csv) came from the payload board
+# over real CAN, driven by csh on the bench host. That remains the flight-representative
+# evidence. What it cannot do is support a fair comparison against any other mechanism,
+# because every other arm ran on a different transport with a different MTU and a different
+# payload file. This driver runs the SAME mission software -- real csh, the real
+# libcsh_satdeploy_apm.so, the real agent binary -- over the loopback topology the other
+# arms use, so satdeploy and SVU can finally be measured against each other with the
+# transport, the MTU, the payload bytes, the loss model and the seeds all held fixed.
+#
+#   csh + satdeploy APM -z 127.0.0.1 -> broker A -> ci_inject_bridge -> broker B -> agent
+#                                          (drops DTP data frames, dport 8 = oracle A)
+#
+# Requires scripts/flatsat-build to have run (mission sources are not vendored here).
+#
+# ARM: pass `smart` (recovery on, the contributed tool) or `naive` (recovery compiled out
+# via -Dnaive_baseline=true, the ablation control). Same source, same digest check.
+#
+# Metric is passes-to-complete: push until the agent reports the artifact installed and
+# digest-verified, up to MAX_PASSES. The agent's own SHA-256 is the completion gate, so
+# this arm is self-judged in exactly the way the board arm is -- that limitation is a
+# property of satdeploy's design (it installs to a filesystem the ground cannot re-read),
+# not of the topology, and it does not change here.
+#
+# Usage: satdeploy-zmq-sweep <smart|naive> ["0 0.02 ..."] [nseeds]
+set -uo pipefail
+
+ARM="${1:-smart}"
+case "$ARM" in smart|naive) ;; *) echo "usage: $0 <smart|naive> [losses] [nseeds]"; exit 2 ;; esac
+
+LOSSES="${LOSSES:-${2:-0 0.02 0.05 0.10 0.20 0.30}}"
+NSEEDS="${NSEEDS:-${3:-5}}"
+GS_ADDR=5425; AGENT_ADDR=5427; DPORT=8
+# 1024, not the board sweep's 256. satdeploy-apm hardcodes deploy_req.dtp_mtu =
+# DTP_DEFAULT_MTU (satdeploy_apm.c:543) with no CLI override, and the agent uses mtu-8 as
+# the payload span (dtp_client.c:182). On CAN that request is clamped by the bus, which is
+# why the board sweep saw ~248 B fragments and 1058 of them; over ZMQ nothing clamps it, so
+# the real fragment span here is 1016 B. The injector MUST be told the true span or its
+# fragment index -- and therefore which packets it drops -- does not line up with the
+# transfer. This is a genuine container-vs-board difference and is recorded, not hidden.
+MTU="${MTU:-1024}"; OVH="${OVH:-8}"; BURST="${BURST:-4}"
+HD_RATE="${HD_RATE:-0}"
+PBYTES="${PBYTES:-262144}"
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
+MAX_PASSES="${MAX_PASSES:-10}"
+PUSH_TO="${PUSH_TO:-600}"
+
+. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
+F="${FLATSAT_BUILD:-/tmp/flatsat}"
+CSV="${CSV:-$CAP/satdeploy_zmq_sweep.csv}"
+CSH="$F/csh/csh"
+APMSO="$F/apm/libcsh_satdeploy_apm.so"
+AGENT="$F/agent-$ARM/satdeploy-agent"
+SWEEP_PROCS="satdeploy-agent csh"
+
+sweep_require "$PROXY" "$INJ"
+for b in "$CSH" "$APMSO" "$AGENT"; do
+    [ -e "$b" ] || { echo "FAIL: missing $b -- run: scripts/bench flatsat-build"; exit 1; }
+done
+
+sweep_payload "$PBYTES" "$PAYLOAD_SEED"
+echo "satdeploy-zmq-sweep[$ARM]: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST max_passes=$MAX_PASSES"
+echo "  csv=$CSV"
+
+[ -f "$CSV" ] || echo "arm,loss,seed,passes,injected,dropped,overhead,result,sha,transport,harness,payload_sha256,ts" > "$CSV"
+
+APMDIR=/tmp/sd_apm; mkdir -p "$APMDIR"; cp -f "$APMSO" "$APMDIR/"
+sweep_trap
+
+for loss in $LOSSES; do
+  for s in $(seq 1 "$NSEEDS"); do
+    if awk -F, -v a="$ARM" -v l="$loss" -v sd="$s" \
+        'NR>1 && $1==a && $2==l && $3==sd {f=1} END{exit !f}' "$CSV"; then
+        echo "[${ARM}_L${loss}_s${s}] already recorded, skipping"; continue
+    fi
+    L="sdz_${ARM}_L${loss}_s${s}"
+    ORA="$CAP/${L}_oracleA.csv"; ILOG="/tmp/${L}_inj.log"
+    STATE=/tmp/sd_state_$L; DEST="$STATE/delivered.bin"
+    rm -f "$ORA"; rm -rf "$STATE" /opt/satdeploy /var/lib/satdeploy; mkdir -p "$STATE"
+    sweep_cleanup
+    sweep_start_brokers "$L"
+
+    ( cd "$STATE" && "$AGENT" -i ZMQ -p 127.0.0.2 -a $AGENT_ADDR >/tmp/${L}_agent.log 2>&1 & )
+    sleep 3
+
+    "$INJ" "zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,$AGENT_ADDR" \
+           "zmq:tcp://127.0.0.2:6000,tcp://127.0.0.2:7000" \
+           $DPORT "$MTU" "$OVH" "$loss" "$BURST" "$s" "$ORA" $GS_ADDR 0 "$HD_RATE" >"$ILOG" 2>&1 &
+    INJPID=$!
+    sleep 2
+
+    # Push until the agent reports it installed and digest-verified, or MAX_PASSES.
+    passes=0; result=INCOMPLETE
+    while [ "$passes" -lt "$MAX_PASSES" ]; do
+        passes=$((passes+1))
+        INIT=/tmp/${L}_p${passes}.csh
+        printf 'csp init\ncsp add zmq -d %s 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n %s\nsleep 20000\nexit\n' \
+            "$GS_ADDR" "$APMDIR" "$IN" "$DEST" "$AGENT_ADDR" > "$INIT"
+        timeout "$PUSH_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null \
+            >/tmp/${L}_p${passes}.log 2>&1 || true
+        if grep -aq "installed at" /tmp/${L}_agent.log 2>/dev/null; then result=DEPLOYED; break; fi
+    done
+
+    sweep_stop_pid "$INJPID"
+    sweep_oracle_counts "$ORA"
+    sweep_harness_health "$ILOG"
+    got=$(sweep_sha "$DEST"); sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
+    base=$(( (PBYTES + MTU - OVH - 1) / (MTU - OVH) ))
+    ovr=$(awk -v i="${inj:-0}" -v b="$base" 'BEGIN{printf "%.2f", b?i/b:0}')
+    ts=$(sweep_ts)
+    sweep_cleanup
+
+    warn=""
+    [ "$result" = DEPLOYED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
+    echo "$ARM,$loss,$s,$passes,${inj:-0},${drp:-0},$ovr,$result,$sha,zmq,$harness,$IN_SHA,$ts" >> "$CSV"
+    echo "[$L] result=$result passes=$passes sha=$sha inj=${inj:-0} drop=${drp:-0} ovh=${ovr}x$warn"
+  done
+done
+
+echo
+column -t -s, "$CSV" 2>/dev/null || cat "$CSV"
+echo "--- completed ---"; awk -F, -v a="$ARM" 'NR>1&&$1==a{n++; if($8=="DEPLOYED")d++} END{print d+0"/"n+0}' "$CSV"
+echo "--- silent corruption (DEPLOYED & MISMATCH, expect 0) ---"
+awk -F, -v a="$ARM" 'NR>1&&$1==a&&$8=="DEPLOYED"&&$9=="MISMATCH"{c++} END{print c+0}' "$CSV"
