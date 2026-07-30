@@ -57,3 +57,4 @@ captures/repro_*
 __pycache__/
 *.pyc
 .gstack/
+!captures/h2h_*.csv
