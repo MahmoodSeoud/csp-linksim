@@ -9,7 +9,6 @@ Run from an initialised session (`csp init` + `csp add can` + `apm load` already
 
 ```
 run /home/mseo/thesis/csp-intercept/experiments/exp_rdp.csh
-run /home/mseo/thesis/csp-intercept/experiments/exp_dtp_pull.csh
 run /home/mseo/thesis/csp-intercept/experiments/exp_upload_file.csh
 run /home/mseo/thesis/csp-intercept/experiments/exp_svu.csh
 ```
@@ -19,7 +18,7 @@ run /home/mseo/thesis/csp-intercept/experiments/exp_svu.csh
 | CSH RDP | `exp_rdp.csh` | `upload`/`download` (vmem) | node 5431 `bigmem` | expect **OK** |
 | Deployed DTP (push) | `exp_upload_file.csh` | `upload_file` | payload file | silently corrupts under loss |
 | SVU | `exp_svu.csh` | `svu` (csh command) | `svu_daemon` | expect **VERIFIED** |
-| ~~Deployed DTP (pull)~~ | ~~`exp_dtp_pull.csh`~~ | — | — | **RETIRED** — `dtp_client` is the DIPP downlink proxy, not the deployed upload path; use the push arm |
+| ~~Deployed DTP (pull)~~ | (deleted) | — | — | **RETIRED** — `dtp_client` is the DIPP downlink proxy, not the deployed upload path; use the push arm |
 
 The `svu` command is scp/cp-like: `svu -p <src> <dest>` uploads to the **default node**
 (set once with `node <addr>`), or `svu -p <src> <node>:<dest>` to name it explicitly.

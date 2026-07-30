@@ -86,12 +86,12 @@ test('self-verifying uploader resume loop', svu_loop_host)
 # Linux-only: libcsp (and CSH) target Linux/embedded; the instrument runs on the
 # Linux ground station. We deliberately do NOT carry macOS-host shims for libcsp
 # (it needs ELF sections, <endian.h>, etc.). On macOS build the front-ends via
-# Docker or CI (see scripts/lbuild). The pure lib above still builds everywhere.
+# Docker or CI (see scripts/bench). The pure lib above still builds everywhere.
 if get_option('frontends')
   if host_machine.system() != 'linux'
     error('frontends build is Linux-only (libcsp does not build on @0@). '
       .format(host_machine.system())
-      + 'Use scripts/lbuild (Docker) or CI. The pure lib builds here with the default -Dfrontends=false.')
+      + 'Use scripts/bench (Docker) or CI. The pure lib builds here with the default -Dfrontends=false.')
   endif
   subdir('proxy')
   subdir('apm')

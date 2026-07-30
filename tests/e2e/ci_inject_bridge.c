@@ -48,7 +48,8 @@
  *      itself and runs csp_route_work, re-transmitting every frame it sees). The real csh
  *      csp_monitor is a PASSIVE promisc consumer (frees packets, never routes), so it does
  *      not echo.
- * Net: identity mode is verified end-to-end through the bridge here (bridge_dry_run.sh);
+ * Net: identity mode is verified end-to-end through the bridge (airtime_guard.sh drives
+ * a full transfer through it at loss 0);
  * per-attempt recovery is proven for the shim itself in drop_iface_host (T7), and the
  * combined per-attempt-through-the-bridge path is validated on the real can0 bus, where
  * neither dry-run echo source exists. (Confirm on the flatsat.)

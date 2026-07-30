@@ -318,9 +318,8 @@ slash_command_sub(csp_monitor, stop, csp_monitor_stop_cmd, "",
  * signal cannot be trusted on: did the bytes survive. Mirrors `sha256sum -c`:
  * quiet "FILE: OK" on a match, loud "FILE: FAILED" with expected/received on a
  * mismatch. The verdict is the printed line (csh has no shell exit code to lean
- * on). Byte-diff + the missing-fragment recovery list stay in the host CLI
- * (scripts/csp-verify); on the satellite you don't have the original to diff
- * against anyway, so the sha verdict is the in-csh contract. */
+ * on). On the satellite you don't have the original to byte-diff against anyway,
+ * so the sha verdict is the in-csh contract. */
 static int verify_read_manifest_sha(const char *path, char want[65]) {
     FILE *f = fopen(path, "r");
     if (f == NULL) {

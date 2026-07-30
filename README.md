@@ -25,7 +25,7 @@ a live bus watch, and the loss bench. Read this first if you just want to drive 
 ## What it found
 
 Run on the real DISCO-2 flatsat, the instrument produced these (data in `captures/`,
-figures in `figures/`, report layer in the sibling `../satguard/`):
+figures in `figures/`):
 
 | Result | Evidence | Number |
 |--------|----------|--------|
@@ -67,8 +67,7 @@ The load-bearing invariant: every fragment is either dropped **or** observed, ne
 | `tests/e2e/ci_inject_bridge.c` | the **bridge injector** — ingress (zmq/can) → drop shim → egress, with the drop log. |
 | `scripts/` | the run drivers (one transfer, and full sweeps). See the table below. |
 | `captures/` | result CSVs and finding notes. |
-| `figures/` | regenerable figures (`scripts/plot_*.py`). |
-| `satguard/` | the report layer: turns the capture CSVs into a customer-ready audit report. |
+| `figures/` | regenerable figures (`scripts/plot_calibration.py`). |
 
 ---
 
@@ -76,15 +75,23 @@ The load-bearing invariant: every fragment is either dropped **or** observed, ne
 
 ### 0. Build (once)
 
+The one-command path, on any host with Docker (macOS included):
+
+```sh
+scripts/reproduce test      # build + the regression suite, expect 14/14 green
+scripts/reproduce quick     # suite + two loss levels per reproducible arm (~6 min)
+scripts/reproduce full      # suite + the six-level, three-seed sweeps (~1 h)
+```
+
+Or natively (Linux only; deps: `libzmq3-dev`, `libsocketcan-dev`, `pkg-config`, `python3`,
+meson, ninja, a C toolchain):
+
 ```sh
 git submodule update --init --recursive
 meson setup build -Dfrontends=true
 meson compile -C build
-meson test -C build --print-errorlogs        # expect 11/11 green
+meson test -C build --print-errorlogs        # expect 14/14 green
 ```
-
-Linux only. Native deps: `libzmq3-dev`, `libsocketcan-dev`, `pkg-config`, `python3`, meson,
-ninja, a C toolchain.
 
 ### 1. Run one instrumented transfer
 
@@ -110,19 +117,22 @@ ci_inject_bridge <in> <out> <dport> <mtu> <overhead> <loss> <burst> <seed> <drop
 The drivers run a full grid (loss × seed), one real upload per cell, and append one row per
 run to a CSV. They are **resumable** — an already-recorded `(loss, seed)` is skipped.
 
+The laptop-reproducible arms (Docker only, via `scripts/bench`):
+
 ```sh
-# Deployed fire-and-forget upload (Arm A):
-LOSSES="0 0.02 0.05 0.10 0.20 0.30" SEEDS="1 2 3 4 5" scripts/dipp-sweep
+# Deployed uploader over DTP (needs the DISCO source tree, see scripts/dtp-zmq-sweep):
+scripts/bench dtp-zmq-sweep
 
-# satDeploy verify-retry vs naive control (Arm B), agent running on the board as 5427:
-scripts/satdeploy-sweep smart
+# Reliable vmem reference path (RDP + CRC32):
+scripts/bench rdp-zmq-sweep
 
-# Raw DTP resume (H2):
-scripts/rawdtp-sweep
+# SVU, the self-verifying uploader:
+scripts/bench svu-zmq-sweep
 ```
 
-Each paced pass is ~7 min (4800 bit/s net, 1041 fragments); a full sweep is 1–3 h. See the
-operational notes in [docs/HOWTO.md](docs/HOWTO.md) and `HANDOFF.md` before running live.
+The flatsat arms (`scripts/satdeploy-sweep`, `scripts/upload-point`) need the payload board
+on can0; their results are committed under `captures/`. Unpaced cells are seconds each;
+paced at the flight rate a 256 KiB pass is ~7 min (4800 bit/s, 1041 fragments).
 
 ### 3. Read the result
 
@@ -135,20 +145,11 @@ rawdtp_sweep.csv    arm,loss,seed,label,passes,total_injected,total_dropped,over
 rq3_corruption.csv  loss,seed,label,bytes,delivered_sha256,matches_original,client_reported_success,corrupt_but_accepted
 ```
 
-Regenerate the figures with no bench needed:
+Regenerate the calibration figure with no bench needed:
 
 ```sh
-python3 scripts/plot_headline.py        # completion-vs-loss
 python3 scripts/plot_calibration.py     # injector calibration
 ```
-
-### 4. Turn it into an audit report
-
-```sh
-python3 satguard/satguard.py audit --captures captures/ --target "Your mission"
-```
-
-That emits a per-mechanism VULNERABLE / VERIFIED verdict and an HTML report.
 
 ---
 
@@ -156,12 +157,16 @@ That emits a per-mechanism VULNERABLE / VERIFIED verdict and an HTML report.
 
 | Script | What it does |
 |--------|--------------|
+| `scripts/reproduce` | **start here** — build, regression suite, and every laptop-reproducible arm |
+| `scripts/bench` | Docker wrapper: build/test/run any driver on any host, macOS included |
+| `scripts/dtp-zmq-sweep` | deployed-uploader (DTP) arm on loopback ZMQ; builds DISCO's sources |
+| `scripts/rdp-zmq-sweep` | reliable vmem reference arm (RDP+CRC32) on loopback ZMQ |
+| `scripts/svu-zmq-sweep` | SVU arm on loopback ZMQ |
+| `scripts/rdp-rate-compare` | paced-vs-unpaced RDP failure-mode comparison (same seeds, same drops) |
+| `scripts/rdp-settle-check` | discriminates real corruption from verify-timing artifacts |
 | `scripts/can0-bench` | one-command two-oracle bench on the real flatsat CAN bus |
-| `scripts/upload-point` | one fully-instrumented loss point of the deployed-upload arm |
-| `scripts/dipp-sweep` | Arm A (deployed fire-and-forget upload) loss sweep |
-| `scripts/satdeploy-sweep` | Arm B (satDeploy smart/naive) loss sweep; agent on board as 5427 |
-| `scripts/rawdtp-point` / `rawdtp-sweep` | H2 raw-DTP-resume arm (receiver host-side on can0) |
-| `scripts/sweep` | parametric burst-loss curve over the two-oracle bench |
+| `scripts/upload-point` | one fully-instrumented loss point of the deployed arm, on the flatsat |
+| `scripts/satdeploy-sweep` | satDeploy smart/naive loss sweep; agent on the payload board as 5427 |
 | `scripts/restart-upload-client` | respawn the deployed upload_client (it exits after each transfer) |
 | `scripts/deploy-agent` | push the patched ARM agent to the payload board at loss=0 |
 
@@ -196,5 +201,6 @@ See `HANDOFF.md` for the full operational reality and `TODOS.md` for open work.
 
 ## Build status
 
-Test suite: **11/11 green** (`meson test -C build`). Instrument validated on the real flatsat;
+Test suite: **14/14 green** (`scripts/bench test`, or `meson test -C build` on Linux).
+Instrument validated on the real flatsat;
 the empirical findings above are measured, not simulated.

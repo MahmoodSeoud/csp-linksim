@@ -12,9 +12,6 @@ build-*/
 # local CSH APM install target
 local/
 *.bin
-# ...except the self-contained demo fixtures (committed so the demo is
-# reproducible by anyone who clones the repo)
-!demo/fixtures/*.bin
 
 # stray npm artifacts (accidental `npm install bun` — bun is global via brew now;
 # safe to delete: rm -rf node_modules package.json package-lock.json)

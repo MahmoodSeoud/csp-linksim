@@ -38,9 +38,10 @@ meson compile -C build
 meson test -C build --print-errorlogs
 ```
 
-Expect **9/9 OK**. This is synthetic (no hardware): lib unit tests, proxy determinism,
-the APM drain test, RDP + DTP two-oracle loops, and the in-path drop shim. Run this
-after any code change.
+Expect **14/14 OK**. This is synthetic (no hardware): lib unit tests, proxy determinism,
+the APM drain test, RDP + DTP two-oracle loops, the in-path drop shim, and the half-duplex
+airtime guard. Run this after any code change. On macOS use `scripts/bench test` instead
+(Docker); the front-ends do not build natively there.
 
 ### 2. Monitor a real CAN bus from a csh session
 

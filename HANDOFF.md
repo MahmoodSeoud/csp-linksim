@@ -1,5 +1,11 @@
 # Thesis loss-measurement — handoff (2026-06-15)
 
+> **HISTORICAL.** This describes the June flatsat campaign (3-arm design, satDeploy as the
+> subject). The thesis has since been reframed around the instrument, the evaluation is
+> 4 arms (DTP / raw DTP / RDP / satdeploy), and three of them reproduce on a laptop via
+> `scripts/reproduce`. Kept as the operational record of how the board data in `captures/`
+> was collected; the script names and paths below reflect the repo as it was then.
+
 ## What this is
 Master's thesis. **satDeploy** (loss-resilient satellite file uploader) is the subject;
 **csp-intercept** (`~/thesis/csp-intercept`, git `master`) is an independent measurement
