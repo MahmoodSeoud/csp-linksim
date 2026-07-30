@@ -43,12 +43,10 @@
 #include <pthread.h>
 
 #include <csp/csp.h>
-#include <csp/drivers/can_socketcan.h>
-#include <csp/interfaces/csp_if_zmqhub.h>
+
+#include "e2e_node.h"
 
 #define CLIENT_TRIGGER_PORT 10      /* CLIENTPORT in upload_sat-client/src/main.c */
-
-static void *router_task(void *param) { (void)param; while (1) { csp_route_work(); } return NULL; }
 
 /* Append a base-128 varint. Returns the new write offset. */
 static size_t put_varint(uint8_t *buf, size_t off, uint32_t v)
@@ -133,27 +131,9 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    csp_init();
-    csp_iface_t *iface = NULL;
-    int err;
-    if (zmq_host != NULL) {
-        char pub_ep[128], sub_ep[128];
-        snprintf(pub_ep, sizeof(pub_ep), "tcp://%s:6000", zmq_host);
-        snprintf(sub_ep, sizeof(sub_ep), "tcp://%s:7000", zmq_host);
-        err = csp_zmqhub_init_w_endpoints(my_addr, pub_ep, sub_ep, 0, &iface);
-    } else {
-        err = csp_can_socketcan_open_and_add_interface(dev ? dev : "can0", "CAN",
-                                                       my_addr, 0, true, &iface);
-    }
-    if (err != CSP_ERR_NONE || iface == NULL) {
-        fprintf(stderr, "dtp_trigger: transport init failed (%d)\n", err);
+    if (e2e_node_up(zmq_host, dev, my_addr, 0) == NULL) {
         return 1;
     }
-    iface->is_default = 1;
-    csp_bind_callback(csp_service_handler, CSP_ANY);
-
-    pthread_t rt;
-    pthread_create(&rt, NULL, router_task, NULL);
     sleep(1);   /* let the subscription settle before the RDP SYN, as rdp_push does */
 
     uint8_t msg[512];

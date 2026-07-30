@@ -151,14 +151,14 @@ test('injector half-duplex airtime is charged per frame',
 # clean byte-faithful integrity oracle for the RDP/upload arm (DIPP stora is 10 KB and
 # wedges; a csh instance serves no vmem). Full param dep for vmem_server_loop.
 e2e_param_full = dependency('param', fallback: ['param', 'param_dep'])
-vmem_node = executable('vmem_node', 'vmem_node.c',
+vmem_node = executable('vmem_node', ['vmem_node.c', 'e2e_node.c'],
   dependencies: [e2e_csp, e2e_param_full, e2e_threads, e2e_zmq],
   override_options: ['c_std=gnu11', 'werror=false'])
 
 # rdp_push: drives libparam's vmem_upload/vmem_download (the RDP+CRC32 reference path) with
 # no csh dependency, so the RDP arm runs behind the injector on any host rather than only on
 # the bench. csh's `upload` is a thin wrapper over the same call.
-rdp_push = executable('rdp_push', 'rdp_push.c',
+rdp_push = executable('rdp_push', ['rdp_push.c', 'e2e_node.c'],
   dependencies: [e2e_csp, e2e_param_full, e2e_threads, e2e_zmq],
   override_options: ['c_std=gnu11', 'werror=false'])
 
@@ -167,6 +167,6 @@ rdp_push = executable('rdp_push', 'rdp_push.c',
 # 10, CSP_O_RDP). Removes the built-csh and APM dependency that confined the deployed arm
 # to the bench, the same way rdp_push did for the reliable path. The protobuf is encoded
 # inline so this repo gains no protobuf-c dependency.
-dtp_trigger = executable('dtp_trigger', 'dtp_trigger.c',
+dtp_trigger = executable('dtp_trigger', ['dtp_trigger.c', 'e2e_node.c'],
   dependencies: [e2e_csp, e2e_threads, e2e_zmq],
   override_options: ['c_std=gnu11', 'werror=false'])

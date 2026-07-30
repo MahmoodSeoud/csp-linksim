@@ -34,57 +34,42 @@ MTU="${MTU:-200}"; OVH="${OVH:-8}"; BURST="${BURST:-4}"
 PBYTES="${PBYTES:-262144}"; PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
 VADDR="${VADDR:-0x10000000}"; UP_TO="${UP_TO:-120000}"
 
-BUILD="${BUILD:-/build}"; REPO="${REPO:-/src}"; CAP="$REPO/captures"
-PROXY="$BUILD/proxy/zmqproxy-lossy"; INJ="$BUILD/tests/e2e/ci_inject_bridge"
+. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
 NODEBIN="$BUILD/tests/e2e/vmem_node"; PUSH="$BUILD/tests/e2e/rdp_push"
+SWEEP_PROCS="vmem_node"
 
-IN=/tmp/svu_zmq_payload_${PBYTES}_${PAYLOAD_SEED}.bin
-if [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" != "$PBYTES" ]; then
-    python3 -c "
-import random, sys
-r = random.Random($PAYLOAD_SEED)
-sys.stdout.buffer.write(bytes(r.getrandbits(8) for _ in range($PBYTES)))
-" > "$IN" || exit 1
-fi
-IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
+sweep_require "$PROXY" "$INJ" "$NODEBIN" "$PUSH"
+sweep_payload "$PBYTES" "$PAYLOAD_SEED"
 
 L="rdpsettle_L${LOSS}_s${SEED}_w${SETTLE}"
 GOT="$CAP/${L}_got.bin"          # into captures/ so it survives the container
 ORA="$CAP/${L}_oracleA.csv"
 rm -f "$GOT" "$ORA"
 
-cleanup_procs() {
-    pkill -f 'vmem_node' 2>/dev/null; pkill -f 'ci_inject_bridge' 2>/dev/null
-    pkill -f 'zmqproxy-lossy' 2>/dev/null; sleep 0.5
-}
-trap 'cleanup_procs; exit 130' INT TERM
+sweep_trap
 start_bridge() {
     "$INJ" "zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,$NODE" \
            "zmq:tcp://127.0.0.2:6000,tcp://127.0.0.2:7000" \
            $DPORT "$MTU" "$OVH" "$1" "$BURST" "$SEED" "$2" $CLI_ADDR 0 0 >"$3" 2>&1 &
     echo $!
 }
-stop_bridge() { kill -INT "$1" 2>/dev/null; sleep 0.3; kill "$1" 2>/dev/null; wait "$1" 2>/dev/null || true; }
-
-cleanup_procs
-"$PROXY" -s tcp://127.0.0.1:6000 -p tcp://127.0.0.1:7000 >/tmp/${L}_bA.log 2>&1 &
-"$PROXY" -s tcp://127.0.0.2:6000 -p tcp://127.0.0.2:7000 >/tmp/${L}_bB.log 2>&1 &
-sleep 1
+sweep_cleanup
+sweep_start_brokers "$L"
 "$NODEBIN" -z 127.0.0.2 -a $NODE >/tmp/${L}_node.log 2>&1 &
-for i in $(seq 1 80); do grep -qi 'vmem_node up' /tmp/${L}_node.log 2>/dev/null && break; sleep 0.1; done
+sweep_wait_log /tmp/${L}_node.log 'vmem_node up' 
 
 echo "[$L] pre-filling region with zeros over a clean path"
 BP=$(start_bridge 0 /dev/null /tmp/${L}_fill.log); sleep 2
 timeout 300 "$PUSH" -m fill -z 127.0.0.1 -a $CLI_ADDR -n $NODE -A "$VADDR" -l "$PBYTES" -t "$UP_TO" >/dev/null 2>&1
 fill_rc=$?
-stop_bridge "$BP"
-[ $fill_rc -eq 0 ] || { echo "FAIL: pre-fill did not complete - cell invalid"; cleanup_procs; exit 4; }
+sweep_stop_pid "$BP"
+[ $fill_rc -eq 0 ] || { echo "FAIL: pre-fill did not complete - cell invalid"; sweep_cleanup; exit 4; }
 
 echo "[$L] measured upload at loss=$LOSS seed=$SEED"
 BP=$(start_bridge "$LOSS" "$ORA" /tmp/${L}_inj.log); sleep 2
 up_out=$(timeout 900 "$PUSH" -m upload -z 127.0.0.1 -a $CLI_ADDR -n $NODE -f "$IN" -A "$VADDR" -t "$UP_TO" 2>&1)
 up_rc=$?
-stop_bridge "$BP"
+sweep_stop_pid "$BP"
 claimed=FAILED; [ $up_rc -eq 0 ] && claimed=DELIVERED
 echo "[$L] upload says: $(echo "$up_out" | grep RESULT || echo "$up_out" | tail -1)"
 
@@ -94,10 +79,10 @@ sleep "$SETTLE"
 BP=$(start_bridge 0 /dev/null /tmp/${L}_dl.log); sleep 2
 timeout 300 "$PUSH" -m download -z 127.0.0.1 -a $CLI_ADDR -n $NODE -o "$GOT" -A "$VADDR" -l "$PBYTES" -t "$UP_TO" >/tmp/${L}_dlout.log 2>&1
 dl_rc=$?
-stop_bridge "$BP"; cleanup_procs
+sweep_stop_pid "$BP"; sweep_cleanup
 [ $dl_rc -eq 0 ] || { echo "FAIL: clean read-back did not complete - cannot judge this cell"; exit 5; }
 
-got=$(sha256sum "$GOT" | cut -d' ' -f1)
+got=$(sweep_sha "$GOT")
 sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
 inj=$(awk -F, '!/^#/{c++} END{print c+0}' "$ORA" 2>/dev/null)
 drp=$(awk -F, '!/^#/ && $8==1{c++} END{print c+0}' "$ORA" 2>/dev/null)

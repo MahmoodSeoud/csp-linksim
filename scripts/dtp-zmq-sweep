@@ -57,21 +57,16 @@ PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
 SETTLE="${SETTLE:-5}"               # seconds after the server finishes, before read-back
 WINDOW="${WINDOW:-120}"             # max seconds to observe one cell
 
-BUILD="${BUILD:-/build}"
-REPO="${REPO:-/src}"
+. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
 DISCO_SRC="${DISCO_SRC:-/disco}"
 DISCO_BUILD="${DISCO_BUILD:-/tmp/disco-build}"
-CAP="$REPO/captures"
 CSV="${CSV:-$CAP/dtp_zmq_sweep.csv}"
-PROXY="$BUILD/proxy/zmqproxy-lossy"
-INJ="$BUILD/tests/e2e/ci_inject_bridge"
 TRIG="$BUILD/tests/e2e/dtp_trigger"
 SRV="$DISCO_BUILD/gs-server/upload_gs-server"
 CLI="$DISCO_BUILD/sat-client/upload_client"
+SWEEP_PROCS="upload_gs-server upload_client"
 
-for b in "$PROXY" "$INJ" "$TRIG"; do
-    [ -x "$b" ] || { echo "FAIL: missing $b (run: scripts/bench build)"; exit 1; }
-done
+sweep_require "$PROXY" "$INJ" "$TRIG"
 [ -d "$DISCO_SRC/upload_gs-server" ] || {
     echo "FAIL: no upload_gs-server under DISCO_SRC=$DISCO_SRC"
     echo "      This arm builds DISCO's mission sources, which are not vendored here."
@@ -92,40 +87,26 @@ build_disco() {
 }
 build_disco "$DISCO_SRC/upload_gs-server"  "$DISCO_BUILD/gs-server"  upload_gs-server || exit 1
 build_disco "$DISCO_SRC/upload_sat-client" "$DISCO_BUILD/sat-client" upload_client   || exit 1
-mkdir -p "$CAP"
 
 # Deterministic payload, same seed and size as the SVU and RDP laptop arms so the three are
 # byte-comparable with each other. Note they are NOT byte-comparable with the board cells,
-# which used the pinned captures/payload_256k.bin (not in this repo).
+# which used the pinned captures/payload_256k.bin (not in this repo). The server hardcodes
+# fopen("file.bin") relative to its cwd, so the shared payload is copied into its dir.
+sweep_payload "$PBYTES" "$PAYLOAD_SEED"
 SRVDIR=/tmp/dtp_srvdir
 mkdir -p "$SRVDIR"
-IN="$SRVDIR/file.bin"     # the server hardcodes fopen("file.bin") relative to its cwd
-if [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" != "$PBYTES" ]; then
-    python3 -c "
-import random, sys
-r = random.Random($PAYLOAD_SEED)
-sys.stdout.buffer.write(bytes(r.getrandbits(8) for _ in range($PBYTES)))
-" > "$IN" || exit 1
-fi
-IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
+cp -f "$IN" "$SRVDIR/file.bin"
 echo "dtp-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST hd_rate=$HD_RATE"
 echo "  csv=$CSV"
 
 [ -f "$CSV" ] || echo "loss,seed,injected,dropped,client_verdict,bytes,sha,size,transport,rate_bps,payload_sha256,ts" > "$CSV"
 
-cleanup_procs() {
-    pkill -f upload_gs-server 2>/dev/null
-    pkill -f upload_client 2>/dev/null
-    pkill -f 'ci_inject_bridge' 2>/dev/null
-    pkill -f 'zmqproxy-lossy' 2>/dev/null
-    sleep 0.5
-}
-trap 'cleanup_procs; exit 130' INT TERM
+sweep_trap
 
 for loss in $LOSSES; do
   for s in $(seq 1 "$NSEEDS"); do
-    if awk -F, -v l="$loss" -v sd="$s" 'NR>1 && $1==l && $2==sd {found=1} END{exit !found}' "$CSV"; then
+    if sweep_cell_recorded "$CSV" "$loss" "$s"; then
         echo "[L${loss}_s${s}] already recorded, skipping"
         continue
     fi
@@ -133,11 +114,8 @@ for loss in $LOSSES; do
     ORA="$CAP/${L}_oracleA.csv"; OUT="/tmp/${L}_out.bin"
     SRVLOG="/tmp/${L}_srv.log"; CLILOG="/tmp/${L}_cli.log"; ILOG="/tmp/${L}_inj.log"
     rm -f "$OUT" "$ORA"
-    cleanup_procs
-
-    "$PROXY" -s tcp://127.0.0.1:6000 -p tcp://127.0.0.1:7000 >/tmp/${L}_brokerA.log 2>&1 &
-    "$PROXY" -s tcp://127.0.0.2:6000 -p tcp://127.0.0.2:7000 >/tmp/${L}_brokerB.log 2>&1 &
-    sleep 1
+    sweep_cleanup
+    sweep_start_brokers "$L"
 
     ( cd "$SRVDIR" && "$SRV" -z 127.0.0.1 -a $SRV_ADDR >"$SRVLOG" 2>&1 & )
     "$CLI" -z 127.0.0.2 -a $CLI_ADDR -s $SRV_ADDR >"$CLILOG" 2>&1 &
@@ -162,13 +140,12 @@ for loss in $LOSSES; do
     # Let the file stop growing before hashing.
     prev=-1
     for i in $(seq 1 30); do
-        cur=$(stat -c%s "$OUT" 2>/dev/null || echo 0)
+        cur=$(sweep_size "$OUT")
         [ "$cur" = "$prev" ] && break
         prev=$cur; sleep 1
     done
 
-    kill -INT "$INJPID" 2>/dev/null; sleep 0.3
-    kill "$INJPID" 2>/dev/null; wait "$INJPID" 2>/dev/null || true
+    sweep_stop_pid "$INJPID"
 
     # What the mechanism itself claimed, within the window. The status line is emitted only
     # when the receive loop returns, which under loss it does not, so NO_VERDICT is the
@@ -181,14 +158,13 @@ for loss in $LOSSES; do
     fi
     rxbytes=$(grep -oE 'Received [0-9]+ bytes' "$CLILOG" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
 
-    cleanup_procs
+    sweep_cleanup
 
-    inj=$(awk -F, '!/^#/{c++} END{print c+0}' "$ORA" 2>/dev/null)
-    drp=$(awk -F, '!/^#/ && $8==1{c++} END{print c+0}' "$ORA" 2>/dev/null)
-    got=$(sha256sum "$OUT" 2>/dev/null | cut -d' ' -f1)
+    sweep_oracle_counts "$ORA"
+    got=$(sweep_sha "$OUT")
     sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
-    gsz=$(stat -c%s "$OUT" 2>/dev/null || echo 0)
-    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    gsz=$(sweep_size "$OUT")
+    ts=$(sweep_ts)
 
     warn=""
     [ "$verdict" != "REPORTED_ERR" ] && [ "$sha" = MISMATCH ] && [ "$gsz" -gt 0 ] && \

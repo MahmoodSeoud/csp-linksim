@@ -26,10 +26,10 @@
 
 #include <string.h>
 #include <csp/csp.h>
-#include <csp/drivers/can_socketcan.h>
-#include <csp/interfaces/csp_if_zmqhub.h>
 #include <vmem/vmem.h>
 #include <vmem/vmem_server.h>
+
+#include "e2e_node.h"
 
 /* 1 MiB flat RAM scratch: fits the pinned 256 KiB payload and larger, byte-faithful,
  * cannot wedge like a file/NVMe-backed region.
@@ -68,7 +68,6 @@ vmem_t vmem_bigmem = {
     .driver = NULL,
 };
 
-static void *router_task(void *param) { (void)param; while (1) { csp_route_work(); } return NULL; }
 static void *vmem_task(void *param)   { vmem_server_loop(param); return NULL; }
 
 int main(int argc, char **argv)
@@ -98,34 +97,11 @@ int main(int argc, char **argv)
         }
     }
 
-    csp_init();
-
-    csp_iface_t *iface = NULL;
-    int err;
-    if (zmq_host != NULL) {
-        /* Same endpoint convention as svu_net.c and the injector's zmq side. */
-        char pub_ep[128], sub_ep[128];
-        snprintf(pub_ep, sizeof(pub_ep), "tcp://%s:6000", zmq_host);
-        snprintf(sub_ep, sizeof(sub_ep), "tcp://%s:7000", zmq_host);
-        err = csp_zmqhub_init_w_endpoints(addr, pub_ep, sub_ep, 0, &iface);
-        if (err != CSP_ERR_NONE) {
-            fprintf(stderr, "vmem_node: failed to join broker at %s, error %d\n", zmq_host, err);
-            return 1;
-        }
-    } else {
-        err = csp_can_socketcan_open_and_add_interface(dev, "CAN", addr, bitrate, true, &iface);
-        if (err != CSP_ERR_NONE) {
-            fprintf(stderr, "vmem_node: failed to open CAN [%s], error %d\n", dev, err);
-            return 1;
-        }
+    if (e2e_node_up(zmq_host, dev, addr, bitrate) == NULL) {
+        return 1;
     }
-    iface->is_default = 1;
 
-    /* services (ping/ident) so health checks work; vmem_server binds its own port */
-    csp_bind_callback(csp_service_handler, CSP_ANY);
-
-    pthread_t rt, vt;
-    pthread_create(&rt, NULL, router_task, NULL);
+    pthread_t vt;
     pthread_create(&vt, NULL, vmem_task, NULL);
 
     printf("vmem_node up: addr=%u %s=%s region=bigmem size=1048576 vaddr=0x%llx\n",
