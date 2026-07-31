@@ -18,17 +18,22 @@
 #include "ci_svu.h"
 
 /* Receive data packets until the link goes idle for `idle_ms`, feeding ci_svu. */
-static void drain_data(csp_socket_t *data_sock, ci_svu_t *recv, uint32_t idle_ms)
+/* Returns the number of data frames accepted, so the caller can tell a genuinely
+ * idle link (0) from a drain that is still making progress. */
+static uint32_t drain_data(csp_socket_t *data_sock, ci_svu_t *recv, uint32_t idle_ms)
 {
     csp_packet_t *pkt;
+    uint32_t accepted = 0u;
     while ((pkt = csp_recvfrom(data_sock, idle_ms)) != NULL) {
         if (pkt->length > SVU_DATA_HDR) {
             uint32_t off = svu_get32(pkt->data + 0);
             uint32_t len = (uint32_t)pkt->length - SVU_DATA_HDR;
             ci_svu_accept(recv, off, pkt->data + SVU_DATA_HDR, len);
+            accepted++;
         }
         csp_buffer_free(pkt);
     }
+    return accepted;
 }
 
 /* One CTRL round: send the request, read the resp header + manifest. */
@@ -165,10 +170,20 @@ int svu_client_run(uint16_t server_addr, uint32_t block_size, uint32_t mtu,
         }
         free(manifest);
 
-        drain_data(&data_sock, recv, 2000);
-
+        /* Drain until the link is genuinely quiet. Verifying while frames are
+         * still arriving (server mid-blast, or a host stall longer than one
+         * idle window) would burn a recovery round on data already in flight,
+         * making the rounds metric sensitive to host load rather than to loss.
+         * Re-verify as long as a drain made progress; a re-request goes out
+         * only when a full idle window passed with nothing new AND gaps remain. */
         uint32_t nout = 0u;
-        st = ci_svu_verify(recv, ivs, SVU_MAX_INTERVALS, &nout);
+        for (;;) {
+            uint32_t got = drain_data(&data_sock, recv, 2000);
+            st = ci_svu_verify(recv, ivs, SVU_MAX_INTERVALS, &nout);
+            if (st == CI_SVU_COMPLETE_VERIFIED || got == 0u) {
+                break;
+            }
+        }
         if (st == CI_SVU_COMPLETE_VERIFIED) {
             break;
         }
