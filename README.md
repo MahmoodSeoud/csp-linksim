@@ -155,20 +155,57 @@ python3 scripts/plot_calibration.py     # injector calibration
 
 ## Scripts reference
 
+Naming convention: `<mechanism>-<transport>-sweep` runs a full loss grid
+(`zmq` = loopback container arm, no hardware; no transport suffix = flatsat CAN arm);
+`*-point` runs one instrumented cell; everything else is an operational helper or a
+one-off diagnostic, named for what it does.
+
+**Entry points**
+
 | Script | What it does |
 |--------|--------------|
 | `scripts/reproduce` | **start here** — build, regression suite, and every laptop-reproducible arm |
 | `scripts/bench` | Docker wrapper: build/test/run any driver on any host, macOS included |
+| `scripts/flatsat-build` | build the full mission stack (csh, satdeploy APM, agents, uploader) in the container |
+
+**Sweep drivers (one per arm)**
+
+| Script | What it does |
+|--------|--------------|
 | `scripts/dtp-zmq-sweep` | deployed-uploader (DTP) arm on loopback ZMQ; builds DISCO's sources |
 | `scripts/rdp-zmq-sweep` | reliable vmem reference arm (RDP+CRC32) on loopback ZMQ |
 | `scripts/svu-zmq-sweep` | SVU arm on loopback ZMQ |
+| `scripts/satdeploy-zmq-sweep` | satdeploy smart/naive arm on loopback ZMQ (matched head-to-head vs SVU) |
+| `scripts/satdeploy-sweep` | satdeploy smart/naive sweep on the flatsat; agent on the payload board as 5427 |
+| `scripts/svu-paced-sweep` | SVU under half-duplex airtime pacing (reverse frames cost airtime) |
+| `scripts/rdp-bigmem-sweep` | RDP arm against the big-memory vmem target (uses `rdp-bigmem-point` per cell) |
+
+**Diagnostics (back specific claims in the write-up)**
+
+| Script | What it does |
+|--------|--------------|
 | `scripts/rdp-rate-compare` | paced-vs-unpaced RDP failure-mode comparison (same seeds, same drops) |
 | `scripts/rdp-settle-check` | discriminates real corruption from verify-timing artifacts |
+| `scripts/rdp-bigmem-point` | one instrumented RDP cell against the big-memory target |
+
+**Flatsat operations**
+
+| Script | What it does |
+|--------|--------------|
 | `scripts/can0-bench` | one-command two-oracle bench on the real flatsat CAN bus |
 | `scripts/upload-point` | one fully-instrumented loss point of the deployed arm, on the flatsat |
-| `scripts/satdeploy-sweep` | satDeploy smart/naive loss sweep; agent on the payload board as 5427 |
 | `scripts/restart-upload-client` | respawn the deployed upload_client (it exits after each transfer) |
 | `scripts/deploy-agent` | push the patched ARM agent to the payload board at loss=0 |
+| `scripts/bringup-vmem-node` | stand up the vmem target node for the RDP arms |
+
+**Analysis**
+
+| Script | What it does |
+|--------|--------------|
+| `scripts/plot_calibration.py` | regenerate the injector calibration figure (no bench needed) |
+| `scripts/parse_flight_dtp.py` | parse recorded flight DTP sessions into `captures/flight_dtp_*.csv` |
+| `scripts/oracle_join.awk` | join drop-oracle and monitor logs per cell |
+| `scripts/lib/zmq-sweep-lib.sh` | shared plumbing sourced by every `*-zmq-sweep` driver |
 
 ---
 

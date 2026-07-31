@@ -19,7 +19,7 @@
 # MISMATCH cells are receiver-hang artifacts, not CRC bypass (see notes/rdp-integrity-finding).
 set -uo pipefail
 REPO=/home/mseo/thesis/csp-intercept
-DRV="$REPO/scripts/rdp-repro-5431"       # per-cell driver (retargeted rdp-point: 5431/bigme)
+DRV="$REPO/scripts/rdp-bigmem-point"       # per-cell driver (single-cell driver)
 MODE="${1:-both}"; LOSSES="${2:-0.10 0.20 0.30}"; NSEEDS="${3:-3}"
 CSV="$REPO/captures/rdp_bigmem_sweep.csv"
 [ -f "$CSV" ] || echo "mode,loss,seed,injected,dropped,claimed,crc,sha,verdict,ts" > "$CSV"

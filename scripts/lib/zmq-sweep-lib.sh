@@ -1,6 +1,6 @@
 # zmq-sweep-lib.sh - the shared plumbing of the loopback-ZMQ sweep drivers.
 #
-# Sourced by svu-zmq-sweep, rdp-zmq-sweep, dtp-zmq-sweep and rdp-settle-check. Everything
+# Sourced by the *-zmq-sweep drivers (svu, rdp, dtp, satdeploy) and rdp-settle-check. Everything
 # here is topology and bookkeeping; the arm-specific logic (which processes make up a cell,
 # what the mechanism's verdict means) stays in each driver where it belongs.
 #
