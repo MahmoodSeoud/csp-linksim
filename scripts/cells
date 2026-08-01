@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""cells - one view over every experimental cell in captures/.
+
+The raw CSVs are append-only evidence: one file per driver, schemas differing because
+each mechanism reports different things. That is deliberate (provenance stays pinned),
+but it means no single file answers "what do we have?". This script derives that answer:
+it normalizes every known capture file into one schema and prints the arm-by-basis
+matrix, per-file detail, and consistency anomalies. Read-only; the derived index is
+written to captures/cells_index.csv, which the gitignore leaves untracked (regenerable).
+
+Usage: scripts/cells [repo-root]
+"""
+import csv, os, sys
+from collections import Counter, defaultdict
+
+REPO = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CAP = os.path.join(REPO, "captures")
+
+# file -> (arm source, evidence basis, kind). arm "col:NAME" reads per-row.
+FILES = {
+    "rq3_corruption.csv":    ("deployed-uploader", "board",  "sweep"),
+    "dipp_sweep.csv":        ("deployed-uploader", "board",  "calibration"),
+    "rawdtp_sweep.csv":      ("raw-dtp",           "board",  "sweep"),
+    "satdeploy_sweep.csv":   ("col:arm",           "board",  "sweep"),
+    "rdp_sweep.csv":         ("rdp",               "board",  "sweep"),
+    "rdp_zmq_sweep.csv":     ("rdp",               "host",   "sweep"),
+    "svu_sweep.csv":         ("svu",               "host",   "sweep"),
+    "dtp_zmq_sweep.csv":     ("deployed-uploader", "host",   "sweep"),
+    "h2h_satdeploy.csv":     ("col:arm",           "host",   "h2h"),
+    "h2h_svu.csv":           ("svu",               "host",   "h2h"),
+    "rate_fast_L0.30.csv":   ("rdp",               "host",   "rate-compare"),
+    "rate_slow_4800_L0.30.csv": ("rdp",            "host",   "rate-compare"),
+    "flight_dtp_20260624.csv": ("deployed-uploader","flight","observational"),
+    "svu_board_sweep.csv":   ("svu",               "board",  "sweep"),
+}
+# replication evidence committed under repro_* (variable names)
+for f in sorted(os.listdir(CAP)) if os.path.isdir(CAP) else []:
+    if f.startswith("repro_") and f.endswith(".csv"):
+        arm = "svu" if "svu" in f else "rdp"
+        FILES[f] = (arm, "host", "replication")
+
+VERDICT_COLS = ["result", "claimed", "client_verdict", "client_reported_success"]
+
+def rows(path):
+    with open(path, newline="") as fh:
+        yield from csv.DictReader(fh)
+
+index, anomalies = [], []
+for fname, (armspec, basis, kind) in FILES.items():
+    path = os.path.join(CAP, fname)
+    if not os.path.exists(path):
+        continue
+    seen = Counter()
+    for r in rows(path):
+        arm = r.get(armspec[4:], "?") if armspec.startswith("col:") else armspec
+        if fname.startswith("h2h_satdeploy") or fname.startswith("satdeploy_sweep"):
+            arm = f"satdeploy-{arm}"
+        loss, seed = r.get("loss", ""), r.get("seed", "")
+        mtu = r.get("mtu", "") or r.get("rate_bps", "")  # grid or pacing as sub-key
+        verdict = next((r[c] for c in VERDICT_COLS if r.get(c)), "")
+        sha = r.get("sha", "") or r.get("sha256_verdict", "") or r.get("matches_original", "")
+        harness = r.get("harness", "")
+        key = (arm, loss, seed, mtu)
+        seen[key] += 1
+        if seen[key] > 1 and kind == "sweep":
+            anomalies.append(f"{fname}: duplicate cell {key}")
+        if harness and not (harness.startswith("clean") or harness == "na"):
+            anomalies.append(f"{fname}: non-clean harness at loss={loss} s={seed}: {harness}")
+        index.append(dict(file=fname, kind=kind, arm=arm, basis=basis, loss=loss,
+                          seed=seed, mtu=mtu, verdict=verdict, sha=sha, harness=harness))
+
+out = os.path.join(CAP, "cells_index.csv")
+with open(out, "w", newline="") as fh:
+    w = csv.DictWriter(fh, fieldnames=list(index[0].keys()))
+    w.writeheader(); w.writerows(index)
+
+matrix = defaultdict(Counter)
+for c in index:
+    matrix[c["arm"]][c["basis"]] += 1
+
+print(f"{'ARM':24s} {'host':>6s} {'board':>6s} {'flight':>7s}   (cells, all kinds)")
+for arm in sorted(matrix):
+    m = matrix[arm]
+    print(f"{arm:24s} {m['host']:6d} {m['board']:6d} {m['flight']:7d}")
+print(f"{'TOTAL':24s} {sum(m['host'] for m in matrix.values()):6d} "
+      f"{sum(m['board'] for m in matrix.values()):6d} "
+      f"{sum(m['flight'] for m in matrix.values()):7d}")
+
+print("\nPer file:")
+per = Counter((c["file"], c["kind"]) for c in index)
+for (f, k), n in sorted(per.items()):
+    print(f"  {f:32s} {k:13s} {n:4d} rows")
+
+print(f"\nIndex written: {out}")
+if anomalies:
+    print(f"\nANOMALIES ({len(anomalies)}):")
+    for a in anomalies[:20]:
+        print(f"  {a}")
+else:
+    print("\nNo anomalies: no duplicate cells, every harness column clean.")
