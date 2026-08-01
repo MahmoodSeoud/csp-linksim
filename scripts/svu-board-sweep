@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+#
+# svu-board-sweep - the SVU arm against the payload board over the real CAN bus.
+#
+# This is the measurement that closes SVU's evidentiary gap: every SVU cell so far is
+# host-arm (loopback ZMQ). Here the receiving end is the flight-representative payload
+# board, reached over can0, with the injector bridging the ground's ZMQ segment onto the
+# bus exactly as scripts/satdeploy-sweep does for the satdeploy arm:
+#
+#   svu (push, ZMQ 127.0.0.1 as $GS_ADDR) -> broker -> ci_inject_bridge -> can0 -> svu_daemon on board
+#                                                (drops SVU data frames, dport 9 = oracle A)
+#
+# GRID: svu_daemon pulls at a hardcoded MTU 256 / block 4096 (svu_daemon.c:80), i.e. the
+# 248-byte span, 1058-fragment flight grid -- the same grid as the board satdeploy dataset
+# and the matched h2h 256 arm. The observed grid is derived from oracle A per cell and
+# recorded; a cell whose observed grid is not $TOTAL is invalid, same rule as everywhere.
+#
+# BOARD SIDE (once per session): deploy and start the daemon, e.g.
+#   scp <arm64-build>/svu/svu_daemon root@<board>:/home/root/
+#   ssh root@<board> '/home/root/svu_daemon -c can0 -a 5427 &'
+# The aarch64 binaries live in the csp-bench-arm64-build docker volume (see memory of
+# 2026-07-31 build; rebuild: docker run --platform linux/arm64 ... ninja -C /build).
+#
+# EXTERNAL ORACLE (optional but valuable): set BOARD_SSH=root@<board> and the script
+# scps each delivered file back and sha256s it on the ground. That gives the SVU board
+# arm the EXTERNAL verification the satdeploy board arm could not have -- the daemon's
+# OK is then a claim checked from outside, not trusted.
+#
+# Pacing defaults to 9600 bit/s to match the committed board satdeploy sweep; set
+# RATE_BPS=4800 for the flight uplink rate, RATE_BPS=0 for unpaced.
+#
+# Usage: svu-board-sweep            (env: LOSSES, SEEDS, RATE_BPS, BOARD_SSH, TAG)
+# Resumable: cells already recorded status=ok are skipped. Exit 2 = daemon down.
+set -uo pipefail
+
+REPO="${REPO:-/home/mseo/thesis/csp-intercept}"
+SVU="$REPO/build/svu/svu"
+INJ="$REPO/build/tests/e2e/ci_inject_bridge"
+PROXY="$REPO/build/proxy/zmqproxy-lossy"
+OUT="${CSV:-$REPO/captures/svu_board_sweep.csv}"
+
+GS_ADDR=5425; BOARD_ADDR="${BOARD_ADDR:-5427}"; DPORT=9
+MTU=256; OVH=8; TOTAL=1058           # fixed by svu_daemon.c:80; verified per cell
+PBYTES="${PBYTES:-262144}"
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
+LOSSES="${LOSSES:-0 0.02 0.05 0.10 0.20 0.30}"
+SEEDS="${SEEDS:-1 2 3}"
+RATE_BPS="${RATE_BPS:-9600}"
+TAG="${TAG:-b1_}"
+BOARD_SSH="${BOARD_SSH:-}"
+
+PACE_US=$(( RATE_BPS > 0 ? MTU * 8 * 1000000 / RATE_BPS : 0 ))
+SER_S=$(( RATE_BPS > 0 ? TOTAL * PACE_US / 1000000 : 30 ))
+PUSH_TO=$(( SER_S * 3 + 120 )); [ "$PUSH_TO" -lt 300 ] && PUSH_TO=300
+INJ_TO=$(( PUSH_TO + 60 ))
+
+for b in "$SVU" "$INJ" "$PROXY"; do
+    [ -x "$b" ] || { echo "FAIL: missing $b (build the frontends first)"; exit 1; }
+done
+
+# Same seeded payload as every laptop arm, so the digest column is cross-comparable.
+IN="/tmp/sweep_payload_${PBYTES}_${PAYLOAD_SEED}.bin"
+if [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" != "$PBYTES" ]; then
+    python3 -c "
+import random, sys
+r = random.Random($PAYLOAD_SEED)
+sys.stdout.buffer.write(bytes(r.getrandbits(8) for _ in range($PBYTES)))
+" > "$IN" || exit 1
+fi
+IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
+
+# One broker on loopback for the ground segment (idempotent).
+pgrep -f zmqproxy-lossy >/dev/null || { "$PROXY" -s tcp://127.0.0.1:6000 -p tcp://127.0.0.1:7000 >/tmp/svub_broker.log 2>&1 & sleep 1; }
+
+daemon_up(){
+    # Probe over can0 DIRECTLY (the bench host is on the bus): the ZMQ segment only
+    # reaches the board while a bridge is up, so a ZMQ probe outside a cell would
+    # always fail. A /dev/null push is a harmless liveness check -- any verdict
+    # (OK or FAIL) proves the daemon answers.
+    timeout 15 "$SVU" -c can0 -a $GS_ADDR /dev/null "$BOARD_ADDR:/dev/null" >/tmp/svub_probe.log 2>&1
+    grep -qaE "OK|FAIL" /tmp/svub_probe.log
+}
+
+echo "svu-board-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "  grid=fixed mtu=$MTU total=$TOTAL rate_bps=$RATE_BPS pace_us=$PACE_US push_to=${PUSH_TO}s"
+echo "  board=$BOARD_ADDR external_oracle=$([ -n "$BOARD_SSH" ] && echo scp || echo none)  csv=$OUT"
+
+[ -f "$OUT" ] || echo "loss,seed,label,injected,dropped,rev_frames,result,sha,obs_grid,transport,harness,rate_bps,payload_sha256,status,ts" > "$OUT"
+
+daemon_up || { echo "FAIL: svu_daemon at $BOARD_ADDR not answering on can0 -- start it on the board first (see header)"; exit 2; }
+
+trap 'pkill -f ci_inject_bridge 2>/dev/null; exit 130' INT TERM
+
+for loss in $LOSSES; do for seed in $SEEDS; do
+  label="svub_${TAG}L${loss}_s${seed}"
+  if awk -F, -v l="$loss" -v s="$seed" 'NR>1&&$1==l&&$2==s&&$14=="ok"{f=1}END{exit !f}' "$OUT"; then
+      echo "-- $label done, skip"; continue; fi
+  if pgrep -x ci_inject_bridge >/dev/null; then echo "FAIL: stray bridge, clean up first"; exit 1; fi
+
+  DEST="/home/root/svu_${TAG}${label}.bin"
+  ORA="$REPO/captures/${label}_oracleA.csv"; ILOG="/tmp/${label}_inj.log"; rm -f "$ORA"
+
+  timeout "$INJ_TO" "$INJ" "zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,$BOARD_ADDR" \
+      can:can0 $DPORT "$MTU" "$OVH" "$loss" 4 "$seed" "$ORA" $GS_ADDR "$PACE_US" >"$ILOG" 2>&1 &
+  INJPID=$!; sleep 3
+
+  out=$(timeout "$PUSH_TO" "$SVU" -z 127.0.0.1 -a $GS_ADDR "$IN" "$BOARD_ADDR:$DEST" 2>&1)
+  kill -INT "$INJPID" 2>/dev/null; sleep 0.3; kill "$INJPID" 2>/dev/null; wait "$INJPID" 2>/dev/null || true
+
+  result=INCOMPLETE
+  echo "$out" | grep -qa "OK"   && result=DELIVERED
+  echo "$out" | grep -qa "FAIL" && result=FAILED
+  if [ "$result" = INCOMPLETE ] && ! daemon_up; then
+      echo ">>> DAEMON DOWN at $label -- restart svu_daemon on the board, re-run (resumable) <<<"; exit 2; fi
+
+  inj=$(awk -F, '!/^#/{c++}END{print c+0}' "$ORA")
+  drp=$(awk -F, '!/^#/&&$8==1{c++}END{print c+0}' "$ORA")
+  rev=$(grep -oE 'reverse_frames=[0-9]+' "$ILOG" | grep -oE '[0-9]+' | tail -1); rev="${rev:-0}"
+  obs=$(awk -F, '!/^#/{if($6+0>m)m=$6+0;s=1}END{print s?m+1:0}' "$ORA")
+  ne=$(grep -oE 'nexthop_errors=[0-9]+' "$ILOG" | grep -oE '[0-9]+' | tail -1); ne="${ne:-0}"
+  harness="clean"; [ "$ne" != 0 ] && harness="INVALID_nexthop_err=$ne"
+  [ "$obs" != "$TOTAL" ] && [ "$inj" != 0 ] && harness="frag_mismatch(obs=$obs/exp=$TOTAL);$harness"
+
+  sha=UNVERIFIED
+  if [ -n "$BOARD_SSH" ]; then
+      if scp -q "$BOARD_SSH:$DEST" "/tmp/${label}_back.bin" 2>/dev/null; then
+          got=$(sha256sum "/tmp/${label}_back.bin" | cut -d' ' -f1)
+          sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
+      else
+          sha=READBACK_FAILED
+      fi
+  fi
+
+  ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  warn=""; [ "$result" = DELIVERED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
+  echo "$loss,$seed,$label,$inj,$drp,$rev,$result,$sha,$obs,can,$harness,$RATE_BPS,$IN_SHA,ok,$ts" >> "$OUT"
+  echo "[$label] result=$result sha=$sha inj=$inj drop=$drp rev=$rev grid=$obs harness=$harness$warn"
+  sleep 3
+done; done
+
+echo; echo "== $OUT =="
+column -t -s, "$OUT" 2>/dev/null || cat "$OUT"
+echo "-- silent corruption (DELIVERED & MISMATCH, expect 0) --"
+awk -F, 'NR>1&&$7=="DELIVERED"&&$8=="MISMATCH"{c++}END{print c+0}' "$OUT"

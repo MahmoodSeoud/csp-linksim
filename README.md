@@ -177,6 +177,7 @@ one-off diagnostic, named for what it does.
 | `scripts/svu-zmq-sweep` | SVU arm on loopback ZMQ |
 | `scripts/satdeploy-zmq-sweep` | satdeploy smart/naive arm on loopback ZMQ (matched head-to-head vs SVU) |
 | `scripts/satdeploy-sweep` | satdeploy smart/naive sweep on the flatsat; agent on the payload board as 5427 |
+| `scripts/svu-board-sweep` | SVU sweep against the payload board over can0; optional scp read-back oracle |
 | `scripts/svu-paced-sweep` | SVU under half-duplex airtime pacing (reverse frames cost airtime) |
 | `scripts/rdp-bigmem-sweep` | RDP arm against the big-memory vmem target (uses `rdp-bigmem-point` per cell) |
 
