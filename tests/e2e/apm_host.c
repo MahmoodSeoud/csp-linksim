@@ -20,6 +20,10 @@
  *  Phase 2 (integration, 5 cycles): real start -> inject N -> stop, asserting the CSV
  *    holds N per-packet rows + >=1 #WINDOW row, and csp_buffer_remaining() returns to
  *    baseline after every stop (no leak / no stale-queue carryover across cycles).
+ *  Phase 3 (presence rows): non-RDP, non-bulk packets on the matched dport (param-
+ *    style traffic, port 10) must each produce a presence row, while traffic on other
+ *    ports stays excluded by the filter. Guards the "matched port silently logs
+ *    nothing" trap for management-plane traffic.
  */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -93,6 +97,27 @@ static void inject_rdp(uint16_t seq) {
     p->length   = 8;
     csp_qfifo_write(p, &host_iface, NULL);
     csp_route_work();                     /* qfifo -> promisc clone + free original */
+}
+
+/* Inject one promisc-visible PLAIN frame (no RDP flag, not a bulk port): the shape
+ * of a param set/get or CMP exchange. The APM must log these as presence rows. */
+static void inject_plain(uint16_t dport) {
+    csp_packet_t *p = csp_buffer_get(0);
+    if (p == NULL) {
+        CHECK(0, "csp_buffer_get returned NULL (pool exhausted)");
+        return;
+    }
+    memset(&p->id, 0, sizeof(p->id));
+    p->id.pri   = 2;
+    p->id.src   = 10;
+    p->id.dst   = HOST_ADDR;
+    p->id.dport = dport;
+    p->id.sport = 41;
+    p->id.flags = 0;                      /* no FRDP -> presence-row path */
+    p->data[0]  = 0x55;
+    p->length   = 1;
+    csp_qfifo_write(p, &host_iface, NULL);
+    csp_route_work();
 }
 
 /* Drive a real slash command: the command fns only read slash->argc / slash->argv. */
@@ -184,6 +209,34 @@ int main(void) {
               "cycle %d: remaining %d != baseline %d (leak across start/stop)",
               c, rem, baseline);
     }
+
+    /* ---- Phase 3: presence rows for non-RDP, non-bulk traffic (param shape) ---- */
+    const int M = 20;
+    char *start10_argv[] = {"start", "-o", (char *)csv, "-d", "10", "-w", "50"};
+
+    rc = run_cmd(csp_monitor_start_cmd, 7, start10_argv);
+    CHECK(rc == SLASH_SUCCESS, "phase3: start rc=%d", rc);
+
+    for (int i = 0; i < M; i++) {
+        inject_plain(10);          /* matched: must log a presence row each */
+        usleep(1000);
+    }
+    for (int i = 0; i < 5; i++) {
+        inject_plain(11);          /* unmatched port: filter must exclude */
+        inject_rdp((uint16_t)i);   /* RDP on 13: dport mismatch, excluded too */
+        usleep(1000);
+    }
+    usleep(150000);                /* > 2 windows so >=1 #WINDOW row is emitted */
+
+    rc = run_cmd(csp_monitor_stop_cmd, 1, stop_argv);
+    CHECK(rc == SLASH_SUCCESS, "phase3: stop rc=%d", rc);
+
+    int windows3 = 0;
+    int rows3 = count_csv_rows(csv, &windows3);
+    CHECK(rows3 == M, "phase3: CSV per-packet rows=%d, expected %d presence rows", rows3, M);
+    CHECK(windows3 >= 1, "phase3: CSV #WINDOW rows=%d, expected >=1", windows3);
+    CHECK(csp_buffer_remaining() == baseline,
+          "phase3: remaining %d != baseline %d (leak)", csp_buffer_remaining(), baseline);
 
     if (fails == 0) {
         printf("apm_host: PASS\n");

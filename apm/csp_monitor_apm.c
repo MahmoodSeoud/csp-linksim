@@ -4,7 +4,10 @@
  * `csp_monitor start` enables libcsp promiscuous mode and spawns a background
  * drainer that, for traffic matching a target dport, parses the RDP trailer (ports
  * 7/13) or DTP offset (port 8) via the shared lib, infers loss/dup/reorder + an
- * observed-at-tap RTT (lib/ci_meas), and appends a frozen-schema CSV row. Each
+ * observed-at-tap RTT (lib/ci_meas), and appends a frozen-schema CSV row. Matched
+ * packets that are neither RDP-flagged nor bulk data (e.g. param ops on port 10)
+ * get a presence row -- timing and CSP header only, protocol columns empty -- so
+ * a matched port never silently logs nothing. Each
  * window it writes a #WINDOW summary carrying a MEASUREMENT_SUSPECT flag so
  * instrument loss (promisc queue overflow / buffer-pool exhaustion) is never
  * mistaken for link loss. `csp_monitor stop` joins the drainer and closes the CSV.
@@ -65,6 +68,15 @@ static uint64_t mon_loss_suspect_windows;
  * vmem/vmem_server.h); named here so the start banner can gloss -d 14. */
 #define CI_VMEM_UPLOAD_PORT 14
 
+/* SVU's connectionless bulk plane (SVU_DATA_PORT in svu/svu_proto.h) --
+ * satdeploy v2's transfer layer. Its meta handshake rides port 11 as a plain
+ * CSP conn and needs no per-packet row. */
+#define MON_SVU_DATA_PORT 9
+
+/* libparam's request/response plane (PARAM_PORT_SERVER in param/param_server.h):
+ * plain CSP + CRC32, no RDP flag, so it takes the presence-row path. */
+#define MON_PARAM_PORT 10
+
 /* Human label for the matched dport, so a first-time operator sees WHAT they are
  * watching instead of a bare number (the port mismatch that silently logs zero). */
 static const char *mon_dport_label(int dport) {
@@ -72,6 +84,8 @@ static const char *mon_dport_label(int dport) {
         case CI_DTP_DATA_PORT:    return "DTP data (deployed uploader, no integrity)";
         case CI_DIPP_META_PORT:   return "DIPP / RDP meta";
         case CI_VMEM_UPLOAD_PORT: return "vmem RDP+CRC32 upload (csh `upload`)";
+        case MON_SVU_DATA_PORT:   return "SVU bulk data (satdeploy v2 transfer)";
+        case MON_PARAM_PORT:      return "param ops (libparam set/get)";
         default:                  return dport < 0 ? "ANY dport" : "custom port";
     }
 }
@@ -122,7 +136,14 @@ static void *mon_drainer(void *arg) {
                             t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags,
                             ok ? h.flags : 0, ok ? h.seq : 0, ok ? h.ack : 0,
                             paired, paired ? rtt : 0);
-                } else if (pk->id.dport == CI_DTP_DATA_PORT) {
+                } else if (pk->id.dport == CI_DTP_DATA_PORT ||
+                           pk->id.dport == MON_SVU_DATA_PORT) {
+                    /* SVU's bulk plane (port 9) shares DTP's wire shape for the one
+                     * field the monitor indexes on: a leading uint32 byte offset.
+                     * (SVU's header is [u32 offset][u32 session]; -O 8 makes the
+                     * fragment divisor match its mtu-8 useful payload.) Logging it
+                     * here is what makes the monitor oracle B for satdeploy v2,
+                     * whose transfer layer IS SVU. */
                     uint32_t off = 0, frag = 0;
                     if (ci_dtp_parse_offset(pk->data, pk->length, &off) == 0) {
                         /* Overhead-aware: dipp (4) and satDeploy (8) share the offset
@@ -133,6 +154,14 @@ static void *mon_drainer(void *arg) {
                     }
                     fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,0,,,,%u,%u,,\n",
                             t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags, off, frag);
+                } else {
+                    /* Neither RDP-flagged nor bulk data: management-plane traffic
+                     * (param set/get, CMP, ping replies). Presence + timing is the
+                     * whole measurement -- a request/response that made it across
+                     * leaves two rows. Protocol columns stay empty; same 13-field
+                     * frozen schema, so existing parsers are unaffected. */
+                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,0,,,,,,,\n",
+                            t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags);
                 }
             }
             csp_buffer_free(pk);
@@ -250,7 +279,7 @@ static int csp_monitor_start_cmd(struct slash *slash) {
            mon_window_ms, mon_mtu, mon_dtp_overhead,
            mon_dtp_overhead == CI_DTP_OVERHEAD_SATDEPLOY ? " satDeploy" :
            mon_dtp_overhead == CI_DTP_OVERHEAD_DIPP ? " dipp" : "");
-    printf("csp_monitor: port map -> 8=DTP data, 13=DIPP/RDP meta, 14=vmem upload; -d -1 = any\n");
+    printf("csp_monitor: port map -> 8=DTP data, 9=SVU data, 10=param, 13=DIPP/RDP meta, 14=vmem upload; -d -1 = any\n");
     if (mon_match_dport < 0) {
         printf("csp_monitor: note -d -1 captures ALL ports, so inferred_loss mixes connections\n"
                "  and will read as untrustworthy on a busy bus. Match ONE port (e.g. -d 14) for a\n"
@@ -419,6 +448,28 @@ static int verify_cmd(struct slash *slash) {
 }
 slash_command(verify, verify_cmd, "[-c MANIFEST | -e SHA256] [-r STATUS] [-v] FILE",
               "Verify a delivered file against its expected sha256 (OK/FAILED)");
+
+/* Bare `csp_monitor`: same reasoning as csp_loss's -- "No such command" on the
+ * group name reads as a failed plugin load, not a missing subcommand. */
+static int csp_monitor_help_cmd(struct slash *slash) {
+    (void)slash;
+    printf("  Record every frame that crosses the link -- an independent witness,\n");
+    printf("  separate from whatever the sender claims it sent.\n\n");
+    printf("  csp_monitor start -d 9 -o wire.csv   capture one port to a CSV\n");
+    printf("  csp_monitor stop                     flush and close the CSV\n");
+    printf("\n");
+    printf("  Ports: 8 = DTP data, 9 = SVU bulk (satdeploy v2), 10 = param ops,\n");
+    printf("  13 = RDP meta, 14 = vmem upload, -1 = everything. Scoping to one\n");
+    printf("  port keeps the inferred loss figure meaningful; -d -1 mixes\n");
+    printf("  connections. Non-RDP, non-bulk packets log a presence row (timing\n");
+    printf("  and CSP header only).\n");
+    printf("\n");
+    printf("  `csp_monitor start -h` lists every option.\n");
+    return SLASH_SUCCESS;
+}
+
+slash_command(csp_monitor, csp_monitor_help_cmd, NULL,
+              "Record what crosses the link (run for help)");
 
 int apm_init(void) {
     return 0;
