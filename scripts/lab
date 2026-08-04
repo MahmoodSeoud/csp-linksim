@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+#
+# lab - one container holding every uploader, so they can be driven side by side.
+#
+#   scripts/bench lab                 the full mission stack: ground + satellite
+#                                     + the A53 management plane (real mng_dipp
+#                                     on a KISS pty, DIPP on ZMQ)
+#   scripts/bench lab --check         report what is available, start nothing
+#
+# WHY THIS LIVES HERE AND NOT IN satDeploy
+# satDeploy's own demo container can only ever show satDeploy: it builds csh from
+# upstream and knows nothing about the mission's other software. This container
+# already mounts DISCO's tree and satDeploy's, and `flatsat-build` already builds
+# the whole stack from both. So the comparison the thesis makes on paper --
+# satdeploy against the deployed uploader against the reliable path -- can be
+# driven by hand here, at the same injected loss, in one session.
+#
+# WHAT YOU GET
+#   satdeploy push <local> <remote>   the contributed tool (csh APM)
+#   upload_gs-server / upload_client  DISCO's deployed uploader (DTP)
+#   upload <file> <node>              csh's own vmem upload (RDP + CRC32)
+#   csp_link / csp_loss / csp_monitor the instrument: measure, impair, record
+#
+# All four talk over the same loopback ZMQ bus, so `csp_loss start -L 0.1`
+# impairs whichever one you run next. That is the point: same link, same loss,
+# different uploader.
+#
+# WHAT A CONTAINER CANNOT REPRODUCE
+# The CAN segment, its framing and bus arbitration, and real board timing. The
+# mission binaries take -i ZMQ natively (their own dev configuration does), so
+# nothing is patched to run here -- but a result measured here is a result about
+# the protocol, not about the radio. The board arms live in scripts/*-sweep and
+# need the flatsat.
+#
+# The A53 management plane (flatsat rehearsal): runs the app-sys-manager UNPATCHED.
+# It only speaks CAN ("can0") or KISS ("/dev/ttymxc3"), so the lab fakes the
+# surroundings, never the software: a socat pty pair stands in for the UART
+# (ground csh holds the other end via `csp add kiss`), and /usr/bin/dipp is a
+# wrapper that swaps the board device args for `-i ZMQ` -- an interface DIPP
+# supports natively -- before exec'ing the real, unmodified dipp binary.
+# Addresses mirror the flatsat (manager 5421, DIPP 5423), so the board-day
+# command IS the lab command:  set -n 5421 mng_dipp 5423
+# A pty has no baudrate: functional rehearsal only, never timing numbers.
+set -uo pipefail
+
+# This script runs INSIDE the bench container (which mounts the mission trees
+# at /disco and /satdeploy). Invoked bare on a host, every source looks
+# missing -- catch that early with the actual fix instead of a build error.
+if [ "$(uname -s)" != "Linux" ] || [ ! -d "${BUILD:-/build}" ]; then
+    echo "lab runs inside the bench container, not directly on the host." >&2
+    echo "From the repo root:" >&2
+    echo "    scripts/bench lab                (the full mission stack)" >&2
+    echo "    scripts/bench lab --check        (report what is built)" >&2
+    exit 1
+fi
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(dirname "$HERE")"
+BUILD="${BUILD:-/build}"
+FLATSAT="${FLATSAT_BUILD:-/tmp/flatsat}"
+APMDIR=/tmp/lab-apms
+AGENT_NODE="${AGENT_NODE:-5425}"
+GROUND_NODE="${GROUND_NODE:-19}"
+
+CSH="$FLATSAT/csh/csh"
+ZMQPROXY="$FLATSAT/csh/zmqproxy"
+AGENT="$FLATSAT/agent-smart/satdeploy-agent"
+AGENT_NAIVE="$FLATSAT/agent-naive/satdeploy-agent"
+GS_SERVER="$FLATSAT/gs-server/upload_gs-server"
+SAT_CLIENT="$FLATSAT/sat-client/upload_client"
+
+# The A53 management plane. Addresses mirror the flatsat; the KISS link is a /13
+# pair (5420 ground / 5421 manager), so dst 5421 routes via kiss while everything
+# else falls through to the default ZMQ interface. It is always part of the lab;
+# the only reason it would not start is the binaries not being built (handled
+# below by degrading to the two-pane lab).
+SYSMAN="$FLATSAT/sysman/a53-app-sys-manager"
+DIPP_BIN="$FLATSAT/dipp/dipp"
+MGR_NODE=5421
+GROUND_KISS_NODE=5420
+KISS_BAUD=115200
+PTY_GROUND=/tmp/lab/ttyground
+PTY_MGR=/dev/ttymxc3     # the path the manager hardcodes; a pty in the container
+with_manager=1
+
+check() {
+    printf '%-22s %s\n' "csh (DISCO)"          "$([ -x "$CSH" ] && echo "$CSH" || echo MISSING)"
+    printf '%-22s %s\n' "zmqproxy"             "$([ -x "$ZMQPROXY" ] && echo "$ZMQPROXY" || echo MISSING)"
+    printf '%-22s %s\n' "satdeploy agent"      "$([ -x "$AGENT" ] && echo "$AGENT" || echo MISSING)"
+    printf '%-22s %s\n' "satdeploy agent naive" "$([ -x "$AGENT_NAIVE" ] && echo "$AGENT_NAIVE" || echo MISSING)"
+    printf '%-22s %s\n' "deployed uploader gs" "$([ -x "$GS_SERVER" ] && echo "$GS_SERVER" || echo MISSING)"
+    printf '%-22s %s\n' "deployed uploader sat" "$([ -x "$SAT_CLIENT" ] && echo "$SAT_CLIENT" || echo MISSING)"
+    for a in satdeploy_apm csp_link csp_loss csp_monitor; do
+        case "$a" in
+            satdeploy_apm) so="$FLATSAT/apm/libcsh_satdeploy_apm.so" ;;
+            *)             so="$BUILD/apm/libcsh_${a}.so" ;;
+        esac
+        printf '%-22s %s\n' "$a" "$([ -f "$so" ] && echo "$so" || echo MISSING)"
+    done
+    printf '%-22s %s\n' "a53 sys-manager"      "$([ -x "$SYSMAN" ] && echo "$SYSMAN" || echo "MISSING (run flatsat-build)")"
+    printf '%-22s %s\n' "dipp"                 "$([ -x "$DIPP_BIN" ] && echo "$DIPP_BIN" || echo "MISSING (run flatsat-build)")"
+}
+
+if [ "${1:-}" = "--check" ]; then
+    check
+    exit 0
+fi
+
+# ---- 1. the mission stack (idempotent; builds only what is missing) ---------
+if [ ! -x "$CSH" ] || [ ! -x "$AGENT" ] || \
+   { [ "$with_manager" = 1 ] && { [ ! -x "$SYSMAN" ] || [ ! -x "$DIPP_BIN" ]; }; }; then
+    echo ">>> Building the mission stack (first run is slow)..."
+    "$HERE/flatsat-build" >/tmp/lab-flatsat.log 2>&1 || {
+        echo "FAILED. Last 20 lines of /tmp/lab-flatsat.log:" >&2
+        tail -20 /tmp/lab-flatsat.log >&2
+        exit 1
+    }
+fi
+
+# ---- 2. the instrument APMs ------------------------------------------------
+echo ">>> Building the instrument (csp_link / csp_loss / csp_monitor)..."
+ninja -C "$BUILD" apm/libcsh_csp_link.so apm/libcsh_csp_loss.so \
+                  apm/libcsh_csp_monitor.so >/tmp/lab-apm.log 2>&1 || {
+    echo "FAILED. Last 20 lines of /tmp/lab-apm.log:" >&2
+    tail -20 /tmp/lab-apm.log >&2
+    exit 1
+}
+
+# csh dlopens every libcsh_*.so in one directory, so collect them: the
+# contributed tool and the instrument end up at the same prompt.
+mkdir -p "$APMDIR"
+cp -f "$BUILD"/apm/libcsh_csp_link.so "$BUILD"/apm/libcsh_csp_loss.so \
+      "$BUILD"/apm/libcsh_csp_monitor.so "$APMDIR/"
+[ -f "$FLATSAT/apm/libcsh_satdeploy_apm.so" ] && \
+    cp -f "$FLATSAT/apm/libcsh_satdeploy_apm.so" "$APMDIR/"
+
+# ---- 3. test files and the bus ---------------------------------------------
+mkdir -p /apps /target /tmp/lab
+if [ ! -f /apps/binary-100kb ]; then
+    printf '#!/bin/sh\necho "hello from the lab"\n' > /apps/script-79b
+    chmod +x /apps/script-79b
+    head -c $((100 * 1024))     /dev/urandom > /apps/binary-100kb
+    head -c $((5 * 1024 * 1024)) /dev/urandom > /apps/binary-5mb
+    chmod +x /apps/binary-100kb /apps/binary-5mb
+fi
+
+pkill -x zmqproxy >/dev/null 2>&1
+"$ZMQPROXY" >/tmp/lab/zmqproxy.log 2>&1 &
+sleep 0.5
+
+# ---- 3b. the A53 management plane -------------------------------------------
+KISS_LINE=""
+# Always part of the lab, but only where it CAN run: if the yocto/DIPP trees
+# were not mounted the binaries are absent, so degrade to the two-pane lab with
+# a note rather than failing.
+if { [ ! -x "$SYSMAN" ] || [ ! -x "$DIPP_BIN" ]; }; then
+    echo ">>> A53 manager/DIPP not built -- starting the plain lab." >&2
+    echo "    (mount the yocto + DIPP trees and re-run flatsat-build for the manager pane.)" >&2
+    with_manager=0
+fi
+if [ "$with_manager" = 1 ]; then
+    pkill -f a53-app-sys-manager >/dev/null 2>&1
+    pkill -f "dipp -i ZMQ"       >/dev/null 2>&1
+    pkill -f "link=$PTY_MGR"     >/dev/null 2>&1
+
+    # The manager spawns the literal path /usr/bin/dipp with board device args
+    # (-i KISS/CAN -p /dev/...). This wrapper keeps -a and -v, swaps the interface
+    # for ZMQ (native in dipp), and execs the real, unmodified binary. Output goes
+    # to a log, NOT the manager's popen pipe (which nothing ever reads -- a full
+    # pipe would block DIPP).
+    # bash, not sh: `exec -a` keeps "/usr/bin/dipp" as argv[0] of the real
+    # binary, so the manager's flight-side `pkill -f /usr/bin/dipp` still
+    # matches -- without it, mng_dipp=0 kills only the popen shell and
+    # orphans DIPP.
+    cat > /usr/bin/dipp <<WRAP
+#!/bin/bash
+addr=5423; vmem=""
+while [ \$# -gt 0 ]; do
+    case "\$1" in
+        -a) addr="\$2" ;;
+        -v) vmem="\$2" ;;
+    esac
+    shift
+done
+if [ -n "\$vmem" ]; then
+    mkdir -p "\$vmem"
+    exec -a /usr/bin/dipp $DIPP_BIN -i ZMQ -p localhost -a "\$addr" -v "\$vmem" >>/tmp/lab/dipp.log 2>&1
+fi
+exec -a /usr/bin/dipp $DIPP_BIN -i ZMQ -p localhost -a "\$addr" >>/tmp/lab/dipp.log 2>&1
+WRAP
+    chmod +x /usr/bin/dipp
+
+    # The UART the manager hardcodes, faked with a pty pair; ground csh holds
+    # the other end. A pty has no baudrate -- rehearsal, not timing.
+    mkdir -p /tmp/lab/sysman
+    socat "pty,raw,echo=0,link=$PTY_GROUND" "pty,raw,echo=0,link=$PTY_MGR" \
+        >/tmp/lab/socat.log 2>&1 &
+    sleep 0.3
+    KISS_LINE="csp add kiss -u $PTY_GROUND -b $KISS_BAUD -m 13 $GROUND_KISS_NODE"
+fi
+
+cat > /tmp/lab/ground.csh <<EOF
+csp init
+csp add zmq -d $GROUND_NODE localhost
+$KISS_LINE
+apm load -p $APMDIR
+node $AGENT_NODE
+EOF
+
+echo ">>> Ready."
+
+# ---- 4. panes: ground | satellite (+ manager below satellite) ---------------
+tmux kill-session -t lab >/dev/null 2>&1
+tmux new-session -d -s lab -c /src
+tmux split-window -h -t lab:0 -c /src
+tmux send-keys -t lab:0.0 "cat $HERE/lab-cheatsheet.txt; $CSH -i /tmp/lab/ground.csh" Enter
+tmux send-keys -t lab:0.1 "$AGENT -i ZMQ -p localhost -a $AGENT_NODE" Enter
+if [ "$with_manager" = 1 ]; then
+    tmux split-window -v -t lab:0.1 -c /src
+    tmux send-keys -t lab:0.2 \
+        "$SYSMAN $MGR_NODE 13 1 $KISS_BAUD -v /tmp/lab/sysman" Enter
+fi
+tmux select-pane -t lab:0.0
+exec tmux attach -t lab

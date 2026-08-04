@@ -1,0 +1,59 @@
+=====================================================================
+ THE LAB.   LEFT = ground console (csh).   RIGHT = the satellite.
+ Every uploader below runs over the same bus, so the same injected
+ loss hits whichever one you choose. Switch panes: Ctrl-b then o
+=====================================================================
+
+MEASURE THE LINK  (no files, works against any CSP node)
+  csp_link 5425                  loss, round-trip time, jitter, verdict
+
+IMPAIR IT  (stays on until you stop it)
+  csp_loss start -L 0.10         drop 10% of what this node sends
+  csp_loss status                offered / dropped / delivered
+  csp_loss stop
+
+RECORD WHAT CROSSED  (independent of what any sender claims)
+  csp_monitor start -d 9 -o /tmp/wire.csv     9=SVU  8=DTP  10=param  13=RDP
+  csp_monitor stop
+
+--------- THE THREE UPLOADERS, same link, same loss ----------------
+
+1. satdeploy   (this thesis: per-block verify + recovery + resume)
+     satdeploy push /apps/binary-100kb /target/binary-100kb
+     satdeploy list /target/binary-100kb
+     satdeploy rollback /target/binary-100kb
+
+2. the deployed uploader   (DISCO's, over DTP -- the thing being
+   compared against; run both ends from a shell, not from csh)
+     upload_gs-server -z 127.0.0.1 -a 19 &
+     upload_client -z 127.0.0.1 -a 5425 -s 19 &
+
+3. csh's own upload   (the reliable path: RDP + CRC32)
+     upload /apps/binary-100kb 5425
+
+THE POINT: turn on csp_loss, run each in turn, and compare what they
+report against what actually landed (sha256sum both ends).
+
+--------- WITH --with-manager (flatsat rehearsal) -------------------
+The A53 app-sys-manager runs UNPATCHED in the bottom-right pane,
+node 5421 over a KISS pty. The board-day commands work verbatim:
+  list download 5421              fetch the manager's params once
+  csp_monitor start -d 10 -o /tmp/lab/param.csv    watch the mgmt plane
+  set -n 5421 mng_dipp 5423       manager spawns DIPP (joins via ZMQ)
+  ping 5423                       DIPP is alive
+  set -n 5421 mng_dipp 0          manager kills DIPP
+Toggle THROUGH 0 to respawn (0, then the node number).
+Rehearsal only: the pty has no baudrate, so never quote timings.
+
+DID MY mng_dipp SET ACTUALLY ARRIVE?  (the flight symptom)
+  csp_loss start -L 0.5 -i KISS0  impair ONLY the ground->manager leg
+  set -n 5421 mng_dipp 5423       "No response" = lost somewhere
+  ping 5423                       the only truth: did DIPP spawn?
+  csp_loss stop
+For a per-packet verdict add:  -M 10 -o /tmp/lab/drop10.csv
+(dropped=1 rows never crossed; note -M re-drops identical retries).
+A lost ACK looks the same as a lost request at the console -- the
+manager may have applied the set despite "No response". Ping decides.
+
+Exit: Ctrl-C the agent, then `exit` here.
+=====================================================================

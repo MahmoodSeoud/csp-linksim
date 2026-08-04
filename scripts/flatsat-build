@@ -48,6 +48,13 @@ TARGETS=(
   "sat-client:$DISCO_SRC/upload_sat-client::upload_client"
 )
 
+# A53 management plane (scripts/lab --with-manager): the app-sys-manager that owns
+# mng_dipp, and DIPP itself. Optional -- only built when their trees are mounted,
+# so hosts with just the uploader repos keep working.
+SYSMAN_SRC="$DISCO_SRC/disco-ii-picocore-mx8mp-yocto/custom/layers/meta-disco-scheduler/files/app-sys-manager"
+[ -d "$SYSMAN_SRC" ]       && TARGETS+=("sysman:$SYSMAN_SRC::a53-app-sys-manager")
+[ -d "$DISCO_SRC/DIPP" ]   && TARGETS+=("dipp:$DISCO_SRC/DIPP::dipp")
+
 missing_src=0
 for t in "${TARGETS[@]}"; do
     IFS=: read -r name src args artifact <<<"$t"
@@ -65,11 +72,28 @@ rc=0
 for t in "${TARGETS[@]}"; do
     IFS=: read -r name src args artifact <<<"$t"
     dst="$OUT/$name"
-    if [ -e "$dst/$artifact" ]; then
-        [ "$want_check" = 1 ] && echo "  present  $name -> $dst/$artifact" || echo "  cached   $name"
+    if [ "$want_check" = 1 ]; then
+        if [ -e "$dst/$artifact" ]; then
+            echo "  present  $name -> $dst/$artifact"
+        else
+            echo "  ABSENT   $name"; rc=1
+        fi
         continue
     fi
-    if [ "$want_check" = 1 ]; then echo "  ABSENT   $name"; rc=1; continue; fi
+
+    # An existing artifact is NOT a reason to skip: the mission sources are
+    # mounted from the host and change under us, and silently running a stale
+    # binary means measuring code that is no longer the code. ninja is
+    # incremental, so re-entering a configured build dir costs ~nothing and is
+    # the only thing that keeps the stack honest.
+    if [ -f "$dst/build.ninja" ]; then
+        if ninja -C "$dst" >/dev/null 2>&1; then
+            echo "  up to date $name"
+        else
+            echo "  FAIL     $name (ninja, incremental)"; rc=1
+        fi
+        continue
+    fi
 
     echo "  building $name ..."
     # shellcheck disable=SC2086

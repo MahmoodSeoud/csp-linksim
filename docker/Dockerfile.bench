@@ -18,12 +18,18 @@ ENV DEBIAN_FRONTEND=noninteractive
 #
 #   libprotobuf-c, libssl   DISCO's upload_gs-server / upload_sat-client (scripts/dtp-zmq-sweep)
 #                           and satdeploy's agent + APM
+#   tmux                    scripts/lab, the two-pane ground/board console
 #   libcurl, libyaml,       csh itself (DISCOSAT/upload_gs-server/csh), which is the ground
 #   libelf, libbsd,         side for the satdeploy arm: `satdeploy push` is a csh APM command,
 #   libjxl, python3-dev     so there is no driving that arm without a built csh
 RUN apt-get update -qq && apt-get install -y -qq \
-    build-essential meson ninja-build pkg-config \
+    build-essential ninja-build pkg-config \
     libzmq3-dev libsocketcan-dev python3 git iproute2 procps coreutils \
     libprotobuf-c-dev protobuf-c-compiler libssl-dev \
-    libcurl4-openssl-dev libyaml-dev libelf-dev libbsd-dev libjxl-dev python3-dev socat
+    libcurl4-openssl-dev libyaml-dev libelf-dev libbsd-dev libjxl-dev python3-dev socat \
+    libbrotli-dev \
+    tmux python3-pip
+# csh (flight, 2026-06) requires meson >= 1.6; Ubuntu 24.04 packages 1.3.2, so meson
+# comes from pip instead of apt.
+RUN pip3 install --break-system-packages 'meson>=1.6'
 WORKDIR /src

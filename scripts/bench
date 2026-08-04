@@ -71,6 +71,15 @@ case "$cmd" in
   shell)
     run bash
     ;;
+  lab)
+    # tmux needs a real TTY, so the lab goes through the interactive wrapper --
+    # but only when we actually have one (`lab --check` may run from a script).
+    if [ -t 0 ]; then
+        run bash -c 'ninja -C /build >/dev/null 2>&1; exec /src/scripts/lab "$@"' _ "$@"
+    else
+        run_quiet bash -c 'ninja -C /build >/dev/null 2>&1; exec /src/scripts/lab "$@"' _ "$@"
+    fi
+    ;;
   *)
     [ -x "$REPO/scripts/$cmd" ] || { echo "FAIL: no scripts/$cmd"; exit 1; }
     run_quiet bash -c 'ninja -C /build >/dev/null 2>&1; exec "/src/scripts/$0" "$@"' "$cmd" "$@"
