@@ -1,4 +1,4 @@
-# DTP measurement metric — the completion confound and what to report (TODOS#5)
+# DTP measurement metric — the completion confound and what to report
 
 **Status:** recommendation, to confirm with the team that owns `dtp_client`. Grounded in
 `~/DISCOSAT/dipp-apm/lib/dtp/src/{dtp_client.c,dtp_server.c}`.
@@ -70,8 +70,7 @@ The recommended metrics need only what the instrument **already records**: the A
 timestamps every observed fragment (`t_ms`, `dtp_offset`, `dtp_frag`) and the proxy drop-log
 gives the injected-loss ground truth. So a real-pass capture with these two oracles is
 sufficient to compute loss and goodput honestly — no change to the (team-owned) `dtp_client`
-is required. Optionally cross-check DTP loss against the team's existing DTP loss oracle
-(TODOS#3).
+is required. Optionally cross-check DTP loss against the team's existing DTP loss oracle.
 
 ## To raise with the team
 

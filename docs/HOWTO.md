@@ -70,6 +70,57 @@ is neither, so `rx:` can climb while the CSV stays sparse — that is the instru
 staying scoped to the RDP-vs-DTP study, not a bug. To get rows, either run a real DTP
 transfer on the bus, or use the bench (#3) which generates in-scope traffic.
 
+### 2b. Monitor a live ZMQ bus (no hardware)
+
+Same monitor, virtual bus. Any CSP-over-ZMQ network that runs through a
+`zmqproxy` broker (the satdeploy dev stack, a DTP session, an SVU transfer) can
+be watched by a passive csh node -- ZMQ broadcasts every frame to every
+subscriber, so the monitor sees the whole bus without owning an address in the
+flow:
+
+```sh
+csh -i csh/init/zmq-monitor.csh      # joins localhost zmqproxy at addr 30
+tail -f captures/zmq_live.csv        # from another terminal
+```
+
+At the prompt, `csp_monitor stop` flushes the CSV. Scope the capture with
+`csp_monitor start -d 9` (SVU data), `-d 8` (DTP), `-d 13` (RDP) instead of the
+init script's `-d -1` (everything).
+
+### 2c. Inject loss into a live ZMQ network
+
+`zmqproxy-lossy` is a drop-in replacement for the vanilla `zmqproxy` broker:
+same ports (sub 6000 / pub 7000), plus seeded, deterministic loss and a drop
+log (oracle A). Stop the vanilla broker, start the lossy one, and every node on
+the bus is now behind an impaired link:
+
+```sh
+zmqproxy-lossy -L 0.10 -S 42                      # live impairment
+zmqproxy-lossy -L 0.10 -S 42 -M 8 -o drops.csv    # measurement mode
+```
+
+| flag | meaning |
+|------|---------|
+| `-L 0.10` | 10 % drop probability |
+| `-S 42` | seed for the drop draws |
+| `-M 8` | measurement mode: gate drops to one dport (8 = DTP data, 13 = RDP) and key each decision on the packet's FLOW IDENTITY (DTP fragment index / RDP seq), so the same seed replays the exact same drop set across runs and arms |
+| `-o drops.csv` | oracle A: one row per drop decision (written in `-M` mode) |
+
+Pick the mode for the question you are asking. `-M` gives replayable,
+identity-keyed drops -- the calibrated measurement config -- but a re-sent
+fragment with the same identity is dropped again every time, so a
+retry-until-verified protocol can never converge under it. To watch a protocol
+RECOVER (independent loss per transmission, like a real channel), use plain
+`-L -S` without `-M`.
+
+`-C/-D/-T` add corruption / delay, `-N` models a half-duplex radio node; run
+with no args for the full usage text. Combined with 2b you get both oracles on
+a purely virtual bus: `drops.csv` says what was dropped, `zmq_live.csv` says
+what actually crossed.
+
+The satdeploy repo packages this end-to-end: `scripts/demo.sh lossy 10` there
+starts its whole ground+agent stack behind `zmqproxy-lossy` at 10 % seeded loss.
+
 ### 3. Run the two-oracle bench on the real flatsat CAN bus
 
 One command: builds, runs the csh monitor + the in-path injector on `can0`, joins the
@@ -103,4 +154,3 @@ No root needed (`-b 0` skips the privileged CAN bitrate set).
 | `csh/init/can-monitor.csh` | csh init for monitoring `can0` (#2) — lives in the `csh` repo |
 | `captures/` | CSV output (gitignored) |
 | `docs/can-kiss-injection.md` | how CAN/KISS injection works + transport matrix |
-| `TODOS.md` | what's left (field work) |

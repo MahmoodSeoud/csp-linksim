@@ -229,8 +229,6 @@ one-off diagnostic, named for what it does.
 - The raw-DTP arm receiver runs host-side (x86), not on the ARM payload — disclosed where it matters.
 - Single mission, single bus, one payload size (256 KiB) and MTU (256): external validity is limited.
 
-See `HANDOFF.md` for the full operational reality and `TODOS.md` for open work.
-
 ## Deeper detail
 
 - [docs/HOWTO.md](docs/HOWTO.md) — run the tests / watch a bus / run the bench.

@@ -19,7 +19,7 @@ project('csp-intercept', 'c',
     # 4096, not 1000: a fire-and-forget sender bursts the whole transfer (1041 packets
     # for 256 KiB) into the bridge faster than a paced egress drains it, so the pool must
     # hold a full transfer or packets die BEFORE the drop shim and oracle A undercounts.
-    # The bench host ran with exactly this override (HANDOFF: "REQUIRED ... defaults
+    # The June bench host ran with exactly this override ("REQUIRED ... defaults
     # silently truncate") but it was never committed; the 4800 bit/s paced DTP arm is
     # where the truncation finally reproduced locally (26 of 1041 packets seen).
     'csp:buffer_count=4096',
