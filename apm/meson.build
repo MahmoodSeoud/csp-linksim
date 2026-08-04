@@ -17,3 +17,21 @@ shared_library('csh_csp_monitor',
   # same. Without this the .so won't link.
   override_options: ['c_std=gnu11', 'warning_level=2', 'werror=true', 'b_lundef=false'],
   install: true)
+
+# Link-quality APM: `csp_link test <node>` probes a node with CSP pings and
+# reports loss / RTT / jitter. Independent of any file transfer, so it works
+# against any CSP node with nothing installed on the far end.
+shared_library('csh_csp_link',
+  ['csp_link_apm.c'],
+  dependencies: [apm_csh_dep, apm_slash_dep, apm_param_dep, apm_csp_dep, ci_dep],
+  override_options: ['c_std=gnu11', 'warning_level=2', 'werror=true', 'b_lundef=false'],
+  install: true)
+
+# Loss APM: the injector as a csh command (`csp_loss start -L 0.1`), hooking the
+# interface nexthop instead of standing between nodes like the proxy does. Same
+# dependency set and same plugin link rules as the monitor.
+shared_library('csh_csp_loss',
+  ['csp_loss_apm.c'],
+  dependencies: [apm_csh_dep, apm_slash_dep, apm_param_dep, apm_csp_dep, ci_dep],
+  override_options: ['c_std=gnu11', 'warning_level=2', 'werror=true', 'b_lundef=false'],
+  install: true)

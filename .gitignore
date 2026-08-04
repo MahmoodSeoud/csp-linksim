@@ -58,3 +58,6 @@ __pycache__/
 *.pyc
 .gstack/
 !captures/h2h_*.csv
+
+# default csp_monitor output filename (stray runs at repo root)
+/csp-intercept.csv
