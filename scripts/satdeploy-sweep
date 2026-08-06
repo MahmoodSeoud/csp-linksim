@@ -64,7 +64,10 @@ for loss in $LOSSES; do for seed in $SEEDS; do
     attempt=$((attempt+1)); pidx=$((passes+1))
     pseed=$((seed*1000 + pidx*10 + setup_fails))
     ORA="$REPO/captures/${label}_p${pidx}_a${attempt}_oracleA.csv"; rm -f "$ORA"
-    timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5427 can:can0 8 256 8 "$loss" 4 "$pseed" "$ORA" 5425 "$PACE_US" >/dev/null 2>&1 &
+    # dport 9 = SVU_DATA_PORT: satdeploy v2 (satDeploy 734a604) replaced the DTP
+    # transfer layer with the SVU core, so the data plane moved dport 8 -> 9.
+    # Dropping 8 against a v2 agent injects NOTHING and every cell reads clean.
+    timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5427 can:can0 9 256 8 "$loss" 4 "$pseed" "$ORA" 5425 "$PACE_US" >/dev/null 2>&1 &
     INJPID=$!; sleep 3
     INIT=$(mktemp --suffix=.csh)
     printf 'csp init\ncsp add zmq -d 5425 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n 5427\nsleep 1500\nexit\n' "$APMDIR" "$PAY" "$DEST" > "$INIT"
