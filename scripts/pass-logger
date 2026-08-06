@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+#
+# pass-logger - poll CSP interface counters on remote + local nodes during a pass.
+#
+# The measurement that needs NOTHING installed on the far end: every CSP node's
+# default service handler serves its per-interface counters (tx/rx/errors/drop)
+# over CMP, and csh already has the client (`ifstat -n <node> <iface>`). Polling
+# both ends of a link and differencing the CUMULATIVE counters gives direction-
+# resolved delivery: uplink delivered = d_rx(sat) vs offered = d_tx(ground), and
+# vice versa for downlink. Cumulative counters make missed samples harmless --
+# a lost reply just widens the interval, it never corrupts the series.
+#
+#   scripts/pass-logger record                        poll until Ctrl-C
+#   DURATION_S=600 scripts/pass-logger record         poll for one pass
+#   scripts/pass-logger report <csv> [SAT] [GND]      deltas + direction loss
+#
+# Env knobs (record): NODES="5427:CAN 16:CAN0"  node:iface pairs to poll
+#                     CSP_ADD="csp add can -c can0 -b 0 -d 16"  how we join
+#                     PERIOD_S=10  TIMEOUT_MS=3000  DURATION_S=0(=forever)
+#                     CSH=...  OUT=captures/pass_<utcdate>.csv
+#
+# Caveats the analysis must respect (also stamped into the CSV header):
+#  * counters are per-INTERFACE, not per-flow: everything crossing that iface
+#    counts, incl. these queries themselves (~1 pkt each way per sample per
+#    remote node). Subtract or accept; at transfer rates it is noise.
+#  * uint32 cumulative -> report mode differences mod 2^32.
+#  * a csh spawn per sample (~2 s) is deliberate: one wedged session loses one
+#    sample, not the pass. csh init files have no loops anyway.
+#  * poll PERSISTENT nodes only. The logger's own csh is reborn every sample, so
+#    its counters reset each spawn -- self-rows are useless for deltas. Point
+#    NODES at the sat AND at the long-running ground csh doing the transfer.
+set -uo pipefail
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+CSH="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
+
+CMD="${1:-record}"
+
+strip(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'; }
+
+# ---------------- report ----------------
+if [ "$CMD" = report ]; then
+  CSV="${2:?usage: pass-logger report <csv> [SAT_NODE] [GND_NODE]}"
+  SAT="${3:-}"; GND="${4:-}"
+  [ -f "$CSV" ] || { echo "FAIL: no $CSV"; exit 1; }
+  awk -F, -v sat="$SAT" -v gnd="$GND" '
+    function delta(a,b){ d=b-a; if(d<0) d+=4294967296; return d }  # uint32 wrap
+    /^#/ || $5=="status" { next }
+    $5!="ok" { miss[$3":"$4]++; next }
+    {
+      k=$3":"$4
+      if (k in ptx) {
+        dt=$2-pt[k]; if(dt<=0) next
+        dtx=delta(ptx[k],$6); drx=delta(prx[k],$7)
+        printf "%-12s %6ds  d_tx=%-6d d_rx=%-6d d_txe=%-4d d_rxe=%-4d d_drop=%-4d  %.2f/%.2f pkt/s\n", \
+               k, dt, dtx, drx, delta(pte[k],$8), delta(pre[k],$9), delta(pdr[k],$10), dtx/dt, drx/dt
+        ttx[k]+=dtx; trx[k]+=drx; tsec[k]+=dt
+        # per-sample series keyed on host time, for the direction join below
+        stx[k,$2]=dtx; srx[k,$2]=drx; seen[$2]=1
+      }
+      ptx[k]=$6; prx[k]=$7; pte[k]=$8; pre[k]=$9; pdr[k]=$10; pt[k]=$2
+    }
+    END {
+      print "\n== totals =="
+      for (k in ttx)
+        printf "%-12s %6ds  tx=%-7d rx=%-7d (%.2f/%.2f pkt/s)  samples_missed=%d\n", \
+               k, tsec[k], ttx[k], trx[k], (tsec[k]?ttx[k]/tsec[k]:0), (tsec[k]?trx[k]/tsec[k]:0), miss[k]+0
+      for (k in miss) if (!(k in ttx))
+        printf "%-12s ALL %d samples missed (node down or wrong iface name)\n", k, miss[k]
+      if (sat != "" && gnd != "") {
+        # match rows by node prefix regardless of iface name
+        for (k in ttx) { split(k,a,":"); if (a[1]==sat) ks=k; if (a[1]==gnd) kg=k }
+        if (ks=="" || kg=="") { print "\n(direction report: sat/gnd node not in capture)"; exit }
+        up_off=0; up_del=0; dn_off=0; dn_del=0
+        for (t in seen) if ((ks,t) in stx && (kg,t) in stx) {
+          up_off+=stx[kg,t]; up_del+=srx[ks,t]      # ground tx -> sat rx
+          dn_off+=stx[ks,t]; dn_del+=srx[kg,t]      # sat tx -> ground rx
+        }
+        print "\n== direction (gnd="kg" -> sat="ks", aligned samples only) =="
+        printf "uplink:   offered=%-7d delivered=%-7d loss=%.1f%%\n", up_off, up_del, up_off?100*(1-up_del/up_off):0
+        printf "downlink: offered=%-7d delivered=%-7d loss=%.1f%%\n", dn_off, dn_del, dn_off?100*(1-dn_del/dn_off):0
+        print "(per-iface counters: cross-traffic and the queries themselves are included)"
+      }
+    }' "$CSV"
+  exit 0
+fi
+
+# ---------------- record ----------------
+[ "$CMD" = record ] || { echo "usage: pass-logger [record|report]"; exit 1; }
+NODES="${NODES:-5427:CAN 16:CAN0}"
+CSP_ADD="${CSP_ADD:-csp add can -c can0 -b 0 -d 16}"
+PERIOD_S="${PERIOD_S:-10}"
+TIMEOUT_MS="${TIMEOUT_MS:-3000}"
+DURATION_S="${DURATION_S:-0}"
+OUT="${OUT:-$REPO/captures/pass_$(date -u +%Y%m%d).csv}"
+
+[ -x "$CSH" ] || { echo "FAIL: csh not found at $CSH"; exit 1; }
+mkdir -p "$(dirname "$OUT")"
+
+# Short init path on purpose: csh silently truncates ~100+ char -i paths.
+INIT=$(mktemp /tmp/plog_XXXX.csh); SESS=$(mktemp /tmp/plog_XXXX.log)
+trap 'rm -f "$INIT" "$SESS"' EXIT
+trap 'echo; echo "== stopped: $OUT =="; exit 0' INT TERM
+
+{ printf 'csp init\n%s\n' "$CSP_ADD"
+  for nv in $NODES; do
+    printf 'ifstat -n %s -t %s %s\n' "${nv%%:*}" "$TIMEOUT_MS" "${nv##*:}"
+  done
+  printf 'sleep 300\nexit\n'; } > "$INIT"
+
+NQ=$(echo "$NODES" | wc -w)
+SPAWN_TO=$(( 8 + NQ * (TIMEOUT_MS/1000 + 1) ))
+
+if [ ! -f "$OUT" ]; then
+  { echo "# pass-logger v1: cumulative uint32 per-iface counters; diff in report mode"
+    echo "# caveat: per-iface not per-flow; queries themselves count (~1 pkt/way/sample)"
+    echo "ts_utc,t_host_s,node,iface,status,tx,rx,txe,rxe,drop,autherr,frame,txb,rxb"; } > "$OUT"
+fi
+echo "# run $(date -u +%Y-%m-%dT%H:%M:%SZ) nodes=\"$NODES\" csp_add=\"$CSP_ADD\" period=${PERIOD_S}s timeout=${TIMEOUT_MS}ms" >> "$OUT"
+echo "pass-logger: polling [$NODES] every ${PERIOD_S}s -> $OUT (Ctrl-C to stop)"
+
+T0=$(date +%s); n=0
+while :; do
+  NOW=$(date +%s); TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  timeout "$SPAWN_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null >"$SESS" 2>&1 || true
+
+  # Replies come back in init-file order: each query yields either "No response"
+  # or a 3-line counter block starting "<IFACE>  tx: ...". Walk both in lockstep.
+  strip < "$SESS" | awk -v nodes="$NODES" -v ts="$TS" -v t="$NOW" '
+    BEGIN { nq=split(nodes, q, " ") }
+    /^No response/ { i++; split(q[i],a,":"); printf "%s,%s,%s,%s,timeout,,,,,,,,,\n",ts,t,a[1],a[2]; next }
+    /^[A-Za-z0-9]+ +tx: / { i++; split(q[i],a,":")
+      tx=$3; rx=$5; te=$7; re=$9; getline; dr=$2; au=$4; fr=$6; getline; tb=$2; rb=$4
+      printf "%s,%s,%s,%s,ok,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",ts,t,a[1],a[2],tx,rx,te,re,dr,au,fr,tb,rb }
+    END { for (j=i+1; j<=nq; j++) { split(q[j],a,":"); printf "%s,%s,%s,%s,err,,,,,,,,,\n",ts,t,a[1],a[2] } }
+  ' >> "$OUT"
+
+  n=$((n+1))
+  ok=$(tail -n "$NQ" "$OUT" | grep -c ',ok,')
+  printf '\r  sample %d: %d/%d nodes answered   ' "$n" "$ok" "$NQ"
+  [ "$DURATION_S" -gt 0 ] && [ $(( $(date +%s) - T0 )) -ge "$DURATION_S" ] && break
+  ELAPSED=$(( $(date +%s) - NOW ))
+  [ "$ELAPSED" -lt "$PERIOD_S" ] && sleep $(( PERIOD_S - ELAPSED ))
+done
+echo; echo "== done: $n samples -> $OUT =="

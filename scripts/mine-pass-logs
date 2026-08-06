@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+#
+# mine-pass-logs - reproducible channel statistics from real ground-station logs.
+#
+# Walks a directory of csh session recordings (script(1) captures from discoweb)
+# and extracts what the thesis needs from history: per-node ping loss + RTT,
+# per-pass loss to the satellite, loss/good run-length structure with a
+# Gilbert-Elliott fit, and the transfer-attempt inventory. Everything is grep/awk
+# over the raw logs -- re-running it after new passes land regenerates every
+# number in the channel-model section from source.
+#
+#   scripts/mine-pass-logs                          report to stdout
+#   LOGDIR=~/somewhere scripts/mine-pass-logs       other log directory
+#   SAT_NODE=5386 scripts/mine-pass-logs            other far-end node
+#   CSVDIR=captures scripts/mine-pass-logs          also drop machine-readable CSVs
+#
+# Honest-numbers caveats, printed with the report because they belong next to it:
+#  * ping loss here is ROUND-TRIP -- a lost probe died going up OR coming down;
+#    the split needs csp_link -I / csp_monitor -r on a live pass.
+#  * probe cadence was operator-driven, so run lengths are in PROBE COUNTS, not
+#    seconds; treat the GE fit as a strong prior, refine with a fixed-interval run.
+#  * the logs contain local bench/ground nodes too -- loss to those (e.g. the
+#    ground radio) is ground-segment noise, listed so it is not misread as space.
+set -uo pipefail
+LOGDIR="${LOGDIR:-$HOME/thesis/log_last_200}"
+SAT_NODE="${SAT_NODE:-5386}"
+CSVDIR="${CSVDIR:-}"
+MIN_PINGS_PER_PASS="${MIN_PINGS_PER_PASS:-10}"
+
+[ -d "$LOGDIR" ] || { echo "FAIL: no log dir $LOGDIR"; exit 1; }
+cd "$LOGDIR"
+shopt -s nullglob
+LOGS=(*.log)
+[ "${#LOGS[@]}" -gt 0 ] || { echo "FAIL: no *.log in $LOGDIR"; exit 1; }
+
+echo "== mine-pass-logs: ${#LOGS[@]} session logs in $LOGDIR (sat=$SAT_NODE) =="
+echo
+
+# --- 1) ping loss + RTT per node -------------------------------------------
+echo "-- ping outcomes per node (all sessions) --"
+grep -h -oE "Ping node [0-9]+ size [0-9]+ timeout [0-9]+: (Reply in [0-9]+ \[ms\]|No reply)" "${LOGS[@]}" 2>/dev/null |
+awk '{ node=$3
+       if ($NF=="reply") miss[node]++
+       else { ok[node]++; rtt[node]+=$(NF-1); if ($(NF-1)>mx[node]) mx[node]=$(NF-1) } }
+     END {
+       printf "%-8s %6s %6s %8s %10s %8s\n","node","ok","lost","loss%","meanRTT","maxRTT"
+       for (n in ok)
+         printf "%-8s %6d %6d %7.1f%% %9.0fms %7dms\n", n, ok[n], miss[n]+0,
+                100*(miss[n]+0)/(ok[n]+miss[n]), rtt[n]/ok[n], mx[n]
+       for (n in miss) if (!(n in ok))
+         printf "%-8s %6d %6d %7.1f%% %10s %8s\n", n, 0, miss[n], 100.0, "-", "-"
+     }' | sort -k2 -rn
+echo
+
+# --- 2) per-pass loss to the satellite -------------------------------------
+echo "-- per-pass loss to node $SAT_NODE (sessions with >=$MIN_PINGS_PER_PASS pings) --"
+PASS_CSV=""
+[ -n "$CSVDIR" ] && { mkdir -p "$CSVDIR"; PASS_CSV="$CSVDIR/mined_pass_loss.csv"
+                      echo "session,pings,ok,loss_pct" > "$PASS_CSV"; }
+for f in "${LOGS[@]}"; do
+  awk -v fn="$f" -v min="$MIN_PINGS_PER_PASS" -v csv="$PASS_CSV" -v sat="$SAT_NODE" '
+    $0 ~ ("Ping node " sat " ") { if (/No reply/) miss++; else if (/Reply in/) ok++ }
+    END { t=ok+miss
+          if (t>=min) {
+            printf "%s  pings=%3d ok=%3d loss=%5.1f%%\n", substr(fn,1,16), t, ok, 100*miss/t
+            if (csv != "") printf "%s,%d,%d,%.1f\n", fn, t, ok, 100*miss/t >> csv } }' "$f"
+done
+echo
+
+# --- 3) run-length structure + GE fit --------------------------------------
+# Sessions are separated so a run never spans two passes. K=reply, L=no reply.
+echo "-- loss/good run lengths to node $SAT_NODE (probe-count units, see caveats) --"
+for f in "${LOGS[@]}"; do
+  grep -oE "Ping node $SAT_NODE size [0-9]+ timeout [0-9]+: (Reply in [0-9]+ \[ms\]|No reply)" "$f" 2>/dev/null |
+    awk '{print (/No reply/ ? "L" : "K")}'
+  echo "BREAK"
+done | awk -v csv="${CSVDIR:+$CSVDIR/mined_runlengths.csv}" '
+  function flush() { if (run>0) { if (state=="L") {lr[run]++; ln++; ls+=run}
+                                  else            {kr[run]++; kn++; ks+=run} } run=0; state="" }
+  $1=="BREAK" { flush(); next }
+  { if ($1==state) run++
+    else { if (run>0) flush0=1; flush(); state=$1; run=1 } }
+  END { flush()
+        if (ln==0 || kn==0) { print "no runs found"; exit }
+        printf "loss runs: n=%d mean=%.2f   good runs: n=%d mean=%.2f\n", ln, ls/ln, kn, ks/kn
+        pg2b=kn/ks; pb2g=ln/ls
+        printf "Gilbert-Elliott fit: p_g2b=%.3f  p_b2g=%.3f  stationary_loss=%.1f%%\n",
+               pg2b, pb2g, 100*pg2b/(pg2b+pb2g)
+        printf "injector mapping: BURST=%.1f (mean loss run) at matching loss prob\n", ls/ln
+        print  "loss-run histogram (len count):"
+        for (i=1;i<=40;i++) if (i in lr) printf "  %3d %4d\n", i, lr[i]
+        long=0; for (i in lr) if (i+0>40) long+=lr[i]
+        if (long) printf "  >40 %4d   (pass-edge outages)\n", long
+        if (csv != "") { print "kind,len,count" > csv
+                         for (i in lr) printf "loss,%s,%d\n", i, lr[i] >> csv
+                         for (i in kr) printf "good,%s,%d\n", i, kr[i] >> csv } }'
+echo
+
+# --- 4) transfer-attempt inventory -----------------------------------------
+echo "-- transfer attempts (whole log set) --"
+dl_started=$(grep -h -c "Start receiving data" "${LOGS[@]}" 2>/dev/null | awk '{s+=$1}END{print s+0}')
+dl_stalls=$(grep -h -cE "No data received for [0-9]+ ms" "${LOGS[@]}" 2>/dev/null | awk '{s+=$1}END{print s+0}')
+dl_bytes=$(grep -h -oE "Received [0-9]+ bytes, last seq" "${LOGS[@]}" 2>/dev/null | awk '{s+=$2}END{print s+0}')
+up_ok=$(grep -h -c "File uploaded" "${LOGS[@]}" 2>/dev/null | awk '{s+=$1}END{print s+0}')
+up_noconn=$(grep -h -c "Could not connect to Upload Client" "${LOGS[@]}" 2>/dev/null | awk '{s+=$1}END{print s+0}')
+echo "DTP downloads: $dl_started reached data phase, $dl_stalls stall warnings, $dl_bytes bytes delivered total"
+echo "uploads (upload_file): $up_ok reported 'File uploaded', $up_noconn could not connect"
+echo
+echo "-- suggested calibrated sweep env (from the GE fit above) --"
+echo "   RATE_BPS=4800 BURST=<mean loss run>  LOSSES=\"<per-pass range, e.g. 0.4 0.6 0.8 0.95>\""
+[ -n "$CSVDIR" ] && echo "CSVs: $PASS_CSV ${CSVDIR}/mined_runlengths.csv"
+echo "== done =="
