@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# deploy-file <local-file> <board-dest> [passes]
+# Push ANY file to the payload board via the dipp uploader at loss=0, the same
+# accumulating-passes flow as deploy-agent (the deployed receiver corrupts silently,
+# so N passes converge geometrically). Generalized so board-side test binaries
+# (vmem_node, svu_daemon) ride the same path as the agent.
+# After this, verify on the board console: sha256sum must match, then chmod +x + launch.
+set -uo pipefail
+SRC="${1:?local file}"; DEST="${2:?board dest path}"; PASSES="${3:-4}"
+REPO=/home/mseo/thesis/csp-linksim
+CSH=/home/mseo/thesis/csh/builddir/csh
+INJ="$REPO/build/tests/e2e/ci_inject_bridge"
+SRV=/home/mseo/thesis/disco/src/upload_gs-server
+PIN="$REPO/captures/payload_256k.bin"
+WANT=$(sha256sum "$SRC" | cut -d' ' -f1)
+SIZE=$(stat -c%s "$SRC")
+# ~size/252 frags at 4096 pkt/s plus margin; floor matches deploy-agent's 28 s
+SLEEP_MS=$(( (SIZE / 252) * 10 + 20000 )); [ "$SLEEP_MS" -lt 28000 ] && SLEEP_MS=28000
+TO=$(( SLEEP_MS / 1000 + 8 ))
+
+ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: broker(6000) down"; exit 1; }
+pgrep -f 'upload_gs-server -z 127.0.0.1 -a 5424' >/dev/null || { echo "FAIL: upload_gs-server (zmq mode) down"; exit 1; }
+pgrep -x ci_inject_bridge >/dev/null && { echo "FAIL: stray bridge — kill it:"; pgrep -ax ci_inject_bridge; exit 1; }
+
+INJPID=
+restore(){ cp "$PIN" "$SRV/file.bin" && echo "[deploy-file] restored file.bin = pinned payload (2c1fa79a)"; }
+trap 'kill "${INJPID:-}" 2>/dev/null; restore' EXIT
+trap 'exit 143' INT TERM
+
+cp "$SRC" "$SRV/file.bin"
+echo "[deploy-file] file.bin <- $SRC (${SIZE} B, ~$((SIZE/252)) frags)  dest=$DEST  want=${WANT:0:16}…"
+
+for p in $(seq 1 "$PASSES"); do
+  bash "$REPO/scripts/restart-upload-client" 5426 5424 >/dev/null 2>&1 || { echo "[deploy-file] pass $p: client restart FAILED, skip"; continue; }
+  ORA=$(mktemp)
+  timeout $((TO+30)) "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5426 can:can0 8 256 4 0 4 "$p" "$ORA" >/dev/null 2>&1 &
+  INJPID=$!; sleep 3
+  UP=$(mktemp --suffix=.csh)
+  printf 'csp init\ncsp add can -c can0 -b 0 -d 16\napm load\nupload_file -f %s -d %s -n 5426 -s 5424\nsleep %d\n' "$SRC" "$DEST" "$SLEEP_MS" > "$UP"
+  timeout "$TO" script -qec "$CSH -i $UP" /dev/null </dev/null > "/tmp/deploy_file_p${p}.log" 2>&1 || true
+  rm -f "$UP"; kill $INJPID 2>/dev/null; wait $INJPID 2>/dev/null || true; INJPID=
+  fwd=$(awk -F, '!/^#/{c++}END{print c+0}' "$ORA"); drp=$(awk -F, '!/^#/&&$8==1{c++}END{print c+0}' "$ORA"); rm -f "$ORA"
+  echo "[deploy-file] pass $p: forwarded=$fwd dropped=$drp  (want dropped=0)"
+done
+echo
+echo "== pushed ($PASSES passes). VERIFY ON THE BOARD CONSOLE: =="
+echo "   sha256sum $DEST      # expect: $WANT"
+echo "   chmod +x $DEST       # only if the hash matches"

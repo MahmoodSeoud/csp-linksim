@@ -103,3 +103,15 @@ echo "  oracle B : observed_unique=$observed"
 echo "  AGREEMENT: dropped&observed=$drop_obs (want ~0)   kept&observed=$kept_obs / $kept"
 echo "  COMPLETION (deliv/total): $observed / $TOTAL = $compl"
 rm -f "/tmp/${LABEL}.drp" "/tmp/${LABEL}.kpt" "/tmp/${LABEL}.obs"
+
+# 7) ORACLE C (external, authoritative): sha256 the delivered file ON THE BOARD via
+# the serial console. The deployed upload is fire-and-forget, so without this the
+# arm yields a wire-loss number only; a MISMATCH here on a "completed" transfer is
+# the silent-corruption finding measured from outside the mechanism. Degrades to
+# UNVERIFIED when the console is unavailable (no permission / held by picocom).
+WANT_SHA=$(sha256sum "$CAP/payload_256k.bin" | cut -d' ' -f1)
+sha=UNVERIFIED
+if got=$(TO=25 bash "$REPO/scripts/board-cmd" "sha256sum $DEST" 2>/dev/null | grep -oE '^[0-9a-f]{64}' | head -1) && [ -n "$got" ]; then
+  sha=MISMATCH; [ "$got" = "$WANT_SHA" ] && sha=MATCH
+fi
+echo "  ORACLE C : board sha256($DEST) = $sha"

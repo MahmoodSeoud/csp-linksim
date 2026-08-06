@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# board-cmd "<command>" - run one shell command on the payload board over the
+# serial console and print its output, followed by BCMD<pid>_RC=<exit code>.
+#
+# Works only when (a) nothing else holds the console (no picocom) and (b) the
+# board's tty has a logged-in root shell. The board shell's own tty echo means
+# the sent command line comes back first; we filter it by matching the sentinel
+# only at line start with a digit (the echoed command shows `$?` instead).
+#
+# Env: DEV=/dev/ttyUSB1  BAUD=115200  TO=10 (seconds to wait for the sentinel)
+set -uo pipefail
+DEV="${DEV:-/dev/ttyUSB1}"; BAUD="${BAUD:-115200}"; TO="${TO:-10}"
+CMD="${1:?command}"
+S="BCMD$$"
+
+exec 3<>"$DEV" || { echo "FAIL: cannot open $DEV" >&2; exit 1; }
+stty -F "$DEV" "$BAUD" raw -echo -onlcr -icrnl min 0 time 0 2>/dev/null \
+  || { echo "FAIL: stty on $DEV (permission?)" >&2; exit 1; }
+
+drain(){ while IFS= read -r -t 0.2 -u 3 _; do :; done; }
+
+# wake a possibly idle shell, then flush its prompt
+printf '\r' >&3; sleep 0.4; drain
+
+printf '%s; echo %s_RC=$?\r' "$CMD" "$S" >&3
+
+rc=125
+end=$(( SECONDS + TO ))
+while [ "$SECONDS" -lt "$end" ]; do
+    if IFS= read -r -t 1 -u 3 line; then
+        line=${line%$'\r'}
+        case "$line" in
+            "${S}_RC="[0-9]*) rc="${line#*_RC=}"; break ;;      # sentinel output
+            *"${S}_RC="*)      ;;                                # our echoed input
+            "") ;;
+            *) printf '%s\n' "$line" ;;
+        esac
+    fi
+done
+exit "$rc"
