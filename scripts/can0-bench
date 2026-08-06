@@ -40,13 +40,13 @@ DEV=can0
 SRC=10; DST=20; N=500; MTU=200
 # Find a prebuilt csh. Independent of $HOME so it works as any user (incl. root).
 if [ -z "${CSH:-}" ]; then
-  for c in /home/mseo/disco/src/csh/builddir/csh \
-           /home/mseo/thesis/csh/builddir/csh \
-           "$HOME/disco/src/csh/builddir/csh"; do
+  for c in /home/mseo/thesis/csh/builddir/csh \
+           /home/mseo/thesis/disco/src/csh/builddir/csh \
+           "$HOME/thesis/csh/builddir/csh"; do
     [ -x "$c" ] && { CSH="$c"; break; }
   done
 fi
-CSH="${CSH:-/home/mseo/disco/src/csh/builddir/csh}"
+CSH="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
 B="$REPO/build"
 # All scratch goes in one PER-RUN private dir (mktemp), never fixed /tmp names that
 # collide across users (a /tmp/can0_*.csh owned by another user breaks 'run as root').

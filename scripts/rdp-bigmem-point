@@ -41,7 +41,10 @@ CAP="$REPO/captures"; PAY="${PAY_OVERRIDE:-$CAP/payload_256k.bin}"
 SIZE=$(stat -c%s "$PAY")
 if [ -n "${PAY_OVERRIDE:-}" ]; then ORIG_SHA=$(sha256sum "$PAY"|cut -d' ' -f1); else ORIG_SHA=$(awk '/sha256:/{print $2}' "$CAP/payload_256k.manifest"); fi
 INJ="$REPO/build/tests/e2e/ci_inject_bridge"
-CSH=/home/mseo/thesis/disco/src/csh/builddir/csh
+# One csh for the whole campaign: the maintained fork (git-stamped, APM-load-tested).
+# The committed rdp_sweep cells were driven by the disco-tree csh (Jun 9 build, its own
+# vendored param) — an instrument change, so rerun cells get fresh labels, never mixed.
+CSH="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
 ZER=/tmp/zeros_${SIZE}.bin; [ -f "$ZER" ] || head -c "$SIZE" /dev/zero > "$ZER"
 
 # preflight
