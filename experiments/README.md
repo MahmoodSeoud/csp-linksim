@@ -69,5 +69,5 @@ compares against the wrong manifest and reports a false FAILED.
 
 The `.csh` clean-link checks run on live can0, so loss is only what the real link drops.
 To sweep controlled loss levels, use the injector-based bash drivers in `../scripts/`:
-the RDP arm is `scripts/rdp-bigmem-sweep` (with `scripts/bringup-vmem-node` +
-`scripts/rdp-repro-5431`); the other arms use the `scripts/*-sweep` bench.
+the RDP arm is `scripts/rdp-bigmem-sweep` (per-cell driver `scripts/rdp-bigmem-point`,
+node up via `scripts/bringup-vmem-node`); the other arms use the `scripts/*-sweep` bench.
