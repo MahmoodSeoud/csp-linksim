@@ -17,7 +17,7 @@
 set -uo pipefail
 LOSS="${1:?loss}"; SEED="${2:?seed}"; LABEL="${3:?label}"
 MTU="${MTU:-256}"; OVH="${OVH:-4}"; SRV_ADDR="${SRV_ADDR:-5424}"
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 CAP="$REPO/captures"
 CSH=/home/mseo/thesis/csh/builddir/csh
 INJ="$REPO/build/tests/e2e/ci_inject_bridge"

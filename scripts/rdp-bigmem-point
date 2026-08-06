@@ -36,7 +36,7 @@ MTU="${MTU:-256}"; OVH="${OVH:-8}"; PACE_US="${PACE_US:-0}"   # integrity is rat
 # "-w 5 -c 120000 -p 1000 -k 250" to de-confound completion-vs-timeout: the stock 10s idle
 # conn_timeout resets the RDP conn mid-transfer under sustained loss (abort != cannot-finish).
 RDP_OPT="${RDP_OPT:-}"; UP_TO="${UP_TO:-3000}"; HD="${HD:-0}"   # HD>0 = Stage B half-duplex link rate (bps)
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 CAP="$REPO/captures"; PAY="${PAY_OVERRIDE:-$CAP/payload_256k.bin}"
 SIZE=$(stat -c%s "$PAY")
 if [ -n "${PAY_OVERRIDE:-}" ]; then ORIG_SHA=$(sha256sum "$PAY"|cut -d' ' -f1); else ORIG_SHA=$(awk '/sha256:/{print $2}' "$CAP/payload_256k.manifest"); fi

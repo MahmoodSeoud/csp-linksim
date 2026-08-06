@@ -36,7 +36,7 @@ done
 # The deployed-uploader arm (scripts/dtp-zmq-sweep) builds DISCO's upload_gs-server and
 # upload_sat-client from source. That tree is mission code and is not vendored here, so it
 # is mounted only when it exists. Override the location with DISCO_SRC on the host.
-DISCO_HOST="${DISCO_SRC:-$HOME/DISCOSAT}"
+DISCO_HOST="${DISCO_SRC:-$HOME/thesis/disco/src}"
 DISCOARGS=()
 if [ -d "$DISCO_HOST/upload_gs-server" ]; then
     DISCOARGS+=(-v "$DISCO_HOST":/disco -e DISCO_SRC=/disco)
@@ -44,7 +44,7 @@ fi
 # satDeploy is the contributed tool's own repo (agent + csh APM). Mounted on the same
 # terms as the DISCO tree so scripts/flatsat-build can stand up the whole mission stack
 # in the container; absent, only the arms that do not need it are runnable.
-SAT_HOST="${SAT_SRC:-$HOME/projects/satDeploy}"
+SAT_HOST="${SAT_SRC:-$HOME/thesis/satDeploy}"
 if [ -d "$SAT_HOST/satdeploy-agent" ]; then
     DISCOARGS+=(-v "$SAT_HOST":/satdeploy -e SAT_SRC=/satdeploy)
 fi

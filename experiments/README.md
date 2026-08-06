@@ -8,9 +8,9 @@ Controlled **loss sweeps** (which need the bash loss injector) live in `../scrip
 Run from an initialised session (`csp init` + `csp add can` + `apm load` already done):
 
 ```
-run /home/mseo/thesis/csp-intercept/experiments/exp_rdp.csh
-run /home/mseo/thesis/csp-intercept/experiments/exp_upload_file.csh
-run /home/mseo/thesis/csp-intercept/experiments/exp_svu.csh
+run /home/mseo/thesis/csp-linksim/experiments/exp_rdp.csh
+run /home/mseo/thesis/csp-linksim/experiments/exp_upload_file.csh
+run /home/mseo/thesis/csp-linksim/experiments/exp_svu.csh
 ```
 
 | Arm | File | Uploader | Target | Verify |
@@ -57,7 +57,7 @@ The two DTP arms pull from the ground gs-server. Start it once per session:
 
 ```
 cd ~/thesis/disco/src/upload_gs-server/builddir
-cp ~/thesis/csp-intercept/captures/payload_256k.bin file.bin
+cp ~/thesis/csp-linksim/captures/payload_256k.bin file.bin
 setsid nohup ./upload_gs-server -c can0 -a 5424 >/tmp/upsrv_can0.log 2>&1 </dev/null &
 ps -eo pid,args | grep '[u]pload_gs-server'    # liveness check — NOT ping (the server ignores ping)
 ```

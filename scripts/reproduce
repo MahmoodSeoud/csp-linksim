@@ -58,7 +58,7 @@ case "$MODE" in
   *) echo "usage: $0 [quick|full|test]"; exit 2 ;;
 esac
 
-rule; bold "csp-intercept :: reproduce ($MODE)"; rule
+rule; bold "csp-linksim :: reproduce ($MODE)"; rule
 echo "Everything below runs in a container. Host build tree untouched."
 echo
 

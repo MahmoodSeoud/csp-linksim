@@ -8,7 +8,7 @@
 #
 # Usage:  experiments/bringup_vmem_node.sh [addr]      (default addr 5431)
 set -uo pipefail
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 ADDR="${1:-5431}"
 BIN="$REPO/build/tests/e2e/vmem_node"
 [ -x "$BIN" ] || { echo "building vmem_node..."; ninja -C "$REPO/build" vmem_node || exit 1; }

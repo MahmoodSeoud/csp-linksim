@@ -11,7 +11,7 @@
 # Usage: svu-paced-sweep ["0 0.05 0.10 0.20"] [nseeds] [hd_rate_bps] [payload_bytes]
 set -uo pipefail
 LOSSES="${1:-0 0.05 0.10 0.20}"; NSEEDS="${2:-2}"; HD="${3:-19200}"; PBYTES="${4:-65536}"
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 INJ="$REPO/build/tests/e2e/ci_inject_bridge"; SRV="$REPO/build-fe/svu/svu_server"; CLI="$REPO/build-fe/svu/svu_client"
 IN=/tmp/stageb_payload.bin; [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" = "$PBYTES" ] || head -c "$PBYTES" /dev/urandom > "$IN"
 IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)

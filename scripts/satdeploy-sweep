@@ -10,7 +10,7 @@
 set -uo pipefail
 ARM="${1:?arm: smart|naive}"
 MAX_PASSES="${MAX_PASSES:-12}"
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 CSH=/home/mseo/thesis/csh/builddir/csh
 INJ="$REPO/build/tests/e2e/ci_inject_bridge"
 APMSO=/home/mseo/thesis/satDeploy/satdeploy-apm/build/libcsh_satdeploy_apm.so

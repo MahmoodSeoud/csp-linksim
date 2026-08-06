@@ -33,7 +33,7 @@
 # Resumable: cells already recorded status=ok are skipped. Exit 2 = daemon down.
 set -uo pipefail
 
-REPO="${REPO:-/home/mseo/thesis/csp-intercept}"
+REPO="${REPO:-/home/mseo/thesis/csp-linksim}"
 SVU="$REPO/build/svu/svu"
 INJ="$REPO/build/tests/e2e/ci_inject_bridge"
 PROXY="$REPO/build/proxy/zmqproxy-lossy"

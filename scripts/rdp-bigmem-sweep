@@ -18,7 +18,7 @@
 # NOTE tuned generates a retransmit storm that can WEDGE the receiver -> its DELIVERED+
 # MISMATCH cells are receiver-hang artifacts, not CRC bypass (see notes/rdp-integrity-finding).
 set -uo pipefail
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 DRV="$REPO/scripts/rdp-bigmem-point"       # per-cell driver (single-cell driver)
 MODE="${1:-both}"; LOSSES="${2:-0.10 0.20 0.30}"; NSEEDS="${3:-3}"
 CSV="$REPO/captures/rdp_bigmem_sweep.csv"

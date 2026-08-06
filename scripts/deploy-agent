@@ -8,7 +8,7 @@
 # After this, verify on the board (picocom): sha256sum must match, then chmod +x + launch.
 set -uo pipefail
 ARM="${1:?smart|naive}"; PASSES="${2:-6}"
-REPO=/home/mseo/thesis/csp-intercept
+REPO=/home/mseo/thesis/csp-linksim
 CSH=/home/mseo/thesis/csh/builddir/csh
 INJ="$REPO/build/tests/e2e/ci_inject_bridge"
 SRV=/home/mseo/thesis/disco/src/upload_gs-server
