@@ -4,7 +4,30 @@
  * `csp_monitor start` enables libcsp promiscuous mode and spawns a background
  * drainer that, for traffic matching a target dport, parses the RDP trailer (ports
  * 7/13) or DTP offset (port 8) via the shared lib, infers loss/dup/reorder + an
- * observed-at-tap RTT (lib/ci_meas), and appends a frozen-schema CSV row. Matched
+ * observed-at-tap RTT (lib/ci_meas), and appends a frozen-schema CSV row.
+ *
+ * BOTH DIRECTIONS, verified against the vendored source + live on the flatsat
+ * (2026-08-04): this libcsp fork clones packets into the promisc queue on the
+ * TX path too (csp_io.c csp_send_direct_iface, after CRC append), not only in
+ * the router's RX path as the upstream docs claim. An endpoint monitor
+ * therefore records what this node SENDS as well as what it receives; the
+ * `dir` column (tx = src is one of our iface addrs) says which. On a shared
+ * bus a tap node still sees third-party traffic, always as rx.
+ *
+ * REMOTE COUNTERS (-r node:iface[,node:iface...]): a second thread polls each
+ * listed node's per-interface counters over CMP if_stats -- nothing installed
+ * on the far end, works against a spacecraft on a pass -- and appends #REMOTE
+ * rows. The stop summary differences both ends into an uplink/downlink loss
+ * verdict against the FIRST -r target; list mid-chain hops (e.g. the radio)
+ * after it to localize where packets die. A reply that never comes is data
+ * (the link being the link): logged as a miss, and cumulative counters mean a
+ * missed poll only widens the interval. Counter regressions small enough to
+ * not be uint32 wrap are flagged as far-end REBOOTS and rebaselined.
+ *
+ * RDP note for the offline analyzer: this fork never SENDS EAK packets
+ * (RDP_EAK is checked on rx only; all acks go out cumulative, ack_nr =
+ * rcv_cur), so per-packet uplink fate must be inferred from cumulative ack
+ * advancement + retransmissions -- there are no selective-ack lists to log. Matched
  * packets that are neither RDP-flagged nor bulk data (e.g. param ops on port 10)
  * get a presence row -- timing and CSP header only, protocol columns empty -- so
  * a matched port never silently logs nothing. Each
@@ -26,16 +49,21 @@
  *    concurrently -- the promisc queue is single-consumer and they'd steal packets.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include <apm/apm.h>
 #include <slash/slash.h>
 #include <slash/optparse.h>
 #include <csp/csp.h>
 #include <csp/csp_buffer.h>
+#include <csp/csp_cmp.h>
+#include <csp/csp_iflist.h>
+#include <csp/csp_interface.h>
 #include <csp/csp_promisc.h>
 #include <csp/csp_debug.h>
 #include <csp/arch/csp_time.h>
@@ -63,6 +91,34 @@ static ci_rtt_pairing_t mon_rtt;
 /* Count of windows whose inferred_loss was rejected by the loss-trust guard.
  * Written only by the drainer; read by stop AFTER pthread_join (no race). */
 static uint64_t mon_loss_suspect_windows;
+
+/* --- remote counter polling (-r): endpoint counters over CMP if_stats --- */
+#define MON_MAX_REMOTES 8
+typedef struct {
+    uint16_t node;
+    char     iface[CSP_CMP_ROUTE_IFACE_LEN];
+    int      have_base;
+    uint32_t base_tx, base_rx;       /* first successful sample                */
+    uint32_t tx, rx;                 /* latest cumulative                      */
+    unsigned samples, misses, reboots;
+} mon_remote_t;
+static mon_remote_t mon_remotes[MON_MAX_REMOTES];
+static int          mon_n_remotes = 0;
+static unsigned     mon_poll_period_s = 10;
+static unsigned     mon_poll_timeout_ms = 3000;
+static pthread_t    mon_poll_thread;
+static volatile int mon_poll_running = 0;
+/* Local end of the direction verdict: the default iface's own counters. */
+static csp_iface_t *mon_local_iface = NULL;
+static uint32_t     mon_local_base_tx, mon_local_base_rx;
+/* Two writer threads (drainer + poller) share mon_csv and the remote state. */
+static pthread_mutex_t mon_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* Direction of a captured packet: this fork clones TX packets into the promisc
+ * queue too, so a frame whose src is one of OUR iface addresses is one we sent. */
+static const char *mon_dir(uint16_t src) {
+    return csp_iflist_get_by_addr(src) != NULL ? "tx" : "rx";
+}
 
 /* vmem upload rides its own RDP port (VMEM_PORT_SERVER in param's
  * vmem/vmem_server.h); named here so the start banner can gloss -d 14. */
@@ -92,11 +148,13 @@ static const char *mon_dport_label(int dport) {
 
 static void mon_write_header(void) {
     fprintf(mon_csv,
-        "# per-packet: t_ms,src,dst,dport,csp_flags,is_rdp,rdp_flags,rdp_seq,rdp_ack,dtp_offset,dtp_frag,rtt_paired,rtt_ms\n");
+        "# per-packet: t_ms,src,dst,dport,csp_flags,is_rdp,rdp_flags,rdp_seq,rdp_ack,dtp_offset,dtp_frag,rtt_paired,rtt_ms,dir\n");
     fprintf(mon_csv,
         "# window: #WINDOW,t_ms,conn_ovf_delta,buffer_out_delta,buffer_remaining,inferred_loss,dups,reorders,suspect,suspect_flags\n");
     fprintf(mon_csv,
         "#   note: *_delta are per-window; inferred_loss/dups/reorders are cumulative run totals\n");
+    fprintf(mon_csv,
+        "# remote: #REMOTE,t_ms,node,iface,status,tx,rx,txe,rxe,drop,autherr,frame,txb,rxb,reboot\n");
 }
 
 static void *mon_drainer(void *arg) {
@@ -132,10 +190,12 @@ static void *mon_drainer(void *arg) {
                         }
                         paired = ci_rtt_on_ack(&mon_rtt, h.ack, t, &rtt);
                     }
-                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,1,0x%02X,%u,%u,,,%d,%u\n",
+                    pthread_mutex_lock(&mon_lock);
+                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,1,0x%02X,%u,%u,,,%d,%u,%s\n",
                             t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags,
                             ok ? h.flags : 0, ok ? h.seq : 0, ok ? h.ack : 0,
-                            paired, paired ? rtt : 0);
+                            paired, paired ? rtt : 0, mon_dir(pk->id.src));
+                    pthread_mutex_unlock(&mon_lock);
                 } else if (pk->id.dport == CI_DTP_DATA_PORT ||
                            pk->id.dport == MON_SVU_DATA_PORT) {
                     /* SVU's bulk plane (port 9) shares DTP's wire shape for the one
@@ -152,16 +212,22 @@ static void *mon_drainer(void *arg) {
                          * sender's libdtp variant or the two-oracle silently desyncs. */
                         ci_dtp_fragment_index_ovh(off, mon_mtu, mon_dtp_overhead, &frag);
                     }
-                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,0,,,,%u,%u,,\n",
-                            t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags, off, frag);
+                    pthread_mutex_lock(&mon_lock);
+                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,0,,,,%u,%u,,,%s\n",
+                            t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags, off, frag,
+                            mon_dir(pk->id.src));
+                    pthread_mutex_unlock(&mon_lock);
                 } else {
                     /* Neither RDP-flagged nor bulk data: management-plane traffic
                      * (param set/get, CMP, ping replies). Presence + timing is the
                      * whole measurement -- a request/response that made it across
                      * leaves two rows. Protocol columns stay empty; same 13-field
                      * frozen schema, so existing parsers are unaffected. */
-                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,0,,,,,,,\n",
-                            t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags);
+                    pthread_mutex_lock(&mon_lock);
+                    fprintf(mon_csv, "%u,%u,%u,%u,0x%02X,0,,,,,,,,%s\n",
+                            t, pk->id.src, pk->id.dst, pk->id.dport, pk->id.flags,
+                            mon_dir(pk->id.src));
+                    pthread_mutex_unlock(&mon_lock);
                 }
             }
             csp_buffer_free(pk);
@@ -184,6 +250,7 @@ static void *mon_drainer(void *arg) {
                 suspect = 1;
                 mon_loss_suspect_windows++;
             }
+            pthread_mutex_lock(&mon_lock);
             fprintf(mon_csv, "#WINDOW,%u,%u,%u,%d,%llu,%llu,%llu,%d,0x%X\n",
                     now, hw.conn_ovf_delta, hw.buffer_out_delta, hw.buffer_remaining,
                     (unsigned long long)ci_seq_tracker_loss(&mon_seq),
@@ -191,12 +258,127 @@ static void *mon_drainer(void *arg) {
                     (unsigned long long)mon_seq.n_reorder,
                     suspect, flags);
             fflush(mon_csv);
+            pthread_mutex_unlock(&mon_lock);
             prev_ovf  = csp_dbg_conn_ovf;
             prev_bout = csp_dbg_buffer_out;
             window_start = now;
         }
     }
     return NULL;
+}
+
+/* Counter poller: one CMP round trip per -r target per period. Runs beside the
+ * drainer so a 3 s CMP timeout can never stall promisc draining. */
+static void *mon_poller(void *arg) {
+    (void)arg;
+    unsigned slices = 0, period_slices = mon_poll_period_s * 10;
+    int first = 1;
+    while (mon_poll_running) {
+        if (!first && slices++ < period_slices) {
+            usleep(100 * 1000);
+            continue;
+        }
+        first = 0;
+        slices = 0;
+        for (int i = 0; i < mon_n_remotes && mon_poll_running; i++) {
+            mon_remote_t *r = &mon_remotes[i];
+            struct csp_cmp_message msg;
+            memset(&msg, 0, sizeof(msg));
+            strncpy(msg.if_stats.interface, r->iface, CSP_CMP_ROUTE_IFACE_LEN - 1);
+            int ok = (csp_cmp_if_stats(r->node, mon_poll_timeout_ms, &msg) == CSP_ERR_NONE);
+            uint32_t t = csp_get_ms();
+            pthread_mutex_lock(&mon_lock);
+            r->samples++;
+            if (!ok) {
+                r->misses++;
+                fprintf(mon_csv, "#REMOTE,%u,%u,%s,timeout,,,,,,,,,,\n", t, r->node, r->iface);
+            } else {
+                uint32_t tx = be32toh(msg.if_stats.tx), rx = be32toh(msg.if_stats.rx);
+                /* A counter that went BACKWARDS by less than half the uint32 range
+                 * is not wrap (wrap lands near zero coming from near 2^32) -- the
+                 * far end rebooted. Flag the row and rebase, or every later delta
+                 * would be garbage presented as measurement. */
+                int reboot = r->have_base && (tx < r->tx || rx < r->rx) &&
+                             (r->tx - tx < 0x80000000u) && (r->rx - rx < 0x80000000u);
+                if (!r->have_base || reboot) {
+                    r->base_tx = tx; r->base_rx = rx;
+                    r->have_base = 1;
+                    if (reboot) r->reboots++;
+                    /* Align the LOCAL baseline to the verdict pair's far baseline at
+                     * this same instant (post this poll exchange, both sides). A
+                     * baseline taken at `start` counts the first query/reply on one
+                     * side only, which reads as a phantom packet lost/gained on an
+                     * otherwise clean link. */
+                    if (i == 0 && mon_local_iface != NULL) {
+                        mon_local_base_tx = mon_local_iface->tx;
+                        mon_local_base_rx = mon_local_iface->rx;
+                    }
+                }
+                r->tx = tx; r->rx = rx;
+                fprintf(mon_csv, "#REMOTE,%u,%u,%s,ok,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d\n",
+                        t, r->node, r->iface, tx, rx,
+                        be32toh(msg.if_stats.tx_error), be32toh(msg.if_stats.rx_error),
+                        be32toh(msg.if_stats.drop), be32toh(msg.if_stats.autherr),
+                        be32toh(msg.if_stats.frame), be32toh(msg.if_stats.txbytes),
+                        be32toh(msg.if_stats.rxbytes), reboot);
+            }
+            fflush(mon_csv);
+            pthread_mutex_unlock(&mon_lock);
+        }
+    }
+    return NULL;
+}
+
+/* Direction verdict against the FIRST -r target (the far endpoint), shared by
+ * `status` and `stop`. Unsigned subtraction makes uint32 wrap a non-event. */
+static void mon_print_verdict(void) {
+    if (mon_n_remotes == 0 || mon_local_iface == NULL) {
+        return;
+    }
+    pthread_mutex_lock(&mon_lock);
+    mon_remote_t far = mon_remotes[0];
+    /* Polls to the OTHER -r targets ride the same local iface as the verdict
+     * pair's traffic, so uncorrected they read as phantom uplink loss (their
+     * queries inflate local tx) and phantom downlink gain (their replies
+     * inflate local rx). We know that traffic exactly -- one query per sample,
+     * one reply per non-missed sample -- so subtract it. Third-party traffic
+     * we did NOT generate is still in the numbers; the caveat line stays. */
+    uint32_t others_q = 0, others_r = 0;
+    for (int i = 1; i < mon_n_remotes; i++) {
+        others_q += mon_remotes[i].samples;
+        others_r += mon_remotes[i].samples - mon_remotes[i].misses;
+    }
+    pthread_mutex_unlock(&mon_lock);
+    uint32_t ltx = mon_local_iface->tx - others_q;
+    uint32_t lrx = mon_local_iface->rx - others_r;
+
+    printf("csp_monitor: remote %u:%s -- %u polls, %u missed, %u reboot(s)\n",
+           far.node, far.iface, far.samples, far.misses, far.reboots);
+    if (!far.have_base) {
+        printf("  no reply yet: node down, wrong iface name (both look identical), or\n"
+               "  the link is that bad. Counters resume the moment a reply gets through.\n");
+        return;
+    }
+    uint32_t up_off = ltx - mon_local_base_tx, up_del = far.rx - far.base_rx;
+    uint32_t dn_off = far.tx - far.base_tx,    dn_del = lrx - mon_local_base_rx;
+    double up_loss = up_off ? 100.0 * (1.0 - (double)up_del / (double)up_off) : 0.0;
+    double dn_loss = dn_off ? 100.0 * (1.0 - (double)dn_del / (double)dn_off) : 0.0;
+    if (up_loss < 0.0) up_loss = 0.0;   /* cross-traffic on the far iface */
+    if (dn_loss < 0.0) dn_loss = 0.0;
+    printf("  uplink    offered %-7u delivered %-7u loss %.1f%%\n", up_off, up_del, up_loss);
+    printf("  downlink  offered %-7u delivered %-7u loss %.1f%%\n", dn_off, dn_del, dn_loss);
+    if (up_off == 0 && dn_off == 0) {
+        printf("  Verdict: no traffic has crossed yet.\n");
+    } else if (up_loss < 1.0 && dn_loss < 1.0) {
+        printf("  Verdict: clean in both directions.\n");
+    } else if (up_loss >= 2.0 * dn_loss && up_loss >= 2.0) {
+        printf("  Verdict: loss is concentrated on the UPLINK.\n");
+    } else if (dn_loss >= 2.0 * up_loss && dn_loss >= 2.0) {
+        printf("  Verdict: loss is concentrated on the DOWNLINK.\n");
+    } else {
+        printf("  Verdict: both directions are lossy.\n");
+    }
+    printf("  (per-iface counters: cross-traffic + ~1 poll pkt/way/period included)\n");
 }
 
 static int csp_monitor_start_cmd(struct slash *slash) {
@@ -206,10 +388,13 @@ static int csp_monitor_start_cmd(struct slash *slash) {
     }
 
     char *   out      = NULL;
+    char *   remotes  = NULL;
     int      dport    = mon_match_dport;
     unsigned window   = mon_window_ms;
     unsigned mtu      = mon_mtu;
     unsigned overhead = mon_dtp_overhead;
+    unsigned pollsec  = 10;
+    unsigned polltmo  = 3000;
 
     optparse_t *p = optparse_new("csp_monitor start", "");
     optparse_add_help(p);
@@ -219,6 +404,10 @@ static int csp_monitor_start_cmd(struct slash *slash) {
     optparse_add_unsigned(p, 'm', "mtu", "BYTES", 10, &mtu, "DTP session MTU (default 200)");
     optparse_add_unsigned(p, 'O', "overhead", "BYTES", 10, &overhead,
                           "DTP data-header overhead: 4=dipp (default), 8=satDeploy");
+    optparse_add_string(p, 'r', "remotes", "N:IF[,N:IF]", &remotes,
+                        "poll these nodes' counters over CMP (first = far end of the verdict)");
+    optparse_add_unsigned(p, 'P', "poll-period", "SEC", 10, &pollsec, "counter poll period (default 10)");
+    optparse_add_unsigned(p, 'T', "poll-timeout", "MS", 10, &polltmo, "counter poll timeout (default 3000)");
     int argi = optparse_parse(p, slash->argc - 1, (const char **)slash->argv + 1);
     if (argi < 0) {
         optparse_del(p);
@@ -234,6 +423,46 @@ static int csp_monitor_start_cmd(struct slash *slash) {
         printf("csp_monitor: invalid -O overhead %u (need %d <= overhead < mtu %u)\n",
                overhead, CI_DTP_OFFSET_SIZE, mtu);
         return SLASH_EINVAL;
+    }
+
+    /* Parse -r "5427:CAN,21:AX100" into targets. Fail loud at the boundary: a
+     * typo'd list that silently polls nothing would read as a clean link. */
+    mon_n_remotes = 0;
+    if (remotes != NULL) {
+        if (pollsec == 0) {
+            printf("csp_monitor: -P 0 would busy-poll; use >= 1\n");
+            return SLASH_EINVAL;
+        }
+        char buf[256];
+        strncpy(buf, remotes, sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
+        char *save = NULL;
+        for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
+             tok = strtok_r(NULL, ",", &save)) {
+            char *colon = strchr(tok, ':');
+            long node = strtol(tok, NULL, 10);
+            if (colon == NULL || colon[1] == '\0' || node <= 0 || node > UINT16_MAX) {
+                printf("csp_monitor: bad -r entry '%s' (want node:iface, e.g. 5427:CAN)\n", tok);
+                return SLASH_EINVAL;
+            }
+            if (mon_n_remotes >= MON_MAX_REMOTES) {
+                printf("csp_monitor: too many -r targets (max %d)\n", MON_MAX_REMOTES);
+                return SLASH_EINVAL;
+            }
+            mon_remote_t *r = &mon_remotes[mon_n_remotes++];
+            memset(r, 0, sizeof(*r));
+            r->node = (uint16_t)node;
+            strncpy(r->iface, colon + 1, sizeof(r->iface) - 1);
+        }
+        mon_local_iface = csp_iflist_get_by_isdfl(NULL);
+        if (mon_local_iface == NULL) {
+            printf("csp_monitor: -r needs a default interface for the local end (csp add ... first)\n");
+            return SLASH_EINVAL;
+        }
+        mon_local_base_tx = mon_local_iface->tx;
+        mon_local_base_rx = mon_local_iface->rx;
+        mon_poll_period_s   = pollsec;
+        mon_poll_timeout_ms = polltmo;
     }
 
     if (out) {
@@ -274,6 +503,17 @@ static int csp_monitor_start_cmd(struct slash *slash) {
         printf("csp_monitor: failed to start drainer thread\n");
         return SLASH_ENOMEM;
     }
+    if (mon_n_remotes > 0) {
+        mon_poll_running = 1;
+        if (pthread_create(&mon_poll_thread, NULL, mon_poller, NULL) != 0) {
+            mon_poll_running = 0;
+            mon_n_remotes = 0;
+            printf("csp_monitor: WARNING counter poller failed to start; packet capture continues\n");
+        } else {
+            printf("csp_monitor: polling %d remote(s) every %us (first = %u:%s, the verdict's far end)\n",
+                   mon_n_remotes, mon_poll_period_s, mon_remotes[0].node, mon_remotes[0].iface);
+        }
+    }
     printf("csp_monitor: started -> %s (dport=%d [%s], window=%ums, mtu=%u, dtp_overhead=%u%s)\n",
            mon_csv_path, mon_match_dport, mon_dport_label(mon_match_dport),
            mon_window_ms, mon_mtu, mon_dtp_overhead,
@@ -288,7 +528,7 @@ static int csp_monitor_start_cmd(struct slash *slash) {
     return SLASH_SUCCESS;
 }
 slash_command_sub(csp_monitor, start, csp_monitor_start_cmd,
-                  "[-o FILE] [-d DPORT] [-w MS] [-m MTU] [-O OVERHEAD]",
+                  "[-o FILE] [-d DPORT] [-w MS] [-m MTU] [-O OVERHEAD] [-r N:IF[,N:IF]] [-P SEC] [-T MS]",
                   "Start the promiscuous CSP link monitor");
 
 /* Drain + free every clone still sitting in the promisc queue, returning the count
@@ -314,6 +554,10 @@ static int csp_monitor_stop_cmd(struct slash *slash) {
         printf("csp_monitor: not running\n");
         return SLASH_SUCCESS;
     }
+    if (mon_poll_running) {          /* poller first: it also writes mon_csv */
+        mon_poll_running = 0;
+        pthread_join(mon_poll_thread, NULL);
+    }
     mon_running = 0;                 /* drainer exits within ~100 ms (read timeout) */
     pthread_join(mon_thread, NULL);  /* race-free: no writes to mon_csv after this  */
     /* Stop libcsp cloning into the promisc queue, then drain whatever the drainer
@@ -335,11 +579,30 @@ static int csp_monitor_stop_cmd(struct slash *slash) {
                "  whole transfer; for 'did it arrive intact?', run `verify -c <manifest> <file>`.\n",
                (unsigned long long)mon_loss_suspect_windows);
     }
+    mon_print_verdict();
     printf("csp_monitor: stopped -> %s\n", mon_csv_path);
     return SLASH_SUCCESS;
 }
 slash_command_sub(csp_monitor, stop, csp_monitor_stop_cmd, "",
                   "Stop the link monitor and close the CSV");
+
+static int csp_monitor_status_cmd(struct slash *slash) {
+    (void)slash;
+    if (!mon_running) {
+        printf("csp_monitor: not running\n");
+        return SLASH_SUCCESS;
+    }
+    printf("csp_monitor: running -> %s (dport=%d [%s])\n",
+           mon_csv_path, mon_match_dport, mon_dport_label(mon_match_dport));
+    if (mon_n_remotes > 0) {
+        mon_print_verdict();
+    } else {
+        printf("  (no -r remotes: packet capture only, no direction verdict)\n");
+    }
+    return SLASH_SUCCESS;
+}
+slash_command_sub(csp_monitor, status, csp_monitor_status_cmd, "",
+                  "Live capture state + direction-resolved loss verdict");
 
 /* --- verify: the integrity oracle (oracle C) as a csh command ---
  *
@@ -453,10 +716,15 @@ slash_command(verify, verify_cmd, "[-c MANIFEST | -e SHA256] [-r STATUS] [-v] FI
  * group name reads as a failed plugin load, not a missing subcommand. */
 static int csp_monitor_help_cmd(struct slash *slash) {
     (void)slash;
-    printf("  Record every frame that crosses the link -- an independent witness,\n");
-    printf("  separate from whatever the sender claims it sent.\n\n");
-    printf("  csp_monitor start -d 9 -o wire.csv   capture one port to a CSV\n");
-    printf("  csp_monitor stop                     flush and close the CSV\n");
+    printf("  Record every frame that crosses this node, BOTH directions (the dir\n");
+    printf("  column says sent or received) -- an independent witness, separate\n");
+    printf("  from whatever the sender claims it sent.\n\n");
+    printf("  csp_monitor start -d 9 -o wire.csv    capture one port to a CSV\n");
+    printf("  csp_monitor start -r 5427:CAN -d -1   + poll the far end's counters:\n");
+    printf("                                        uplink vs downlink loss verdict,\n");
+    printf("                                        nothing installed on the far end\n");
+    printf("  csp_monitor status                    live verdict any time\n");
+    printf("  csp_monitor stop                      final verdict, close the CSV\n");
     printf("\n");
     printf("  Ports: 8 = DTP data, 9 = SVU bulk (satdeploy v2), 10 = param ops,\n");
     printf("  13 = RDP meta, 14 = vmem upload, -1 = everything. Scoping to one\n");

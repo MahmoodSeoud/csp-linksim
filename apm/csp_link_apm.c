@@ -26,18 +26,66 @@
  * The probe is sequential and paced on purpose: back-to-back probes measure
  * queueing behaviour rather than the link, and on a slow radio they would also
  * be rude to whatever else is using it.
+ *
+ * Direction split (-i <remote-iface>): ping alone cannot say WHICH WAY a lost
+ * probe died -- the request vanishing and the reply vanishing look identical
+ * from here. But the far end's interface counters (served over CMP by every
+ * CSP node, nothing installed) are a witness on the other side: snapshot them
+ * before and after the probe burst and
+ *
+ *     probes that ARRIVED  = d_rx - (snapshot queries)   -> uplink loss
+ *     replies that were SENT = d_tx - (snapshot replies) -> downlink loss
+ *
+ * The snapshot's own traffic is subtracted exactly: the reply to a counter
+ * query reports rx INCLUDING that query but tx EXCLUDING its own reply (libcsp
+ * increments iface->tx after nexthop), so both deltas over-count by precisely
+ * the number of "after" snapshot attempts. Retried snapshots and cross-traffic
+ * during the burst blur the split by a packet or two; when that can be the
+ * case the figures are marked approximate. Total blackout still gets a
+ * direction verdict: if the counters say the probes arrived, the downlink is
+ * the dead half.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <endian.h>
+
 #include <apm/apm.h>
 #include <slash/slash.h>
 #include <slash/optparse.h>
 #include <csp/csp.h>
+#include <csp/csp_cmp.h>
 
 #define LINK_MAX_PROBES 1000u
+#define LINK_SNAP_TRIES 3
+
+/* One far-end counter snapshot over CMP, retried because on the link under
+ * study the query itself may die. attempts is reported so the caller can
+ * subtract the snapshot's own packets from the deltas. */
+typedef struct {
+    uint32_t tx, rx;
+    int attempts;
+    int ok;
+} link_snap_t;
+
+static link_snap_t link_snap(uint16_t node, const char *ifname, unsigned timeout_ms)
+{
+    link_snap_t s = { 0, 0, 0, 0 };
+    for (int i = 0; i < LINK_SNAP_TRIES && !s.ok; i++) {
+        s.attempts++;
+        struct csp_cmp_message msg;
+        memset(&msg, 0, sizeof(msg));
+        strncpy(msg.if_stats.interface, ifname, CSP_CMP_ROUTE_IFACE_LEN - 1);
+        if (csp_cmp_if_stats(node, timeout_ms, &msg) == CSP_ERR_NONE) {
+            s.tx = be32toh(msg.if_stats.tx);
+            s.rx = be32toh(msg.if_stats.rx);
+            s.ok = 1;
+        }
+    }
+    return s;
+}
 
 static int cmp_uint(const void *a, const void *b)
 {
@@ -49,7 +97,8 @@ static int cmp_uint(const void *a, const void *b)
  * `csp_link test 5425 -c 50` would parse the node and silently discard -c.
  * Hoist options ahead of positionals before parsing. */
 static const char *const LINK_VALUE_OPTS[] = {
-    "-c", "--count", "-s", "--size", "-i", "--interval", "-t", "--timeout", NULL
+    "-c", "--count", "-s", "--size", "-i", "--interval", "-t", "--timeout",
+    "-I", "--iface", NULL
 };
 
 static int link_reorder_argv(int argc, const char **argv, const char **out, int max)
@@ -81,6 +130,7 @@ static int csp_link_test_cmd(struct slash *slash)
     unsigned size = 100;
     unsigned interval_ms = 200;
     unsigned timeout_ms = 3000;
+    char *   iface = NULL;
 
     optparse_t *p = optparse_new("csp_link test", "<node>");
     optparse_add_help(p);
@@ -88,6 +138,8 @@ static int csp_link_test_cmd(struct slash *slash)
     optparse_add_unsigned(p, 's', "size", "BYTES", 10, &size, "probe payload size (default 100)");
     optparse_add_unsigned(p, 'i', "interval", "MS", 10, &interval_ms, "gap between probes (default 200)");
     optparse_add_unsigned(p, 't', "timeout", "MS", 10, &timeout_ms, "per-probe timeout (default 3000)");
+    optparse_add_string(p, 'I', "iface", "NAME", &iface,
+                        "far end's iface name (e.g. CAN): also split loss into uplink vs downlink");
     const char *reordered[24];
     int total = link_reorder_argv(slash->argc - 1, (const char **)slash->argv + 1,
                                   reordered, 24);
@@ -116,6 +168,20 @@ static int csp_link_test_cmd(struct slash *slash)
     uint32_t *rtt = malloc(count * sizeof(*rtt));
     if (rtt == NULL) {
         return SLASH_ENOMEM;
+    }
+
+    /* Before-snapshot for the direction split. If it fails, say so and fall
+     * back to round-trip-only rather than aborting the probe run. */
+    link_snap_t before = { 0, 0, 0, 0 };
+    int want_dir = (iface != NULL);
+    if (want_dir) {
+        before = link_snap((uint16_t)node, iface, timeout_ms);
+        if (!before.ok) {
+            printf("csp_link: counter snapshot failed (%d tries) -- no direction split.\n"
+                   "  Wrong -I iface name reads the same as node-down; boards are often\n"
+                   "  CAN, csh nodes CAN0.\n", LINK_SNAP_TRIES);
+            want_dir = 0;
+        }
     }
 
     printf("Probing node %u: %u packets of %u bytes, %u ms apart...\n",
@@ -151,12 +217,57 @@ static int csp_link_test_cmd(struct slash *slash)
     }
     printf("\r                                        \r");
 
+    /* After-snapshot: taken even when every probe timed out, because that is
+     * exactly when the far-end witness matters most (dead uplink and dead
+     * downlink are indistinguishable without it). */
+    link_snap_t after = { 0, 0, 0, 0 };
+    if (want_dir) {
+        after = link_snap((uint16_t)node, iface, timeout_ms);
+    }
+
     printf("\nLink to node %u\n", node);
     printf("  loss        %.1f %%  (%u of %u probes never returned)\n",
            100.0 * (double)lost / (double)count, lost, count);
 
+    if (want_dir && after.ok) {
+        /* Both deltas over-count by exactly the after-snapshot's traffic: its
+         * queries are inside d_rx, and the replies to all but the last (whose
+         * tx++ lands after the reply we hold) are inside d_tx. Retries and
+         * cross-traffic can still blur by a packet or two -> clamp to the
+         * bounds the probe results prove, and mark the figures approximate. */
+        long arrived = (long)(after.rx - before.rx) - after.attempts;
+        long replies = (long)(after.tx - before.tx) - after.attempts;
+        int  approx  = (after.attempts > 1) || (before.attempts > 1);
+        if (arrived > (long)count) { arrived = count; approx = 1; }
+        if (arrived < (long)ok)    { arrived = ok;    approx = 1; }
+        if (replies > arrived)     { replies = arrived; approx = 1; }
+        if (replies < (long)ok)    { replies = ok;      approx = 1; }
+        double up_loss = count   ? 100.0 * (double)(count - arrived) / (double)count : 0.0;
+        double dn_loss = replies ? 100.0 * (double)(replies - ok) / (double)replies  : 0.0;
+        printf("  direction   uplink %.1f %%  (%ld of %u probes died going out)%s\n",
+               up_loss, (long)count - arrived, count, approx ? "  ~approx" : "");
+        printf("              downlink %.1f %%  (%ld of %ld replies died coming back)\n",
+               dn_loss, replies - (long)ok, replies);
+        if (approx) {
+            printf("              (~: snapshot retries or cross-traffic; +/- a packet or two)\n");
+        }
+    } else if (want_dir) {
+        printf("  direction   unknown -- the closing counter snapshot never came back\n");
+    }
+
     if (ok == 0) {
         printf("  rtt         no replies -- node unreachable, or loss is total\n");
+        if (want_dir && after.ok) {
+            long arrived = (long)(after.rx - before.rx) - after.attempts;
+            if (arrived >= (long)count) {
+                printf("  Verdict: probes ARRIVED but no reply survived -- the DOWNLINK is the dead half.\n");
+            } else if (arrived <= 0) {
+                printf("  Verdict: nothing reached the far end -- the UPLINK is the dead half.\n");
+            } else {
+                printf("  Verdict: partial arrival (%ld of %u) and no reply survived -- both directions are bad.\n",
+                       arrived, count);
+            }
+        }
         free(rtt);
         return SLASH_SUCCESS;
     }
@@ -221,6 +332,9 @@ static int csp_link_cmd(struct slash *slash)
     printf("  csp_link <node> -c 50        more probes, tighter estimate\n");
     printf("  csp_link <node> -s 500       bigger packets (fragmentation bites)\n");
     printf("  csp_link <node> -i 1000      slower, for a real radio\n");
+    printf("  csp_link <node> -I CAN       + split loss into uplink vs downlink\n");
+    printf("                               (asks the far end's counters; -I names\n");
+    printf("                               the far end's OWN iface, e.g. CAN)\n");
     printf("\n");
     printf("  Works against any CSP node, because it probes with ping rather\n");
     printf("  than with our own protocol -- a flatsat, a spacecraft on a pass,\n");

@@ -47,6 +47,7 @@
 #include "ci_rule.h"
 #include "ci_rdp.h"
 #include "ci_dtp.h"
+#include "ci_ge.h"
 
 /* One hooked interface at a time: a second `start` on a different iface would
  * leave the first shim installed with no way to name it in `stop`. */
@@ -56,6 +57,11 @@ static nexthop_t    loss_real_nexthop = NULL;
 static ci_drop_rule_t loss_rule;
 static double   loss_prob = 0.0;
 static int      loss_match_dport = -1;      /* -1 = independent-loss mode */
+/* -B mode: Gilbert-Elliott burst channel advanced per TRANSMISSION (a re-sent
+ * packet gets a fresh draw, so recovery converges -- the physically-correct
+ * replay of a measured bursty link; ci_ge.h explains the axis choice). */
+static double        loss_burst = 0.0;      /* 0 = off; else mean burst length */
+static ci_ge_state_t loss_ge;
 static uint16_t loss_mtu = 1024;
 static uint16_t loss_overhead = CI_DTP_OVERHEAD_SATDEPLOY;
 static unsigned long long loss_sent = 0, loss_dropped = 0;
@@ -101,7 +107,9 @@ static int loss_nexthop(csp_iface_t *iface, uint16_t via,
     int drop = 0;
 
     if (loss_prob > 0.0) {
-        if (loss_match_dport >= 0) {
+        if (loss_burst > 0.0) {
+            drop = ci_ge_state_step(&loss_ge);
+        } else if (loss_match_dport >= 0) {
             ci_frame_t f;
             ci_frame_from_fields(packet->id.dport, packet->id.flags,
                                  packet->data, packet->length, &f);
@@ -136,6 +144,7 @@ static int csp_loss_start_cmd(struct slash *slash)
     char *ifname = NULL;
     char *logpath = NULL;
     double prob = 0.1;
+    double burst = 0.0;
     int dport = -1;
     int seed = 0;
     unsigned mtu = 1024;
@@ -152,6 +161,10 @@ static int csp_loss_start_cmd(struct slash *slash)
     optparse_add_int(p, 'M', "match", "DPORT", 10, &dport,
                      "REPLAYABLE mode: identity-keyed drops on this dport "
                      "(8=DTP, 9=SVU, 13=RDP). Recovery cannot converge; see help.");
+    optparse_add_double(p, 'B', "burst", "LEN", &burst,
+                        "BURSTY channel: Gilbert-Elliott with this mean burst length, "
+                        "-L as marginal loss. Per-transmission (recovery converges); "
+                        "seed with -S to replay the same channel.");
     optparse_add_unsigned(p, 'm', "mtu", "BYTES", 10, &mtu,
                           "fragment MTU for -M indexing (default 1024)");
     optparse_add_unsigned(p, 'O', "overhead", "BYTES", 10, &overhead,
@@ -183,6 +196,17 @@ static int csp_loss_start_cmd(struct slash *slash)
     if (dport >= 0 && (overhead < (unsigned)CI_DTP_OFFSET_SIZE || overhead >= mtu)) {
         printf("csp_loss: invalid -O %u (need %d <= overhead < mtu %u)\n",
                overhead, CI_DTP_OFFSET_SIZE, mtu);
+        return SLASH_EINVAL;
+    }
+    /* -B and -M answer different questions (channel replay vs fixed drop set)
+     * and would fight over the decision; refuse the combination loudly. */
+    if (burst > 0.0 && dport >= 0) {
+        printf("csp_loss: -B and -M are mutually exclusive (-B is a per-transmission "
+               "channel, -M a fixed identity drop set)\n");
+        return SLASH_EINVAL;
+    }
+    if (burst < 0.0) {
+        printf("csp_loss: -B %.2f invalid (mean burst length must be >= 1, or omit)\n", burst);
         return SLASH_EINVAL;
     }
 
@@ -219,10 +243,17 @@ static int csp_loss_start_cmd(struct slash *slash)
     loss_match_dport = dport;
     loss_mtu         = (uint16_t)mtu;
     loss_overhead    = (uint16_t)overhead;
+    loss_burst       = burst;
     loss_sent = loss_dropped = 0;
     loss_epoch = 0;
     loss_have_last_seq = 0;
     srand(seed ? (unsigned)seed : (unsigned)csp_get_ms());
+    if (burst > 0.0) {
+        double p_g2b, p_b2g;
+        ci_ge_params(prob, burst, &p_g2b, &p_b2g);
+        ci_ge_state_init(&loss_ge, seed ? (uint64_t)seed : (uint64_t)csp_get_ms(),
+                         p_g2b, p_b2g);
+    }
 
     /* Install last: everything above can fail, and a half-configured shim on
      * the TX path would impair the link in a way `stop` did not expect. */
@@ -232,7 +263,10 @@ static int csp_loss_start_cmd(struct slash *slash)
 
     printf("csp_loss: %.1f%% loss on %s (TX from this node)\n",
            prob * 100.0, iface->name);
-    if (dport >= 0) {
+    if (burst > 0.0) {
+        printf("csp_loss: BURSTY channel (Gilbert-Elliott), mean burst %.1f, seed %d%s\n",
+               burst, seed, seed ? " (replayable)" : " (time-seeded)");
+    } else if (dport >= 0) {
         printf("csp_loss: REPLAYABLE mode, dport %d, seed %d, mtu %u, overhead %u%s\n",
                dport, seed, mtu, overhead, loss_log ? " [drop-log on]" : "");
         printf("csp_loss: NOTE identity-keyed drops repeat on every re-send, so a "
@@ -257,6 +291,7 @@ static int csp_loss_status_cmd(struct slash *slash)
     unsigned long long kept = loss_sent - loss_dropped;
     printf("csp_loss: active on %s -- target %.1f%%, mode %s\n",
            loss_iface->name, loss_prob * 100.0,
+           loss_burst > 0.0 ? "bursty GE (-B)" :
            loss_match_dport >= 0 ? "replayable (-M)" : "independent");
     printf("csp_loss: offered %llu, dropped %llu, delivered %llu (%.2f%% actual)\n",
            loss_sent, loss_dropped, kept,
@@ -315,10 +350,13 @@ static int csp_loss_help_cmd(struct slash *slash)
     printf("  csp_loss status            offered / dropped / delivered so far\n");
     printf("  csp_loss stop              restore the clean link\n");
     printf("\n");
-    printf("  Two modes. Plain -L is independent loss: every transmission gets a\n");
+    printf("  Three modes. Plain -L is independent loss: every transmission gets a\n");
     printf("  fresh draw, so a re-sent packet can get through and a recovering\n");
     printf("  protocol converges. That is a channel, and it is what you want to\n");
-    printf("  watch. Adding -M <dport> keys each drop to the packet's identity,\n");
+    printf("  watch. Adding -B <len> makes that channel BURSTY (Gilbert-Elliott,\n");
+    printf("  -L = marginal loss, -B = mean burst length) -- the mode for replaying\n");
+    printf("  a measured real link (e.g. -L 0.78 -B 7.8 -S 1 from pass data).\n");
+    printf("  Adding -M <dport> keys each drop to the packet's identity,\n");
     printf("  so one seed replays one exact drop set for a measurement -- but a\n");
     printf("  re-sent packet is then dropped again, every time, and recovery can\n");
     printf("  never finish. Use -M for numbers, plain -L for demonstrations.\n");
