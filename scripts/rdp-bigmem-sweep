@@ -31,7 +31,11 @@ CSH_LIVE="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
 _live=0
 for _try in 1 2 3; do
   _P=$(mktemp --suffix=.csh); printf 'csp init\ncsp add can -c can0 -b 0 -d 17\nping 5431\nsleep 300\nexit\n' > "$_P"
-  if timeout 20 script -qec "$CSH_LIVE -i $_P" /dev/null </dev/null 2>&1 | grep -qa "Reply in"; then _live=1; rm -f "$_P"; break; fi
+  # capture-then-grep, NOT a pipeline: this script runs `set -o pipefail`, and csh's
+  # own `exit` returns 1 through script(1), so `script | grep -q` reports failure
+  # even when the ping replied (PIPESTATUS 1,0 -- proven 2026-08-07).
+  _out=$(timeout 20 script -qec "$CSH_LIVE -i $_P" /dev/null </dev/null 2>&1 || true)
+  if grep -qa "Reply in" <<<"$_out"; then _live=1; rm -f "$_P"; break; fi
   rm -f "$_P"; sleep 3   # node may be mid-teardown from a prior transfer; retry
 done
 [ "$_live" = 1 ] || { echo "FAIL: oracle node 5431 not answering on can0 (3 tries) — launch vmem_node on the board"; exit 1; }
