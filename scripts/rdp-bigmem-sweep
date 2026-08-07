@@ -28,10 +28,13 @@ CSV="$REPO/captures/rdp_bigmem_sweep.csv"
 # (aarch64 vmem_node), so a host process check is wrong -- it would abort with the
 # board node healthy, or pass on a stale host node. Ping 5431 over can0 instead.
 CSH_LIVE="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
-_P=$(mktemp --suffix=.csh); printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping 5431\nsleep 300\nexit\n' > "$_P"
-timeout 20 script -qec "$CSH_LIVE -i $_P" /dev/null </dev/null 2>&1 | grep -qa "Reply in" \
-  || { rm -f "$_P"; echo "FAIL: oracle node 5431 not answering on can0 — launch vmem_node on the board"; exit 1; }
-rm -f "$_P"
+_live=0
+for _try in 1 2 3; do
+  _P=$(mktemp --suffix=.csh); printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping 5431\nsleep 300\nexit\n' > "$_P"
+  if timeout 20 script -qec "$CSH_LIVE -i $_P" /dev/null </dev/null 2>&1 | grep -qa "Reply in"; then _live=1; rm -f "$_P"; break; fi
+  rm -f "$_P"; sleep 3   # node may be mid-teardown from a prior transfer; retry
+done
+[ "$_live" = 1 ] || { echo "FAIL: oracle node 5431 not answering on can0 (3 tries) — launch vmem_node on the board"; exit 1; }
 ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: zmqproxy broker (6000) down"; exit 1; }
 
 modes="$MODE"; [ "$MODE" = both ] && modes="stock tuned"
