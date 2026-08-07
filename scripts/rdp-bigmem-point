@@ -78,7 +78,7 @@ crc_check() { # $1=file
 # 1) CLEAN pre-fill with zeros (direct can0), CONFIRM it took (region must != payload)
 for _pf in 1 2 3; do
   PF=$(mktemp /tmp/${LABEL}_pf_XXXX.csh)
-  { echo "csp init"; echo "csp add can -d 20"; echo "upload -n $NODE -v 2 -t 1000 $ZER $REGION"; echo "exit"; } > "$PF"
+  { echo "csp init"; echo "csp add can -d 20"; echo "upload -n $NODE -v 2 -t 1000 $ZER $REGION"; echo "sleep 3000"; echo "exit"; } > "$PF"
   run_csh "$PF" 120 >/dev/null; rm -f "$PF"; sleep 2
   pf_vs_payload=$(crc_check "$PAY")           # expect FAILURE (region=zeros != payload)
   [ "$pf_vs_payload" = FAILURE ] && break
@@ -95,7 +95,15 @@ INJPID=$!; sleep 3
 UP=$(mktemp /tmp/${LABEL}_up_XXXX.csh)
 { echo "csp init"; echo "csp add zmq -d $UADDR 127.0.0.1"
   [ -n "$RDP_OPT" ] && echo "rdp opt $RDP_OPT"    # tune global RDP before the connect
-  echo "upload -n $NODE -v 2 -t $UP_TO $PAY $REGION"; echo "exit"; } > "$UP"
+  echo "upload -n $NODE -v 2 -t $UP_TO $PAY $REGION"
+  # Drain before exit: `upload` returns when the SEND LOOP finishes, not when the
+  # tail is acked. Exiting immediately kills the RDP conn and the unacked final
+  # packet with it -- the board region ends exactly one packet short of the file
+  # (proven 2026-08-07: last 64 bytes zero, sender claimed success). The direct
+  # single-shot never hit this because its session stays open for crc/download.
+  # This drain is HARNESS hygiene, not a mechanism fix -- the claim/arrival gap
+  # it papers over is the thesis's finding, measured by the crc/sha checks.
+  echo "sleep 6000"; echo "exit"; } > "$UP"
 UPOUT=$(run_csh "$UP" 600); rm -f "$UP"
 claimed=FAILED; echo "$UPOUT" | grep -qiE "Uploaded $SIZE bytes" && claimed=DELIVERED
 
@@ -104,7 +112,12 @@ inj=$(awk -F, '!/^#/{c++} END{print c+0}' "$ORA" 2>/dev/null)
 drop=$(awk -F, '!/^#/ && $8==1{c++} END{print c+0}' "$ORA" 2>/dev/null)
 rev=$(grep -oE 'reverse_frames=[0-9]+' "/tmp/${LABEL}_inj.log" | grep -oE '[0-9]+' | tail -1)
 fwd=$(grep -oE 'forwarded=[0-9]+' "/tmp/${LABEL}_inj.log" | grep -oE '[0-9]+' | tail -1)
-sleep 3   # let the RDP connection on NODE fully tear down before clean reads
+# Wait out the node's RDP conn_timeout (stock 10s) plus margin: the injector was
+# just killed, so the upload conn on the node cannot ACK-close and lingers until
+# timeout. Clean reads inside that window race the dying conn on the single-
+# threaded board node and come back with silently wrong bytes (proven 2026-08-07:
+# solo download of the same region is byte-perfect, in-cell download was not).
+sleep 12
 
 # 4) CLEAN verification (direct can0): crc32 (mechanism oracle) + download-back sha256 (external oracle, authoritative)
 crc=$( [ "$(crc_check "$PAY")" = SUCCESS ] && echo SUCCESS || echo MISMATCH )
@@ -112,10 +125,15 @@ sha=MISMATCH
 for _dl in 1 2; do
   GOT="/tmp/${LABEL}_got.bin"
   DL=$(mktemp /tmp/${LABEL}_dl_XXXX.csh)
-  { echo "csp init"; echo "csp add can -d 20"; echo "download -n $NODE -v 2 -t 1000 $REGION $SIZE $GOT"; echo "exit"; } > "$DL"
-  run_csh "$DL" 120 >/dev/null; rm -f "$DL"
-  got_sha=$(sha256sum "$GOT" 2>/dev/null | cut -d' ' -f1); rm -f "$GOT"
-  [ "$got_sha" = "$ORIG_SHA" ] && { sha=MATCH; break; }
+  # sleep before exit: same drain rule as the upload -- an immediate exit can kill
+  # the conn before the tail is flushed to the file (proven against the board node).
+  { echo "csp init"; echo "csp add can -d 20"; echo "download -n $NODE -v 2 -t 10000 $REGION $SIZE $GOT"; echo "sleep 1000"; echo "exit"; } > "$DL"
+  # keep the session log and (on mismatch) the downloaded bytes: a silent-corruption
+  # verdict must be autopsy-able, not just recorded
+  run_csh "$DL" 120 > "/tmp/${LABEL}_dl${_dl}.log" 2>&1; rm -f "$DL"
+  got_sha=$(sha256sum "$GOT" 2>/dev/null | cut -d' ' -f1)
+  [ "$got_sha" = "$ORIG_SHA" ] && { rm -f "$GOT"; sha=MATCH; break; }
+  mv -f "$GOT" "/tmp/${LABEL}_got_try${_dl}.bin" 2>/dev/null
   sleep 2
 done
 
