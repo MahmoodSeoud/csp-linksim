@@ -39,9 +39,19 @@ INJ_TO=$(( PUSH_TO + 60 ))                          # injector must outlive the 
 echo "pacing: RATE_BPS=$RATE_BPS pace_us=${PACE_US}us -> ~${SER_S}s/clean-pass; push_to=${PUSH_TO}s inj_to=${INJ_TO}s"
 strip(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'; }
 agent_up(){
-  printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping 5427\nsleep 2000\n' > /tmp/sds_ping.csh
-  timeout 12 script -qec "$CSH -i /tmp/sds_ping.csh" /dev/null </dev/null > /tmp/sds_ping.out 2>&1 || true
-  grep -qa "Reply in" /tmp/sds_ping.out
+  # 3 tries with a settle gap: a single ping right after a lossy pass races the
+  # post-storm congestion and false-negatives on a LIVE agent. The 2026-08-07
+  # "crash" was this probe aborting the sweep -- the operator then stacked a
+  # second agent on 5427, and duplicate-source CFP interleaving jammed the addr
+  # for real. One probe failure must never be treated as a dead agent.
+  local _t
+  for _t in 1 2 3; do
+    printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping -t 3000 5427\nsleep 2000\n' > /tmp/sds_ping.csh
+    timeout 15 script -qec "$CSH -i /tmp/sds_ping.csh" /dev/null </dev/null > /tmp/sds_ping.out 2>&1 || true
+    grep -qa "Reply in" /tmp/sds_ping.out && return 0
+    sleep 5
+  done
+  return 1
 }
 
 [ -f "$OUT" ] || echo "arm,loss,seed,label,passes,total_injected,total_dropped,overhead_ratio,result,status,rate_bps" > "$OUT"
