@@ -30,7 +30,7 @@ CSV="$REPO/captures/rdp_bigmem_sweep.csv"
 CSH_LIVE="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
 _live=0
 for _try in 1 2 3; do
-  _P=$(mktemp --suffix=.csh); printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping 5431\nsleep 300\nexit\n' > "$_P"
+  _P=$(mktemp --suffix=.csh); printf 'csp init\ncsp add can -c can0 -b 0 -d 17\nping 5431\nsleep 300\nexit\n' > "$_P"
   if timeout 20 script -qec "$CSH_LIVE -i $_P" /dev/null </dev/null 2>&1 | grep -qa "Reply in"; then _live=1; rm -f "$_P"; break; fi
   rm -f "$_P"; sleep 3   # node may be mid-teardown from a prior transfer; retry
 done
