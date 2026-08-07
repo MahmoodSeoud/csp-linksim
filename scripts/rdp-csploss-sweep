@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+#
+# rdp-csploss-sweep - RDP+CRC32 integrity sweep against the BOARD vmem_node, with
+# csp_loss (the csh APM) as the channel instead of ci_inject_bridge.
+#
+# WHY NOT THE BRIDGE: RDP's ack-driven connection proved nondeterministic through
+# the zmq->bridge->can0 path to the board (2026-08-07: five outcome shapes at loss
+# zero, 20-45% retransmit inflation), while the direct can0 path is byte-perfect.
+# csp_loss drops packets in the sender's TX path: seeded (-S = replayable channel),
+# marginal rate (-L), and burst-shaped (-B, Gilbert-Elliott) -- the same channel
+# model as the calibrated replay, on the path that is proven sound.
+#
+# EVIDENCE PER CELL (all in one csh session, mirroring the validated exp_rdp flow):
+#   channel record : csp_loss status at stop (its own drop count, seeded+replayable)
+#   mechanism claim: did `upload` print "Uploaded <size> bytes"
+#   external check : clean crc32 AND download-back sha256 vs the original
+# Silent corruption == claimed DELIVERED and sha MISMATCH (with harness drains in
+# place and no bridge, that is a mechanism result, not an artifact).
+#
+# Usage: rdp-csploss-sweep [mode] [losses] [nseeds]
+#   mode = stock | tuned | both   (default stock; tuned = -w 5 -c 120000 -p 1000 -k 250)
+#   env: BURST="7.8" adds -B (GE bursts at the mined real-pass shape); SEEDS override.
+# Resumable: cells with status=ok are skipped.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+CSH="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
+NODE=5431; REGION=0x10000000; SIZE=262144
+PAY="$REPO/captures/payload_256k.bin"
+ZER=/tmp/zeros_256k.bin
+CSV="${CSV:-$REPO/captures/rdp_csploss_sweep.csv}"
+MODE="${1:-stock}"; LOSSES="${2:-0 0.10 0.20 0.30}"; NSEEDS="${3:-3}"
+BURST="${BURST:-}"
+UP_TO="${UP_TO:-120000}"
+
+ORIG_SHA=$(sha256sum "$PAY" | cut -d' ' -f1)
+[ -s "$ZER" ] && [ "$(stat -c%s "$ZER")" = "$SIZE" ] || head -c "$SIZE" /dev/zero > "$ZER"
+[ -x "$CSH" ] || { echo "FAIL: no csh at $CSH"; exit 1; }
+[ -f "$CSV" ] || echo "mode,loss,seed,burst,claimed,crc,sha,loss_drops,verdict,ts" > "$CSV"
+
+strip_ansi(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'; }
+
+modes="$MODE"; [ "$MODE" = both ] && modes="stock tuned"
+for mode in $modes; do
+  opt=""; [ "$mode" = tuned ] && opt="-w 5 -c 120000 -p 1000 -k 250"
+  for loss in $LOSSES; do
+    for s in $(seq 1 "$NSEEDS"); do
+      label="rdpcl_${mode}_L${loss}_b${BURST:-0}_s${s}"
+      if awk -F, -v m="$mode" -v l="$loss" -v sd="$s" -v b="${BURST:-0}" \
+           'NR>1&&$1==m&&$2==l&&$3==sd&&$4==b{f=1}END{exit !f}' "$CSV"; then
+        echo "-- $label done, skip"; continue; fi
+
+      GOT="/tmp/${label}_got.bin"; rm -f "$GOT"
+      INIT=$(mktemp /tmp/rdpcl_XXXX.csh)
+      {
+        echo "csp init"
+        echo "csp add can -c can0 -b 0 -d 20"
+        echo "apm load"
+        # -- clean pre-fill + gate (region must NOT equal payload before the run)
+        echo "upload -n $NODE -v 2 -t 10000 $ZER $REGION"
+        echo "sleep 3000"
+        echo "crc32 -n $NODE -v 2 -f $PAY $REGION"
+        echo "sleep 500"
+        # -- the lossy transfer (channel on, seeded)
+        [ -n "$opt" ] && echo "rdp opt $opt"
+        if [ "$loss" != 0 ] || [ -n "$BURST" ]; then
+          echo "csp_loss start -L $loss ${BURST:+-B $BURST} -S $s"
+        fi
+        echo "upload -n $NODE -v 2 -t $UP_TO $PAY $REGION"
+        echo "sleep 6000"
+        if [ "$loss" != 0 ] || [ -n "$BURST" ]; then
+          echo "csp_loss status"; echo "csp_loss stop"
+        fi
+        # -- wait out RDP conn_timeout, then clean verify on the clean link
+        echo "sleep 12000"
+        echo "crc32 -n $NODE -v 2 -f $PAY $REGION"
+        echo "sleep 500"
+        echo "download -n $NODE -v 2 -t 10000 $REGION $SIZE $GOT"
+        echo "sleep 1000"
+        echo "exit"
+      } > "$INIT"
+      out=$(timeout 500 script -qec "$CSH -i $INIT" /dev/null </dev/null 2>&1 | strip_ansi)
+      rm -f "$INIT"
+      echo "$out" > "/tmp/${label}_session.log"
+
+      # gate: first crc32 must be Failure (zeros != payload); its Success = stale region
+      gate=$(echo "$out" | grep -aE "Success|Failure" | head -1)
+      case "$gate" in *Failure*) ;; *) echo "[$label] INVALID: pre-fill gate ($gate)"; continue;; esac
+
+      claimed=FAILED; echo "$out" | grep -qa "Uploaded $SIZE bytes" && claimed=DELIVERED
+      crc=$(echo "$out" | grep -aE "Success|Failure" | sed -n '2p')
+      case "$crc" in *Success*) crc=SUCCESS;; *) crc=MISMATCH;; esac
+      drops=$(echo "$out" | grep -a "csp_loss" | grep -oE "[0-9]+ *dropped|dropped[ :=]*[0-9]+" | grep -oE "[0-9]+" | head -1); drops="${drops:-0}"
+      got_sha=$(sha256sum "$GOT" 2>/dev/null | cut -d' ' -f1)
+      sha=MISMATCH; [ "$got_sha" = "$ORIG_SHA" ] && sha=MATCH
+      [ "$sha" = MATCH ] && rm -f "$GOT" || mv -f "$GOT" "/tmp/${label}_got_keep.bin" 2>/dev/null
+
+      vd=OK; [ "$claimed" = DELIVERED ] && [ "$sha" = MISMATCH ] && vd=SILENT_CORRUPTION
+      ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      echo "$mode,$loss,$s,${BURST:-0},$claimed,$crc,$sha,$drops,$vd,$ts" >> "$CSV"
+      echo "[$label] claimed=$claimed crc=$crc sha=$sha drops=$drops -> $vd"
+      sleep 3
+    done
+  done
+done
+echo; echo "== $CSV =="; column -t -s, "$CSV" 2>/dev/null | tail -20
