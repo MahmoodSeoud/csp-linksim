@@ -24,7 +24,14 @@ MODE="${1:-both}"; LOSSES="${2:-0.10 0.20 0.30}"; NSEEDS="${3:-3}"
 CSV="$REPO/captures/rdp_bigmem_sweep.csv"
 [ -f "$CSV" ] || echo "mode,loss,seed,injected,dropped,claimed,crc,sha,verdict,ts" > "$CSV"
 
-pgrep -f 'vmem_node -c can0 -a 5431' >/dev/null || { echo "FAIL: oracle node down — run scripts/bringup-vmem-node"; exit 1; }
+# Liveness by CAN ping, not host pgrep: the oracle node now runs ON THE BOARD
+# (aarch64 vmem_node), so a host process check is wrong -- it would abort with the
+# board node healthy, or pass on a stale host node. Ping 5431 over can0 instead.
+CSH_LIVE="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
+_P=$(mktemp --suffix=.csh); printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping 5431\nsleep 300\nexit\n' > "$_P"
+timeout 20 script -qec "$CSH_LIVE -i $_P" /dev/null </dev/null 2>&1 | grep -qa "Reply in" \
+  || { rm -f "$_P"; echo "FAIL: oracle node 5431 not answering on can0 — launch vmem_node on the board"; exit 1; }
+rm -f "$_P"
 ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: zmqproxy broker (6000) down"; exit 1; }
 
 modes="$MODE"; [ "$MODE" = both ] && modes="stock tuned"
