@@ -1,0 +1,20 @@
+pacing: RATE_BPS=9600 pace_us=213333us -> ~225s/clean-pass; push_to=735s inj_to=795s
+[naive_L0_s1] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[naive_L0_s2] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[naive_L0_s3] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[naive_L0.02_s1] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[naive_L0.02_s2] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[naive_L0.02_s3] passes=2 injected=518 overhead=0.49x -> DEPLOYED
+[naive_L0.05_s1] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[naive_L0.05_s2] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.05_s3] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.10_s1] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.10_s2] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.10_s3] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.20_s1] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.20_s2] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.20_s3] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.30_s1] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.30_s2] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+[naive_L0.30_s3] passes=12 injected=3108 overhead=2.94x -> INCOMPLETE
+== naive sweep done: /home/mseo/thesis/csp-linksim/captures/satdeploy_sweep.csv ==

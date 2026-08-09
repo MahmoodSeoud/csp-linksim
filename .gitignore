@@ -46,6 +46,11 @@ captures/*
 # repro_*: demo output from scripts/reproduce. Regenerated on every run by design, so it
 # must NOT be tracked even though it matches the *_sweep.csv negation above.
 captures/repro_*
+# evidence/: the forensic primary sources behind the threats-section findings —
+# per-cell session logs, the truncated-region image, corrupted-download samples.
+# Cost flatsat hours to produce and CANNOT regenerate (nondeterministic failures);
+# same survive-a-disk-loss class as the sweep tables.
+!captures/evidence
 
 # stray VM memory dumps (flatsat sim scratch; not part of the instrument)
 *.vmem

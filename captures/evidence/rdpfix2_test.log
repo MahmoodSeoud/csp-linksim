@@ -1,0 +1,4 @@
+awk: fatal: cannot open file `/home/mseo/thesis/csp-linksim/captures/payload_256k.manifest' for reading: No such file or directory
+[rdpfix2_L0_s1] node=5431 region=0x0000000010000000 size=262144 loss=0 seed=1 pace=0us
+[rdpfix2_L0_s1] claimed=DELIVERED crc=SUCCESS sha=MISMATCH injected=1370 dropped=0  *** SILENT CORRUPTION ***
+RESULT 0 1 1370 0 DELIVERED SUCCESS MISMATCH 457 1370

@@ -1,0 +1,19 @@
+pacing: RATE_BPS=9600 pace_us=213333us -> ~225s/clean-pass; push_to=735s inj_to=795s
+-- smart_L0_s1 done, skip
+-- smart_L0_s2 done, skip
+-- smart_L0_s3 done, skip
+-- smart_L0.02_s1 done, skip
+-- smart_L0.02_s2 done, skip
+-- smart_L0.02_s3 done, skip
+-- smart_L0.05_s1 done, skip
+-- smart_L0.05_s2 done, skip
+-- smart_L0.05_s3 done, skip
+-- smart_L0.10_s1 done, skip
+-- smart_L0.10_s2 done, skip
+-- smart_L0.10_s3 done, skip
+-- smart_L0.20_s1 done, skip
+-- smart_L0.20_s2 done, skip
+-- smart_L0.20_s3 done, skip
+-- smart_L0.30_s1 done, skip
+-- smart_L0.30_s2 done, skip
+>>> AGENT DOWN during smart_L0.30_s3 (attempt 1) — restart satdeploy-agent-smart, then re-run (resumable). <<<

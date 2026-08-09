@@ -1,0 +1,2 @@
+pacing: RATE_BPS=9600 pace_us=213333us -> ~225s/clean-pass; push_to=735s inj_to=795s
+>>> AGENT DOWN during smart_L0.30_s3 (attempt 1) — restart satdeploy-agent-smart, then re-run (resumable). <<<

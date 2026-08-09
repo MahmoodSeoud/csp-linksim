@@ -1,0 +1,137 @@
+
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Aug  6 2026 git: a7a27df
+
+  Init file: /tmp/rdpcl_KDaM.csh
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+INIT CAN0: device: [can0], bitrate: 0, promisc: 0
+Loaded: /home/mseo/.local/lib/csh/libcsh_obc.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_monitor.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_ippc.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_loss.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_uploader.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_link.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_dtp_client.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_svu.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_satdeploy_apm.so
+Using RDP options window: 3, conn_timeout: 10000, packet_timeout: 5000, ack_timeout: 2000, ack_count: 2
+Upload from /tmp/zeros_256k.bin to node 5431 addr 0x10000000 with timeout 10000, version 2
+File size 262144, offset 0, 262144 bytes to upload to address 0x10000000
+File head
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+Size 262144
+  ................................ - 6 K
+  ................................ - 12 K
+  ................................ - 18 K
+  ................................ - 24 K
+  ................................ - 30 K
+  ................................ - 36 K
+  ................................ - 42 K
+  ................................ - 48 K
+  ................................ - 54 K
+  ................................ - 60 K
+  ................................ - 66 K
+  ................................ - 72 K
+  ................................ - 78 K
+  ................................ - 84 K
+  ................................ - 90 K
+  ................................ - 96 K
+  ................................ - 102 K
+  ................................ - 108 K
+  ................................ - 114 K
+  ................................ - 120 K
+  ................................ - 126 K
+  ................................ - 132 K
+  ................................ - 138 K
+  ................................ - 144 K
+  ................................ - 150 K
+  ................................ - 156 K
+  ................................ - 162 K
+  ................................ - 168 K
+  ................................ - 174 K
+  ................................ - 180 K
+  ................................ - 186 K
+  ................................ - 192 K
+  ................................ - 198 K
+  ................................ - 204 K
+  ................................ - 210 K
+  ................................ - 216 K
+  ................................ - 222 K
+  ................................ - 228 K
+  ................................ - 234 K
+  ................................ - 240 K
+  ................................ - 246 K
+  ................................ - 252 K
+  ...................... - 256 K
+Uploaded 262144 bytes in 9.245 s at 28355 Bps
+  File CRC32: 0xCB781708
+  Calculate CRC32 from 5431 addr 0x10000000 with timeout 1000, version 2
+  Calculated CRC32 0xF032BCF3 on 262144 bytes in 0.018 s
+
+  Failure: F032BCF3 != CB781708
+
+Current RDP options window: 3, conn_timeout: 10000, packet_timeout: 5000, ack_timeout: 2000, ack_count: 2
+Setting RDP options window: 5, conn_timeout: 120000, packet_timeout: 1000, ack_timeout: 250, ack_count: 2
+csp_loss: 10.0% loss on CAN0 (TX from this node)
+csp_loss: independent per-transmission loss (seeded)
+Using RDP options window: 5, conn_timeout: 120000, packet_timeout: 1000, ack_timeout: 250, ack_count: 2
+Upload from /home/mseo/thesis/csp-linksim/captures/payload_256k.bin to node 5431 addr 0x10000000 with timeout 120000, version 2
+File size 262144, offset 0, 262144 bytes to upload to address 0x10000000
+File head
+         88 be 37 04 b9 3f ff 70 d1 9a b4 f7 ef 55 81 c9  ..7..?.p.....U..
+         f3 2f f2 ef c6 79 ff 4c 21 18 db 64 9f 89 be 63  ./...y.L!..d...c
+         6b bf 38 2e 2c f6 c7 9e 5c 37 ab 12 9e 3f b0 f5  k.8.,...\7...?..
+         46 0e df 18 d6 49 06 c8 da 81 e0 da b3 36 ef 3a  F....I.......6.:
+         b7 7a df 68 73 ac d4 06 d0 54 45 38 7e 39 49 ea  .z.hs....TE8~9I.
+         c2 e1 35 83 e7 54 06 82 f4 24 2e f8 29 9f d4 e1  ..5..T...$..)...
+         cc a1 ca 05 52 50 dc 65 28 95 a9 1f d1 f5 a5 4b  ....RP.e(......K
+         b2 e2 ae 1a 6e 92 72 52 3f 3a 0b 14 52 2e 9e 21  ....n.rR?:..R..!
+         d5 11 60 f6 c2 33 fe 15 92 63 de 82 3e 07 3b fc  ..`..3...c..>.;.
+         56 0b ad e3 05 59 b8 2b d6 19 2b 63 86 9e 49 8a  V....Y.+..+c..I.
+         ea 1e eb fc 3f 24 49 7f 5e 44 4c 27 45 93 ca 22  ....?$I.^DL'E.."
+         69 ac d5 54 ff 24 5c df be a9 ce f5 26 ec 27 65  i..T.$\.....&.'e
+         bf 9f bf 88 d1 ab 78 66 8b b6 dd ec eb b9 5e 32  ......xf......^2
+         51 76 70 ed 8e 09 ac 5a e8 e4 98 d0 05 42 f9 a3  Qvp....Z.....B..
+         9e 6b 09 7d ea be a5 e2 b1 c8 ec a6 0f 0a 41 61  .k.}..........Aa
+         0a 2c 18 e6 9d 2e 40 49 4e 93 b4 60 6d 72 9a 0b  .,....@IN..`mr..
+Size 262144
+  ..................... - 4 K
+Upload didn't complete, suggested offset to resume: 2880
+csp_loss: active on CAN0 -- target 10.0%, mode independent
+csp_loss: offered 870, dropped 105, delivered 765 (12.07% actual)
+csp_loss: stopped on CAN0 -- offered 870, dropped 105 (12.07%)
+  File CRC32: 0xCB781708
+  Calculate CRC32 from 5431 addr 0x10000000 with timeout 1000, version 2
+
+  Failure: 0 != CB781708
+
+
+Timed out on crc32 response
+
+Using RDP options window: 5, conn_timeout: 120000, packet_timeout: 1000, ack_timeout: 250, ack_count: 2
+No previous status file to resume from
+Download 262144 bytes from 5431 addr 0x10000000 to /tmp/rdpcl_tuned_L0.10_b0_s3_got.bin with timeout 10000 version 2
+Connection failed

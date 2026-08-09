@@ -1,0 +1,19 @@
+pacing: RATE_BPS=9600 pace_us=213333us -> ~225s/clean-pass; push_to=735s inj_to=795s
+-- smart_L0_s1 done, skip
+[smart_L0_s2] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[smart_L0_s3] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[smart_L0.02_s1] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[smart_L0.02_s2] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[smart_L0.02_s3] passes=1 injected=269 overhead=0.25x -> DEPLOYED
+[smart_L0.05_s1] passes=1 injected=259 overhead=0.24x -> DEPLOYED
+[smart_L0.05_s2] passes=1 injected=261 overhead=0.25x -> DEPLOYED
+[smart_L0.05_s3] passes=1 injected=273 overhead=0.26x -> DEPLOYED
+[smart_L0.10_s1] passes=1 injected=301 overhead=0.28x -> DEPLOYED
+[smart_L0.10_s2] passes=1 injected=262 overhead=0.25x -> DEPLOYED
+[smart_L0.10_s3] passes=1 injected=279 overhead=0.26x -> DEPLOYED
+[smart_L0.20_s1] passes=1 injected=333 overhead=0.31x -> DEPLOYED
+[smart_L0.20_s2] passes=1 injected=362 overhead=0.34x -> DEPLOYED
+[smart_L0.20_s3] passes=1 injected=298 overhead=0.28x -> DEPLOYED
+[smart_L0.30_s1] passes=1 injected=367 overhead=0.35x -> DEPLOYED
+[smart_L0.30_s2] passes=1 injected=388 overhead=0.37x -> DEPLOYED
+>>> AGENT DOWN during smart_L0.30_s3 (attempt 1) — restart satdeploy-agent-smart, then re-run (resumable). <<<
