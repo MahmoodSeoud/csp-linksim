@@ -38,6 +38,15 @@ MON_TO=$(( SER_S + 120 )); [ "$MON_TO" -lt 70 ] && MON_TO=70
 TRIG_SLEEP_MS=$(( (SER_S + 40) * 1000 )); MON_SLEEP_MS=$(( (SER_S + 90) * 1000 ))
 echo "[$LABEL] pacing: RATE_BPS=$RATE_BPS pace_us=${PACE_US}us -> ~${SER_S}s transmit (inj_to=${INJ_TO}s mon_to=${MON_TO}s)"
 
+# STRICT_SHA=1: refuse to burn a cell if the board-side sha256 (the external
+# check that makes the verdict citable) cannot run. Silent degradation to
+# UNVERIFIED is fine for exploration and fatal for matrix cells -- a lenient
+# overnight grid of hollow cells is the exact silent-failure pattern under
+# study. Probe the console BEFORE spending transfer time. [eng-review 4A]
+if [ "${STRICT_SHA:-0}" = "1" ]; then
+  stty -F "${DEV:-/dev/ttyUSB1}" >/dev/null 2>&1 \
+    || { echo "FAIL: STRICT_SHA=1 but serial console unreadable — fix permission (chmod 666 /dev/ttyUSB1) or close picocom"; exit 1; }
+fi
 ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: broker (6000) down"; exit 1; }
 pgrep -f 'upload_gs-server -z 127.0.0.1 -a 5424' >/dev/null || { echo "FAIL: upload_gs-server down"; exit 1; }
 [ -f "$MONSO" ] || { echo "FAIL: monitor APM not built"; exit 1; }
