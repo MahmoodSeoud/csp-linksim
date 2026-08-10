@@ -65,8 +65,13 @@ JULY_CSV_PATTERNS = [re.compile(r"[\w./-]*_pre20260807\.csv")]
 
 # Rule 4: retired names. A historical mention ("formerly satctl", "(formerly
 # satctl)") is legitimate and exempt -- only current-name use is flagged.
+# 'SVU' as a standalone tool name is retired: satdeploy is the tool, and its
+# block-verified transfer is 'the manifest core'. Lowercase 'svu' in filenames
+# and module names (svu_transfer, h2h_svu.csv) is fine and does not match.
 STALE_NAMES = [
     (re.compile(r"\bsatctl\b"), "retired name: use 'csh' (the shell was renamed from satctl)"),
+    (re.compile(r"\bSVU\b"), "retired tool name: satdeploy is the tool; use 'satdeploy' or 'the manifest core' (lowercase 'svu' in filenames/modules is fine)"),
+    (re.compile(r"[Ss]elf-[Vv]erifying [Uu]ploader"), "retired tool name: satdeploy is the self-verifying tool ('self-verifying deployment tool')"),
 ]
 HISTORICAL_MENTION = re.compile(r"formerly\s*$", re.IGNORECASE)
 

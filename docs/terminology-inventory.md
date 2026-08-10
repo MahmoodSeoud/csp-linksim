@@ -12,17 +12,24 @@ source of truth for *why* each rule exists. Edit both together.
 
 The manuscript makes **one** claim: the *receiver-verification principle* —
 completion decided without verified arrival causes silent corruption; a
-receiver-declared, digest-gated completion removes it by construction. The two
-artifacts are not rivals; they are two forms of the same principle:
+receiver-declared, digest-gated completion removes it by construction.
+
+There is **one contributed tool: `satdeploy`.** SVU is retired as a tool name —
+the deployed satdeploy-agent's transfer core *is* the manifest transfer that was
+prototyped as SVU (`svu_transfer.c`, dropped on dport 9 = SVU_DATA_PORT in the
+board sweep). So:
 
 | Term | Refers to | Use for |
 |---|---|---|
-| **SVU core** | the protocol / principle embodiment (per-block manifest over the reliable control channel, body connectionless, receiver alone declares completion) | the mechanism, the design, the property being argued for |
-| **satdeploy v2** | the deployed operational agent that *carries* the SVU core onto flight-representative hardware | the tool on the board, the ablation arms, the deployment story |
+| **satdeploy** | the contributed self-verifying deployment tool, the operational embodiment of the principle | the tool, the board arms, the ablation, the deployment story |
+| **the manifest core** (satdeploy's transfer core) | satdeploy's block-verified transfer: per-block SHA-256 manifest over the reliable control channel, body connectionless, receiver declares completion | the mechanism/design being argued for; the host-arm reverse-channel measurements |
+| **satdeploy v1** / the whole-artifact predecessor | the older whole-artifact-digest transfer the core replaced | appendix-only, the July matched comparison |
 
-`satdeploy v2` embodies the SVU core; it does not compete with it. The July
-`satdeploy` (transfer layer since replaced by the SVU core) is **satdeploy v1**,
-and it is appendix-only (single-era rule below).
+`SVU` (uppercase, standalone) and "Self-Verifying Uploader" are **banned as tool
+names** — use `satdeploy` or `the manifest core`. Lowercase `svu` in filenames
+and module names (`svu_transfer`, `h2h_svu.csv`, `svu_sweep.csv`) is fine and
+kept for traceability. The July matched comparison is v1 vs the manifest core,
+appendix-only (single-era rule below).
 
 ## The rules
 
