@@ -10,14 +10,14 @@
     "silent_corruptions": "25/25 host-4800, 25/25 board-9600"
   },
   {
-    "claim_vs_reality": "claims success over a truncated file (silent on this fast link)",
+    "claim_vs_reality": "honest here: aborts loudly; truncates silently only where the connection outlives the send loop (host transport, 9/53)",
     "clean_controls": "6/6",
     "invalid_excluded": 0,
     "lossy_cells": 27,
     "mechanism": "RDP (reliable path)",
-    "modal_verdict": "SILENT_CORRUPTION",
+    "modal_verdict": "LOUD_ABORT",
     "regime": "unpaced csp\\_loss board, i.i.d.\\ + burst",
-    "silent_corruptions": "27/27"
+    "silent_corruptions": "0/27 board (9/53 host transport)"
   },
   {
     "claim_vs_reality": "honest and incomplete (exhausts its pass budget under loss)",

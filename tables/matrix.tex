@@ -9,7 +9,7 @@
 \textbf{Mechanism} & \textbf{Regime measured} & \textbf{Claim vs.\ reality} & \textbf{Silent corr.} \\
 \midrule
 Deployed uploader (DTP) & board 4800 (flight) \emph{pending}; host-4800 + board-9600 committed & claims success over a corrupt file (board-4800 pre-registered, pending) & 25/25 host-4800, 25/25 board-9600 \\
-RDP (reliable path) & unpaced csp\_loss board, i.i.d.\ + burst & claims success over a truncated file (silent on this fast link) & 27/27 \\
+RDP (reliable path) & unpaced csp\_loss board, i.i.d.\ + burst & honest here: aborts loudly; truncates silently only where the connection outlives the send loop (host transport, 9/53) & 0/27 board (9/53 host transport) \\
 satdeploy v2 naive & board 9600\,bit/s & honest and incomplete (exhausts its pass budget under loss) & 0/15 \\
 satdeploy v2 smart & board 9600\,bit/s & honest and complete (verified install every valid cell) \textsuperscript{$\dagger$} & 0/14 \\
 \bottomrule

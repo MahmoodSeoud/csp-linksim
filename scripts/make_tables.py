@@ -51,7 +51,15 @@ def is_lossy(loss_str):
 # ---------------------------------------------------------------- verdicts ---
 
 def verdict_rdp():
-    """Reliable path, August csp_loss board sweep. verdict in {OK, SILENT_CORRUPTION}."""
+    """Reliable path, August csp_loss board sweep.
+
+    verdict in {OK, LOUD_ABORT, SILENT_CORRUPTION}. The 2026-08-10 re-derivation
+    from the committed session logs corrected all 27 lossy cells to LOUD_ABORT:
+    the original sweep's grep matched the clean pre-fill's success line, not the
+    lossy payload upload's outcome. On this CAN link the reliable path is honest
+    -- it aborts loudly. Its silent truncation is host-transport evidence only
+    (rdp_zmq realizations, 9/53), where the connection outlives the send loop.
+    """
     data = rows("rdp_csploss_sweep.csv")
     clean = [r for r in data if not is_lossy(r["loss"])]
     lossy = [r for r in data if is_lossy(r["loss"])]
@@ -64,8 +72,8 @@ def verdict_rdp():
         "lossy_cells": len(lossy),
         "invalid_excluded": 0,
         "modal_verdict": modal[0][0] if modal else "n/a",
-        "silent_corruptions": f"{len(corrupt)}/{len(lossy)}",
-        "claim_vs_reality": "claims success over a truncated file (silent on this fast link)",
+        "silent_corruptions": f"{len(corrupt)}/{len(lossy)} board (9/53 host transport)",
+        "claim_vs_reality": "honest here: aborts loudly; truncates silently only where the connection outlives the send loop (host transport, 9/53)",
     }
 
 

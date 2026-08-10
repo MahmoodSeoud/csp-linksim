@@ -86,7 +86,18 @@ for mode in $modes; do
       gate=$(echo "$out" | grep -aE "Success|Failure" | head -1)
       case "$gate" in *Failure*) ;; *) echo "[$label] INVALID: pre-fill gate ($gate)"; continue;; esac
 
-      claimed=FAILED; echo "$out" | grep -qa "Uploaded $SIZE bytes" && claimed=DELIVERED
+      # The session runs TWO uploads: the clean pre-fill first, then the lossy
+      # payload. The mechanism's claim is the SECOND upload's outcome -- grepping
+      # the whole log for "Uploaded" matches the pre-fill's success line and
+      # misclassifies a loud abort as DELIVERED (the 2026-08-10 parser bug: all
+      # 27 committed lossy cells printed "Upload didn't complete" and were still
+      # recorded as silent corruption).
+      up2=$(echo "$out" | grep -aE "Uploaded $SIZE bytes|didn't complete" | sed -n '2p')
+      case "$up2" in
+        *"Uploaded $SIZE bytes"*) claimed=DELIVERED;;
+        *"didn't complete"*)      claimed=FAILED;;
+        *)                        claimed=NO_VERDICT;;
+      esac
       crc=$(echo "$out" | grep -aE "Success|Failure" | sed -n '2p')
       case "$crc" in *Success*) crc=SUCCESS;; *) crc=MISMATCH;; esac
       drops=$(echo "$out" | grep -a "csp_loss" | grep -oE "[0-9]+ *dropped|dropped[ :=]*[0-9]+" | grep -oE "[0-9]+" | head -1); drops="${drops:-0}"
@@ -94,7 +105,9 @@ for mode in $modes; do
       sha=MISMATCH; [ "$got_sha" = "$ORIG_SHA" ] && sha=MATCH
       [ "$sha" = MATCH ] && rm -f "$GOT" || mv -f "$GOT" "/tmp/${label}_got_keep.bin" 2>/dev/null
 
-      vd=OK; [ "$claimed" = DELIVERED ] && [ "$sha" = MISMATCH ] && vd=SILENT_CORRUPTION
+      vd=OK
+      [ "$claimed" = DELIVERED ] && [ "$sha" = MISMATCH ] && vd=SILENT_CORRUPTION
+      [ "$claimed" = FAILED ]    && [ "$sha" = MISMATCH ] && vd=LOUD_ABORT
       ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
       echo "$mode,$loss,$s,${BURST:-0},$claimed,$crc,$sha,$drops,$vd,$ts" >> "$CSV"
       echo "[$label] claimed=$claimed crc=$crc sha=$sha drops=$drops -> $vd"
