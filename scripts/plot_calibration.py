@@ -58,7 +58,10 @@ def load_measured_satdeploy():
         return out
     with open(path) as f:
         for r in csv.DictReader(f):
-            if r["status"] != "ok":
+            if r["status"] != "ok" or r.get("result") == "AGENT_FAILURE":
+                continue
+            # Harness-invalid cells carry NA in the count fields; skip them.
+            if r["total_injected"] in ("NA", ""):
                 continue
             inj = int(r["total_injected"])
             if inj == 0:

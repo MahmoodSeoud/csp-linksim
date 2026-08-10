@@ -1,0 +1,46 @@
+[
+  {
+    "claim_vs_reality": "claims success over a corrupt file (board-4800 pre-registered, pending)",
+    "clean_controls": "5/5 (host-4800), 5/5 (board-9600)",
+    "invalid_excluded": 0,
+    "lossy_cells": 25,
+    "mechanism": "Deployed uploader (DTP)",
+    "modal_verdict": "PENDING_BOARD_4800",
+    "regime": "board 4800 (flight) \\emph{pending}; host-4800 + board-9600 committed",
+    "silent_corruptions": "25/25 host-4800, 25/25 board-9600"
+  },
+  {
+    "claim_vs_reality": "claims success over a truncated file (silent on this fast link)",
+    "clean_controls": "6/6",
+    "invalid_excluded": 0,
+    "lossy_cells": 27,
+    "mechanism": "RDP (reliable path)",
+    "modal_verdict": "SILENT_CORRUPTION",
+    "regime": "unpaced csp\\_loss board, i.i.d.\\ + burst",
+    "silent_corruptions": "27/27"
+  },
+  {
+    "claim_vs_reality": "honest and incomplete (exhausts its pass budget under loss)",
+    "clean_controls": "3/3",
+    "invalid_excluded": 0,
+    "invalid_labels": [],
+    "lossy_cells": 15,
+    "mechanism": "satdeploy v2 naive",
+    "modal_verdict": "INCOMPLETE",
+    "regime": "board 9600\\,bit/s",
+    "silent_corruptions": "0/15"
+  },
+  {
+    "claim_vs_reality": "honest and complete (verified install every valid cell)",
+    "clean_controls": "3/3",
+    "invalid_excluded": 1,
+    "invalid_labels": [
+      "smart_L0.30_s3"
+    ],
+    "lossy_cells": 14,
+    "mechanism": "satdeploy v2 smart",
+    "modal_verdict": "DEPLOYED",
+    "regime": "board 9600\\,bit/s",
+    "silent_corruptions": "0/14"
+  }
+]

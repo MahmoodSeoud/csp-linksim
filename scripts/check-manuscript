@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""Manuscript linter for the thesis-coherence restructure.
+
+Enforces the four rules of docs/terminology-inventory.md against the LaTeX
+sources of ~/thesis/MasterThesis---SatDeploy:
+
+  1. one-scheme terminology  -- no rival framing of satdeploy v2 vs the SVU core
+  2. single-era citations    -- no pre-v2 (July) capture files in the main text
+                                outside the marked adoption paragraph
+  3. dangling references     -- every \\ref target has a \\label
+  4. stale names             -- retired names must not reappear
+
+ERROR-tier findings fail the build (exit 1); WARN-tier are advisory (exit 0
+unless --strict). Runs with make-results before every submission build:
+
+    scripts/make-results && scripts/check-manuscript
+
+The manuscript lives in a sibling repo; override with MANUSCRIPT_DIR or --dir.
+This script never edits the manuscript -- it only reports.
+"""
+import argparse
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+DEFAULT_MANUSCRIPT = os.environ.get(
+    "MANUSCRIPT_DIR",
+    os.path.normpath(os.path.join(REPO, "..", "MasterThesis---SatDeploy")),
+)
+
+# The sources are split into two classes. Main text carries the single-era and
+# one-scheme rules; the appendix is where pre-v2 data and the matched
+# comparison legitimately live.
+MAIN_TEXT = re.compile(r"(?:^|/)(?:main\.tex|chapter[1-7]_[a-z_]+\.tex)$")
+APPENDIX = re.compile(r"(?:^|/)appendix_[a-z_]+\.tex$")
+
+# A line (or block) that legitimately cites the July comparison as the adoption
+# paragraph carries this sentinel; it exempts that line from rule 2.
+ADOPTION_EXEMPT = "check-manuscript: adoption-exempt"
+
+# ------------------------------------------------------------------ RULES ----
+# Rule 1: rival framing. High-precision phrases the gated chapter edits remove.
+# Matched against LaTeX-normalized text (see normalize()), case-insensitive.
+BANNED_PHRASES = [
+    (r"head-to-head between satdeploy and svu", "rival framing: the matched comparison is appendix adoption evidence, not a main-text rivalry"),
+    (r"satdeploy and svu", "rival framing: names the two artifacts as a pair of competitors"),
+    (r"satdeploy against svu", "rival framing: 'against' frames a contest"),
+    (r"svu against satdeploy", "rival framing: 'against' frames a contest"),
+    (r"satdeploy versus svu", "rival framing"),
+    (r"svu versus satdeploy", "rival framing"),
+    (r"svu,? the primary contribution", "the primary contribution is the receiver-verification principle, not SVU-as-rival"),
+    (r"\brivalry\b", "rival framing"),
+]
+
+# Rule 1 (WARN): bare 'satdeploy' not tagged with a version. Ambiguous v1/v2.
+# We flag 'satdeploy' when NOT immediately followed by a version token and NOT
+# part of a filename/command (those are handled elsewhere / are literals).
+BARE_SATDEPLOY = re.compile(r"\bsatdeploy\b(?!\s*v\d)(?![\w./-])", re.IGNORECASE)
+
+# Rule 2: pre-v2 (July) capture files. ERROR if cited in main text un-exempted.
+JULY_CSV_LITERALS = ["h2h_satdeploy.csv", "h2h_svu.csv", "svu_sweep.csv"]
+JULY_CSV_PATTERNS = [re.compile(r"[\w./-]*_pre20260807\.csv")]
+
+# Rule 4: retired names. A historical mention ("formerly satctl", "(formerly
+# satctl)") is legitimate and exempt -- only current-name use is flagged.
+STALE_NAMES = [
+    (re.compile(r"\bsatctl\b"), "retired name: use 'csh' (the shell was renamed from satctl)"),
+]
+HISTORICAL_MENTION = re.compile(r"formerly\s*$", re.IGNORECASE)
+
+
+class Finding:
+    def __init__(self, tier, rule, path, line, msg, excerpt=""):
+        self.tier = tier          # "ERROR" or "WARN"
+        self.rule = rule
+        self.path = path
+        self.line = line
+        self.msg = msg
+        self.excerpt = excerpt
+
+    def __str__(self):
+        loc = f"{self.path}:{self.line}"
+        head = f"  [{self.tier}] {self.rule}: {loc}\n      {self.msg}"
+        return head + (f"\n      > {self.excerpt}" if self.excerpt else "")
+
+
+def normalize(line):
+    r"""Strip LaTeX so phrase/file matching sees the underlying text.
+
+    \texttt{h2h\_svu.csv} -> h2h_svu.csv ; collapses \emph{}, \textbf{}, ~, and
+    the backslash-escaped underscore/percent that LaTeX requires.
+    """
+    s = line
+    # Drop line comments (but the caller inspects the raw line for the sentinel).
+    s = re.sub(r"(?<!\\)%.*$", "", s)
+    # Unwrap common one-arg formatting macros, keeping their contents.
+    for macro in ("texttt", "emph", "textbf", "textit", "text", "textsuperscript"):
+        s = re.sub(r"\\" + macro + r"\{([^{}]*)\}", r"\1", s)
+    s = s.replace(r"\_", "_").replace(r"\%", "%").replace("~", " ")
+    return s
+
+
+def classify(relpath):
+    if MAIN_TEXT.search(relpath):
+        return "main"
+    if APPENDIX.search(relpath):
+        return "appendix"
+    return "other"
+
+
+def find_tex(manuscript):
+    out = []
+    main = os.path.join(manuscript, "main.tex")
+    if os.path.exists(main):
+        out.append(main)
+    chapdir = os.path.join(manuscript, "chapters")
+    if os.path.isdir(chapdir):
+        for name in sorted(os.listdir(chapdir)):
+            if name.endswith(".tex"):
+                out.append(os.path.join(chapdir, name))
+    return out
+
+
+def check_file(path, manuscript, labels_seen, refs_seen):
+    rel = os.path.relpath(path, manuscript)
+    kind = classify(rel)
+    findings = []
+    bare_satdeploy_lines = []  # aggregated into one WARN per file (else 50+ noise)
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+    for i, raw in enumerate(lines, 1):
+        norm = normalize(raw)
+        low = norm.lower()
+        exempt = ADOPTION_EXEMPT in raw
+
+        # Collect labels/refs for the dangling-ref pass (rule 3).
+        for m in re.finditer(r"\\label\{([^}]*)\}", raw):
+            labels_seen.add(m.group(1))
+        for m in re.finditer(r"\\(?:ref|autoref|eqref)\{([^}]*)\}", raw):
+            refs_seen.setdefault(m.group(1), (rel, i))
+
+        # Rule 1 (ERROR): rival framing -- main text only.
+        if kind == "main":
+            for pat, why in BANNED_PHRASES:
+                if re.search(pat, low):
+                    findings.append(Finding("ERROR", "terminology", rel, i, why, norm.strip()))
+            # Rule 1 (WARN): bare 'satdeploy' -- aggregated below.
+            if BARE_SATDEPLOY.search(norm):
+                bare_satdeploy_lines.append(i)
+
+        # Rule 2 (ERROR): pre-v2 capture files in main text.
+        if kind == "main" and not exempt:
+            hits = [lit for lit in JULY_CSV_LITERALS if lit in norm]
+            for pat in JULY_CSV_PATTERNS:
+                hits += [m.group(0) for m in pat.finditer(norm)]
+            for hit in hits:
+                findings.append(Finding("ERROR", "single-era", rel, i,
+                                        f"pre-v2 (July) capture '{hit}' cited in main text; "
+                                        f"move to appendix or mark the adoption paragraph with "
+                                        f"'% {ADOPTION_EXEMPT}'",
+                                        norm.strip()))
+
+        # Rule 4 (ERROR): stale names, anywhere -- except historical mentions.
+        for pat, why in STALE_NAMES:
+            for m in pat.finditer(norm):
+                if HISTORICAL_MENTION.search(norm[:m.start()]):
+                    continue  # "formerly satctl" is a legitimate rename note
+                findings.append(Finding("ERROR", "stale-name", rel, i, why, norm.strip()))
+
+    if bare_satdeploy_lines:
+        shown = ", ".join(str(n) for n in bare_satdeploy_lines[:20])
+        more = "" if len(bare_satdeploy_lines) <= 20 else f" (+{len(bare_satdeploy_lines) - 20} more)"
+        findings.append(Finding("WARN", "terminology", rel, bare_satdeploy_lines[0],
+                                f"{len(bare_satdeploy_lines)} bare 'satdeploy' mention(s) -- "
+                                f"confirm each is v2-context or tag 'satdeploy v2'/'v1'. "
+                                f"lines: {shown}{more}"))
+    return findings
+
+
+def check_dangling_refs(labels_seen, refs_seen):
+    findings = []
+    for target, (rel, line) in sorted(refs_seen.items()):
+        if target not in labels_seen:
+            findings.append(Finding("ERROR", "dangling-ref", rel, line,
+                                    f"\\ref{{{target}}} has no matching \\label"))
+    return findings
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dir", default=DEFAULT_MANUSCRIPT,
+                    help="manuscript root (default: %(default)s)")
+    ap.add_argument("--strict", action="store_true",
+                    help="fail on WARN-tier findings too")
+    args = ap.parse_args()
+
+    manuscript = args.dir
+    if not os.path.isdir(manuscript):
+        print(f"check-manuscript: manuscript dir not found: {manuscript}", file=sys.stderr)
+        print("  set MANUSCRIPT_DIR or pass --dir", file=sys.stderr)
+        return 2
+
+    tex_files = find_tex(manuscript)
+    if not tex_files:
+        print(f"check-manuscript: no .tex files under {manuscript}", file=sys.stderr)
+        return 2
+
+    labels_seen = set()
+    refs_seen = {}
+    findings = []
+    for path in tex_files:
+        findings += check_file(path, manuscript, labels_seen, refs_seen)
+    findings += check_dangling_refs(labels_seen, refs_seen)
+
+    errors = [f for f in findings if f.tier == "ERROR"]
+    warns = [f for f in findings if f.tier == "WARN"]
+
+    by_rule = {}
+    for f in findings:
+        by_rule.setdefault(f.rule, []).append(f)
+
+    print(f"check-manuscript: scanned {len(tex_files)} .tex files under {manuscript}")
+    if not findings:
+        print("  clean: no terminology, era, ref, or stale-name violations.")
+        return 0
+
+    for rule in ("terminology", "single-era", "dangling-ref", "stale-name"):
+        group = by_rule.get(rule, [])
+        if not group:
+            continue
+        print(f"\n== {rule} ({len(group)}) ==")
+        for f in group:
+            print(f)
+
+    print(f"\nsummary: {len(errors)} error(s), {len(warns)} warning(s)")
+    if errors:
+        return 1
+    if warns and args.strict:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

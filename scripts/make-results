@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Regenerate every evaluation figure and table from committed CSVs.
+#
+# Acceptance test (determinism -- a clean checkout regenerates byte-identically):
+#     scripts/make-results && git diff --exit-code figures/ tables/
+#
+# All generated outputs land under figures/ (plots) and tables/ (.tex includes +
+# verdicts.json). Nothing here reads July host-arm data; the main-text evidence
+# is the single August flight-hardware era (see docs/terminology-inventory.md).
+#
+# Run the manuscript linter after this before any submission build:
+#     scripts/make-results && scripts/check-manuscript
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# Pin the epoch so matplotlib's PDF backend stops stamping a wall-clock
+# CreationDate/ModDate into the output -- otherwise the acceptance test's
+# git diff fails on every run even when the data is unchanged.
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1704067200}"  # 2024-01-01T00:00:00Z, fixed
+export MPLBACKEND=Agg
+export PYTHONHASHSEED=0
+
+PY="${PYTHON:-python3}"
+
+echo "[make-results] figures/ (SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH)"
+"$PY" scripts/plot_calibration.py
+
+echo "[make-results] tables/"
+"$PY" scripts/make_tables.py
+
+echo "[make-results] done. Verify determinism with:"
+echo "    git diff --exit-code figures/ tables/"
