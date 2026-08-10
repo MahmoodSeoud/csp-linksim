@@ -111,15 +111,33 @@ def classify(relpath):
 
 
 def find_tex(manuscript):
-    out = []
+    """Follow the \\input/\\include graph from main.tex, so the file set the
+    linter scans is exactly the file set the LaTeX build compiles. This makes
+    the dangling-ref check see labels that live in \\input-ed generated tables
+    (e.g. tables/matrix.tex), which a bare chapters/ glob would miss."""
+    include_re = re.compile(r"\\(?:input|include)\{([^}]*)\}")
+    out, seen = [], set()
+
+    def visit(path):
+        real = os.path.normpath(path)
+        if real in seen or not os.path.exists(real):
+            return
+        seen.add(real)
+        out.append(real)
+        with open(real, encoding="utf-8") as f:
+            text = f.read()
+        # Strip comments so a commented-out \input is not followed.
+        for line in text.splitlines():
+            line = re.sub(r"(?<!\\)%.*$", "", line)
+            for m in include_re.finditer(line):
+                target = m.group(1)
+                if not os.path.splitext(target)[1]:
+                    target += ".tex"
+                visit(os.path.join(manuscript, target))
+
     main = os.path.join(manuscript, "main.tex")
     if os.path.exists(main):
-        out.append(main)
-    chapdir = os.path.join(manuscript, "chapters")
-    if os.path.isdir(chapdir):
-        for name in sorted(os.listdir(chapdir)):
-            if name.endswith(".tex"):
-                out.append(os.path.join(chapdir, name))
+        visit(main)
     return out
 
 
