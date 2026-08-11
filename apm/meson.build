@@ -27,6 +27,15 @@ shared_library('csh_csp_link',
   override_options: ['c_std=gnu11', 'warning_level=2', 'werror=true', 'b_lundef=false'],
   install: true)
 
+# Shell APM: `sh <command...>` runs one host shell command, so an experiment can
+# be a single .csh file (prep + bus commands + external verdict) replayable with
+# `csh -i`. Same plugin link rules as the others.
+shared_library('csh_csp_shell',
+  ['csp_shell_apm.c'],
+  dependencies: [apm_csh_dep, apm_slash_dep, apm_param_dep, apm_csp_dep, ci_dep],
+  override_options: ['c_std=gnu11', 'warning_level=2', 'werror=true', 'b_lundef=false'],
+  install: true)
+
 # Loss APM: the injector as a csh command (`csp_loss start -L 0.1`), hooking the
 # interface nexthop instead of standing between nodes like the proxy does. Same
 # dependency set and same plugin link rules as the monitor.

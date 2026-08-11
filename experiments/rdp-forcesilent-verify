@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# rdp-forcesilent-verify -- the external verdict for rdp-forcesilent.csh.
-# Judges the run from artifacts only; can be re-run any time after the session.
+# rdp-forcesilent-verify -- strict external verdict for rdp-forcesilent.csh.
+# Called from inside the .csh via `sh`, and re-runnable standalone any time
+# after a session (judges from /tmp artifacts only). The mechanism's CLAIM
+# (Uploaded vs didn't complete) is on your terminal / session log -- this
+# script judges what actually landed.
 set -uo pipefail
 PAY=/home/mseo/thesis/csp-linksim/captures/payload_256k.bin
-LOG="${LOG:-/tmp/rdp_forcesilent_session.log}"
 SIZE=262144
 
 echo "==================== VERDICT ===================="
@@ -11,32 +13,26 @@ echo "==================== VERDICT ===================="
 if cmp -s /tmp/pre.bin /tmp/sentinel_AA.bin; then
   echo "[1] PREFILL CLEAN : region was exactly 0xAA before the run"
 else
-  echo "[1] PREFILL DIRTY : test INVALID"; cmp /tmp/pre.bin /tmp/sentinel_AA.bin | head -1; exit 2
+  echo "[1] PREFILL DIRTY : test INVALID"; cmp /tmp/pre.bin /tmp/sentinel_AA.bin 2>&1 | head -1; exit 2
 fi
 
-# [2] the mechanism's claim -- the SECOND upload line (first is the sentinel fill)
-up2=$(grep -aE "Uploaded $SIZE bytes|didn't complete" "$LOG" | sed -n '2p')
-case "$up2" in
-  *"Uploaded $SIZE bytes"*) echo "[2] CLAIMED SUCCESS: '$up2'";;
-  *"didn't complete"*)      echo "[2] LOUD ABORT     : '$up2'  (honest even unkillable)";;
-  *)                        echo "[2] NO VERDICT LINE in $LOG -- inspect the session";;
-esac
-
-# [3] what actually landed
+# [2] what actually landed
 GOT_SHA=$(sha256sum /tmp/got.bin 2>/dev/null | cut -d' ' -f1)
 ORIG_SHA=$(sha256sum "$PAY" | cut -d' ' -f1)
 if [ "$GOT_SHA" = "$ORIG_SHA" ]; then
-  echo "[3] DELIVERED OK  : sha256 matches source (seed got lucky -- rerun with another -S)"; exit 0
+  echo "[2] DELIVERED OK  : sha256 matches source (seed got lucky -- rerun with another -S)"; exit 0
 fi
-echo "[3] FILE WRONG    : delivered sha256 != source"
+echo "[2] FILE WRONG    : delivered sha256 != source"
+echo "    -> pair this with the upload's own words on your terminal:"
+echo "       'Uploaded $SIZE bytes'  = SILENT corruption (the claim under test)"
+echo "       'didn't complete'       = loud abort (honest even unkillable)"
 
-# [4] the wrong bytes must still be the sentinel = never delivered by this upload
+# [3] the wrong bytes must still be the sentinel = never delivered by this upload
 FIRST=$(cmp "$PAY" /tmp/got.bin 2>/dev/null | grep -oE 'byte [0-9]+' | grep -oE '[0-9]+' | head -1)
 echo "    first differing byte: ${FIRST:-?} of $SIZE"
-TAILHEX=$(tail -c "$((SIZE - ${FIRST:-1} + 1))" /tmp/got.bin | od -An -tx1 | tr -d ' \n')
+TAILHEX=$(tail -c "$((SIZE - ${FIRST:-1} + 1))" /tmp/got.bin | od -v -An -tx1 | tr -d ' \n')
 if [ -n "$TAILHEX" ] && [ -z "${TAILHEX//aa/}" ]; then
-  echo "[4] TAIL IS SENTINEL: every wrong byte is 0xAA -- never delivered. PROVEN."
+  echo "[3] TAIL IS SENTINEL: every wrong byte is 0xAA -- never delivered. PROVEN."
 else
-  echo "[4] tail not all-0xAA -- inspect: xxd /tmp/got.bin | tail"
+  echo "[3] tail not all-0xAA -- inspect: xxd /tmp/got.bin | tail"
 fi
-echo "artifacts: $LOG /tmp/pre.bin /tmp/got.bin"

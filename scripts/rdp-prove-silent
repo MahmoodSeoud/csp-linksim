@@ -73,12 +73,14 @@ else
   echo "    first diff:"; cmp "$PRECHK" "$SENT" 2>&1 | head -1; exit 2
 fi
 
-# (b) did the uploader claim success?
-if grep -qa "Uploaded $SIZE bytes" "$LOG"; then
-  echo "[2] CLAIMED SUCCESS: uploader printed 'Uploaded $SIZE bytes'"
-else
-  echo "[2] uploader did NOT claim full success (see $LOG) -- not a silent-corruption cell"
-fi
+# (b) did the uploader claim success? The session runs TWO uploads (sentinel
+# pre-fill first) -- the mechanism's claim is the SECOND upload's outcome.
+up2=$(grep -aE "Uploaded $SIZE bytes|didn't complete" "$LOG" | sed -n '2p')
+case "$up2" in
+  *"Uploaded $SIZE bytes"*) echo "[2] CLAIMED SUCCESS: uploader printed 'Uploaded $SIZE bytes'";;
+  *"didn't complete"*)      echo "[2] LOUD ABORT     : uploader admitted the failure -- not a silent cell";;
+  *)                        echo "[2] NO CLAIM LINE  : inspect $LOG";;
+esac
 
 # (c) is the delivered file wrong?
 GOT_SHA=$(sha256sum "$GOT" 2>/dev/null | cut -d' ' -f1)
@@ -92,7 +94,7 @@ echo "[3] FILE WRONG     : delivered sha256 != source"
 FIRST=$(cmp "$PAY" "$GOT" 2>/dev/null | grep -oE 'byte [0-9]+' | grep -oE '[0-9]+' | head -1)
 echo "    first differing byte: ${FIRST:-?} of $SIZE  (a tail offset => truncation, not scattered damage)"
 # tail of the delivered file, from the first difference on: all 0xAA ?
-TAILHEX=$(tail -c "$((SIZE - ${FIRST:-0} + 1))" "$GOT" | od -An -tx1 | tr -d ' \n' | tr -d '\n')
+TAILHEX=$(tail -c "$((SIZE - ${FIRST:-0} + 1))" "$GOT" | od -v -An -tx1 | tr -d ' \n' | tr -d '\n')
 if [ -n "$TAILHEX" ] && [ -z "$(echo "$TAILHEX" | sed 's/aa//g')" ]; then
   echo "[4] TAIL IS SENTINEL: every wrong byte is 0xAA -- these bytes were NEVER delivered by this upload."
   echo "    => silent corruption is the upload's own failure, not pre-existing garbage. PROVEN."
