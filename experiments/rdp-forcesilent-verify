@@ -22,6 +22,18 @@ else
   echo "[1] PREFILL DIRTY : test INVALID"; cmp "$PRE" "$SENT" 2>&1 | head -1; exit 2
 fi
 
+# [1b] did the read-back actually produce an artifact? A failed download leaves
+# the file missing or short, and judging that as "corrupt" is a harness lie --
+# the same defect class as parsing the wrong upload line. No read-back, no verdict.
+GOTSZ=$(stat -c%s "$GOT" 2>/dev/null || echo 0)
+if [ "$GOTSZ" != "$SIZE" ]; then
+  echo "[1b] NO READ-BACK : $GOT is ${GOTSZ}B, expected ${SIZE}B (download failed?)"
+  echo "     CELL INVALID -- the region was never read; nothing can be judged."
+  echo "     Likely the node is still holding the aborted RDP connection: wait out"
+  echo "     conn_timeout and re-read, or re-run the cell."
+  exit 3
+fi
+
 # [2] what actually landed
 GOT_SHA=$(sha256sum "$GOT" 2>/dev/null | cut -d' ' -f1)
 ORIG_SHA=$(sha256sum "$PAY" | cut -d' ' -f1)

@@ -44,8 +44,11 @@ sleep 6000
 csp_loss status
 csp_loss stop
 
-# -- 3. connection teardown, then verify over the clean link
-sleep 15000
+# -- 3. connection teardown, then verify over the clean link. Restore the stock
+#    RDP options first -- the aborted connection lingers for conn_timeout, and
+#    leaving ours at 600 s would block the read-back entirely.
+rdp opt -w 3 -c 10000 -p 5000 -k 2000
+sleep 25000
 crc32 -n 5431 -v 2 -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin 0x10000000
 sleep 500
 download -n 5431 -v 2 -t 10000 0x10000000 262144 /tmp/got.bin

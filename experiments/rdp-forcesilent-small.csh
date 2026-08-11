@@ -47,10 +47,14 @@ sleep 3000
 csp_loss status
 csp_loss stop
 
-# -- 3. teardown, then verify over the clean link
-sleep 12000
+# -- 3. teardown, then verify over the clean link.
+#    Restore the stock RDP options FIRST: the aborted connection lingers for
+#    conn_timeout, and leaving ours at 30 s made the follow-up crc32 time out and
+#    the read-back fail outright ("Connection failed") -- no artifact, no verdict.
+rdp opt -w 3 -c 10000 -p 5000 -k 2000
+sleep 25000
 crc32 -n 5431 -v 2 -f /tmp/payload_32k.bin 0x10000000
-sleep 500
+sleep 1000
 download -n 5431 -v 2 -t 10000 0x10000000 32768 /tmp/got32.bin
 sleep 1000
 
