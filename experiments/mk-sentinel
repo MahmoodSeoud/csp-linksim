@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# mk-sentinel <bytes> [path] - write a file of 0xAA bytes.
+#
+# Called from a .csh via the csp_shell APM's `sh`, which re-joins argv with
+# single spaces -- so quotes, parens and backslashes in the command line are
+# unreliable (dash choked on an inline python -c). Plain positional args only.
+set -eu
+N="${1:?bytes}"
+OUT="${2:-/tmp/sentinel_AA.bin}"
+head -c "$N" /dev/zero | tr '\000' '\252' > "$OUT"
+echo "mk-sentinel: $(stat -c%s "$OUT") bytes of 0xAA -> $OUT"

@@ -22,8 +22,10 @@ csp init
 csp add can -c can0 -b 0 -d 20
 apm load
 
-# -- prep: 0xAA sentinel (known pattern; "still 0xAA" == never delivered)
-sh python3 -c "open('/tmp/sentinel_AA.bin','wb').write(bytes([170])*262144)"
+# -- prep: 0xAA sentinel (known pattern; "still 0xAA" == never delivered).
+#    Via a helper script: `sh` re-joins argv, so quotes/parens/backslashes in an
+#    inline one-liner are mangled (dash: 'Syntax error: "(" unexpected').
+sh /home/mseo/thesis/csp-linksim/experiments/mk-sentinel 262144 /tmp/sentinel_AA.bin
 sh rm -f /tmp/pre.bin /tmp/got.bin
 
 # -- 1. sentinel pre-fill over the CLEAN link, then prove the region is 0xAA
