@@ -3,13 +3,14 @@
 # Judges the first 12 bytes of the read-back region: are they the file, or still
 # the 0xAA sentinel (= this upload never delivered them)?
 set -uo pipefail
+LBL="${1:-}"
 TINY=/tmp/tiny12.bin
 PRE=/tmp/pre4k.bin
 GOT=/tmp/got4k.bin
 SENT=/tmp/sentinel_4k.bin
 N=12
 
-echo "==================== VERDICT ===================="
+echo "============ VERDICT${LBL:+ (seed $LBL)} ============"
 # [1] region was exactly the sentinel before the upload. Distinguish "the
 # read-back never happened" (node down/unreachable) from "the region held
 # something else" -- they need very different fixes.
