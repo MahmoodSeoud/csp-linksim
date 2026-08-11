@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# rdp-tinyfile-verify -- external verdict for rdp-tinyfile.csh.
+# Judges the first 12 bytes of the read-back region: are they the file, or still
+# the 0xAA sentinel (= this upload never delivered them)?
+set -uo pipefail
+TINY=/tmp/tiny12.bin
+PRE=/tmp/pre4k.bin
+GOT=/tmp/got4k.bin
+SENT=/tmp/sentinel_4k.bin
+N=12
+
+echo "==================== VERDICT ===================="
+# [1] region was exactly the sentinel before the upload
+if cmp -s "$PRE" "$SENT"; then
+  echo "[1] PREFILL CLEAN : region was exactly 0xAA before the run"
+else
+  echo "[1] PREFILL DIRTY : test INVALID"; exit 2
+fi
+
+# [1b] no read-back, no verdict
+GOTSZ=$(stat -c%s "$GOT" 2>/dev/null || echo 0)
+if [ "$GOTSZ" != "4096" ]; then
+  echo "[1b] NO READ-BACK : $GOT is ${GOTSZ}B, expected 4096B -- CELL INVALID"; exit 3
+fi
+
+# [2] the decisive comparison, on the first N bytes
+head -c "$N" "$GOT" > /tmp/got12.bin
+echo "    file  : $(xxd -p "$TINY")"
+echo "    region: $(xxd -p /tmp/got12.bin)"
+if cmp -s /tmp/got12.bin "$TINY"; then
+  echo "[2] DELIVERED     : the 12 bytes arrived intact (this cell's packet survived)"
+  echo "    -> if the upload claimed success, that is CORRECT behaviour. Re-run"
+  echo "       with another seed to catch a cell where the packet is dropped."
+  exit 0
+fi
+if [ "$(xxd -p /tmp/got12.bin | tr -d '\n')" = "$(printf 'aa%.0s' $(seq $N))" ]; then
+  echo "[2] STILL SENTINEL: all 12 bytes are 0xAA -- the upload delivered NOTHING."
+  echo "    -> pair with the upload's own words:"
+  echo "       'Uploaded 12 bytes' = SILENT CORRUPTION on flight-representative"
+  echo "          hardware, reproducing the on-orbit 2026-07-06 observation."
+  echo "       'didn't complete'   = honest; re-run for a cell that claims success."
+else
+  echo "[2] PARTIAL/OTHER : region differs from both the file and the sentinel"
+fi
