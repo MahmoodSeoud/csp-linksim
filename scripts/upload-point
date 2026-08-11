@@ -17,6 +17,10 @@
 set -uo pipefail
 LOSS="${1:?loss}"; SEED="${2:?seed}"; LABEL="${3:?label}"
 MTU="${MTU:-256}"; OVH="${OVH:-4}"; SRV_ADDR="${SRV_ADDR:-5424}"
+# Gilbert-Elliott mean burst length. Default 4 preserves every previously
+# recorded cell; the matrix grid's burst point uses the mined real-pass shape
+# (BURST=7.8, see the pass-log mining in scripts/mine-pass-logs).
+BURST="${BURST:-4}"
 REPO=/home/mseo/thesis/csp-linksim
 CAP="$REPO/captures"
 CSH=/home/mseo/thesis/csh/builddir/csh
@@ -77,7 +81,7 @@ MONPID=$!
 sleep 3
 
 # 3) injector = oracle A
-timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5426 can:can0 8 "$MTU" "$OVH" "$LOSS" 4 "$SEED" "$ORA" "$SRV_ADDR" "$PACE_US" >"/tmp/${LABEL}_inj.log" 2>&1 &
+timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5426 can:can0 8 "$MTU" "$OVH" "$LOSS" "$BURST" "$SEED" "$ORA" "$SRV_ADDR" "$PACE_US" >"/tmp/${LABEL}_inj.log" 2>&1 &
 INJPID=$!
 sleep 3
 
@@ -119,8 +123,22 @@ rm -f "/tmp/${LABEL}.drp" "/tmp/${LABEL}.kpt" "/tmp/${LABEL}.obs"
 # the silent-corruption finding measured from outside the mechanism. Degrades to
 # UNVERIFIED when the console is unavailable (no permission / held by picocom).
 WANT_SHA=$(sha256sum "$CAP/payload_256k.bin" | cut -d' ' -f1)
-sha=UNVERIFIED
-if got=$(TO=25 bash "$REPO/scripts/board-cmd" "sha256sum $DEST" 2>/dev/null | grep -oE '^[0-9a-f]{64}' | head -1) && [ -n "$got" ]; then
-  sha=MISMATCH; [ "$got" = "$WANT_SHA" ] && sha=MATCH
+# Distinguish the three outcomes that a bare "no hash came back" would conflate:
+#   UNVERIFIED - the console itself did not answer (harness problem, cell void)
+#   ABSENT     - the console answered and the file is not there (nothing delivered)
+#   MATCH/MISMATCH - the file exists and its digest decides the verdict
+# Conflating ABSENT with UNVERIFIED would silently drop real "delivered nothing"
+# cells out of the grid, which is the same class of defect as judging the wrong
+# line of a transcript.
+sha=UNVERIFIED; bsize=NA
+probe=$(TO=25 bash "$REPO/scripts/board-cmd" "stat -c%s $DEST 2>/dev/null || echo NOFILE; sha256sum $DEST 2>/dev/null | cut -d' ' -f1" 2>/dev/null)
+if [ -n "$probe" ]; then
+  if echo "$probe" | grep -qa NOFILE; then
+    sha=ABSENT
+  else
+    bsize=$(echo "$probe" | grep -aoE '^[0-9]+$' | head -1)
+    got=$(echo "$probe" | grep -aoE '^[0-9a-f]{64}$' | head -1)
+    if [ -n "$got" ]; then sha=MISMATCH; [ "$got" = "$WANT_SHA" ] && sha=MATCH; fi
+  fi
 fi
-echo "  ORACLE C : board sha256($DEST) = $sha"
+echo "  EXTERNAL CHECK : board sha256($DEST) = $sha   board_bytes=$bsize (want $PSIZE)"
