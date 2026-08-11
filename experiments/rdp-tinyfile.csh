@@ -30,6 +30,11 @@ csp init
 csp add can -c can0 -b 0 -d 20
 apm load
 
+# -- 0. liveness FIRST. A dead vmem_node makes every later line meaningless
+#    ("Connection timeout" on the clean pre-fill = nothing below can be judged).
+#    Expect a reply; if this says "No reply", run scripts/bringup-vmem-node.
+ping -n 5431 -t 5000
+
 # -- prep: a 12-byte payload, and a 4 KiB 0xAA sentinel for the target region
 sh /home/mseo/thesis/csp-linksim/experiments/mk-sentinel 4096 /tmp/sentinel_4k.bin
 sh head -c 12 /home/mseo/thesis/csp-linksim/captures/payload_256k.bin > /tmp/tiny12.bin

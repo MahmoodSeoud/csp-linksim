@@ -10,11 +10,20 @@ SENT=/tmp/sentinel_4k.bin
 N=12
 
 echo "==================== VERDICT ===================="
-# [1] region was exactly the sentinel before the upload
-if cmp -s "$PRE" "$SENT"; then
+# [1] region was exactly the sentinel before the upload. Distinguish "the
+# read-back never happened" (node down/unreachable) from "the region held
+# something else" -- they need very different fixes.
+PRESZ=$(stat -c%s "$PRE" 2>/dev/null || echo 0)
+if [ "$PRESZ" = "0" ]; then
+  echo "[1] NO PRE-FILL READ-BACK : $PRE is empty -- the clean pre-fill or its"
+  echo "    read-back never completed. Usually the node is down: check with"
+  echo "    'pgrep -x vmem_node' and restart via scripts/bringup-vmem-node."
+  echo "    CELL INVALID."; exit 2
+elif cmp -s "$PRE" "$SENT"; then
   echo "[1] PREFILL CLEAN : region was exactly 0xAA before the run"
 else
-  echo "[1] PREFILL DIRTY : test INVALID"; exit 2
+  echo "[1] PREFILL DIRTY : region held something other than the sentinel -- INVALID"
+  exit 2
 fi
 
 # [1b] no read-back, no verdict
