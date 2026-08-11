@@ -21,7 +21,10 @@ SEEDS="${*:-1 3 4 5}"
 
 [ -f "$CSV" ] || echo "seed,claim,region,first_bad_byte,ts" > "$CSV"
 for s in $SEEDS; do
-  sed -i -E "s|(host-rdp-infra bridge 0.20) [0-9]+|\1 $s|" "$UP"
+  # per-seed drop log: one shared path would leave only the last cell's, and the
+  # causal question ("was the FINAL packet dropped in the cells that lied?")
+  # can only be answered per cell.
+  sed -i -E "s|(host-rdp-infra bridge 0.20) [0-9]+ \S+|\1 $s /tmp/hostdrops_s$s.csv|" "$UP"
   echo "===== seed $s ====="
   script -qec "$CSH -i $UP" /dev/null </dev/null 2>&1 | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r' > /tmp/ph1_s$s.log
   claim=OTHER
