@@ -26,8 +26,10 @@ csp init
 csp add can -c can0 -b 0 -d 20
 apm load
 
-# -- prep: 32 KiB 0xAA sentinel (helper script: `sh` mangles quotes/parens)
+# -- prep: 32 KiB 0xAA sentinel (helper script: `sh` mangles quotes/parens),
+#    and the 32 KiB payload, cut deterministically from the committed 256 KiB one
 sh /home/mseo/thesis/csp-linksim/experiments/mk-sentinel 32768 /tmp/sentinel_32k.bin
+sh head -c 32768 /home/mseo/thesis/csp-linksim/captures/payload_256k.bin > /tmp/payload_32k.bin
 sh rm -f /tmp/pre32.bin /tmp/got32.bin
 
 # -- 1. sentinel pre-fill over the CLEAN link, then prove the region is 0xAA
@@ -40,19 +42,19 @@ sh cmp /tmp/pre32.bin /tmp/sentinel_32k.bin
 # -- 2. fast retransmits, generous connection, modest loss: finish inside 10 s
 rdp opt -w 5 -c 30000 -p 200 -k 100
 csp_loss start -L 0.10 -S 1
-upload -n 5431 -v 2 -t 30000 /home/mseo/thesis/csp-linksim/captures/payload_32k.bin 0x10000000
+upload -n 5431 -v 2 -t 30000 /tmp/payload_32k.bin 0x10000000
 sleep 3000
 csp_loss status
 csp_loss stop
 
 # -- 3. teardown, then verify over the clean link
 sleep 12000
-crc32 -n 5431 -v 2 -f /home/mseo/thesis/csp-linksim/captures/payload_32k.bin 0x10000000
+crc32 -n 5431 -v 2 -f /tmp/payload_32k.bin 0x10000000
 sleep 500
 download -n 5431 -v 2 -t 10000 0x10000000 32768 /tmp/got32.bin
 sleep 1000
 
 # -- 4. verdict, external to the mechanism under test
-sh sha256sum /home/mseo/thesis/csp-linksim/captures/payload_32k.bin /tmp/got32.bin
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-forcesilent-verify 32768 /home/mseo/thesis/csp-linksim/captures/payload_32k.bin /tmp/pre32.bin /tmp/got32.bin /tmp/sentinel_32k.bin
+sh sha256sum /tmp/payload_32k.bin /tmp/got32.bin
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-forcesilent-verify 32768 /tmp/payload_32k.bin /tmp/pre32.bin /tmp/got32.bin /tmp/sentinel_32k.bin
 exit
