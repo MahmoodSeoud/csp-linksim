@@ -8,7 +8,7 @@
 # Build and run through scripts/bench, which wires the mounts:
 #   scripts/bench build          # configure + compile the front-ends
 #   scripts/bench test           # meson test suite
-#   scripts/bench svu-zmq-sweep  # the host SVU arm, no CAN bus and no payload board
+#   scripts/bench svu-host-sweep  # the host SVU arm, no CAN bus and no payload board
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 # The extra packages below are not needed by csp-intercept itself. They are the external
@@ -16,7 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # flatsat's software stack can be stood up in a container and later ported back to the
 # board unchanged. None of that source is vendored here.
 #
-#   libprotobuf-c, libssl   DISCO's upload_gs-server / upload_sat-client (scripts/dtp-zmq-sweep)
+#   libprotobuf-c, libssl   DISCO's upload_gs-server / upload_sat-client (scripts/dtp-host-sweep)
 #                           and satdeploy's agent + APM
 #   tmux                    scripts/lab, the two-pane ground/board console
 #   libcurl, libyaml,       csh itself (DISCOSAT/upload_gs-server/csh), which is the ground

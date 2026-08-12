@@ -25,7 +25,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     docker build -q -t "$IMAGE" -f "$REPO/docker/Dockerfile.bench" "$REPO/docker" || exit 1
 fi
 
-# Forward the knobs the sweep drivers read, so `LOSSES=... scripts/bench svu-zmq-sweep` works
+# Forward the knobs the sweep drivers read, so `LOSSES=... scripts/bench svu-host-sweep` works
 # the same way it would on the bench host. Only forwards vars that are actually set.
 ENVARGS=()
 for v in LOSSES NSEEDS CSV PBYTES PAYLOAD_SEED BLOCK MTU OVH BURST HD_RATE N RATE SEED \
@@ -33,7 +33,7 @@ for v in LOSSES NSEEDS CSV PBYTES PAYLOAD_SEED BLOCK MTU OVH BURST HD_RATE N RAT
     [ -n "${!v-}" ] && ENVARGS+=(-e "$v=${!v}")
 done
 
-# The deployed-uploader arm (scripts/dtp-zmq-sweep) builds DISCO's upload_gs-server and
+# The deployed-uploader arm (scripts/dtp-host-sweep) builds DISCO's upload_gs-server and
 # upload_sat-client from source. That tree is mission code and is not vendored here, so it
 # is mounted only when it exists. Override the location with DISCO_SRC on the host.
 DISCO_HOST="${DISCO_SRC:-$HOME/thesis/disco/src}"

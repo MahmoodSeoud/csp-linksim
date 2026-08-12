@@ -63,5 +63,5 @@ download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
 
 # -- 4. verdict: are the first 12 bytes the file, or still the sentinel?
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict
 exit

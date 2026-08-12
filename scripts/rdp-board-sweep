@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# rdp-csploss-sweep - RDP+CRC32 integrity sweep against the BOARD vmem_node, with
+# rdp-board-sweep - RDP+CRC32 integrity sweep against the BOARD vmem_node, with
 # csp_loss (the csh APM) as the channel instead of ci_inject_bridge.
 #
 # WHY NOT THE BRIDGE: RDP's ack-driven connection proved nondeterministic through
@@ -10,14 +10,14 @@
 # marginal rate (-L), and burst-shaped (-B, Gilbert-Elliott) -- the same channel
 # model as the calibrated replay, on the path that is proven sound.
 #
-# EVIDENCE PER CELL (all in one csh session, mirroring the validated exp_rdp flow):
+# EVIDENCE PER CELL (all in one csh session, mirroring the validated rdp-baseline flow):
 #   channel record : csp_loss status at stop (its own drop count, seeded+replayable)
 #   mechanism claim: did `upload` print "Uploaded <size> bytes"
 #   external check : clean crc32 AND download-back sha256 vs the original
 # Silent corruption == claimed DELIVERED and sha MISMATCH (with harness drains in
 # place and no bridge, that is a mechanism result, not an artifact).
 #
-# Usage: rdp-csploss-sweep [mode] [losses] [nseeds]
+# Usage: rdp-board-sweep [mode] [losses] [nseeds]
 #   mode = stock | tuned | both   (default stock; tuned = -w 5 -c 120000 -p 1000 -k 250)
 #   env: BURST="7.8" adds -B (GE bursts at the mined real-pass shape); SEEDS override.
 # Resumable: cells with status=ok are skipped.

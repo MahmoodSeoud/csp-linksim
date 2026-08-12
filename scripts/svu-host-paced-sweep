@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# svu-paced-sweep - SVU over a HALF-DUPLEX link, where reverse ACKs/re-requests cost
+# svu-host-paced-sweep - SVU over a HALF-DUPLEX link, where reverse ACKs/re-requests cost
 # airtime (unlike the unpaced sweeps' free return path). The injector's single-threaded pump charges
 # every crossing its on-air time at HD_RATE bps, both directions -> one frame on the channel
 # at a time = half-duplex. Metric: time-to-complete + reverse-frame airtime vs loss. This is
@@ -8,7 +8,7 @@
 #
 # host-to-host: server -z(25) -> zmq broker -> injector(hd) -> can0 -> client(26). data dropped
 # on dport 9; ctrl/re-requests (port 11) return clean but now COST airtime.
-# Usage: svu-paced-sweep ["0 0.05 0.10 0.20"] [nseeds] [hd_rate_bps] [payload_bytes]
+# Usage: svu-host-paced-sweep ["0 0.05 0.10 0.20"] [nseeds] [hd_rate_bps] [payload_bytes]
 set -uo pipefail
 LOSSES="${1:-0 0.05 0.10 0.20}"; NSEEDS="${2:-2}"; HD="${3:-19200}"; PBYTES="${4:-65536}"
 REPO=/home/mseo/thesis/csp-linksim
@@ -18,7 +18,7 @@ IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
 ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: broker 6000 down"; exit 1; }
 CSV="$REPO/captures/svu_stageb.csv"
 [ -f "$CSV" ] || echo "loss,seed,hd_bps,secs,rounds,fwd,drops,rev_frames,sha,ts" > "$CSV"
-echo "svu-paced-sweep: payload=${PBYTES}B hd=${HD}bps losses=[$LOSSES] nseeds=$NSEEDS"
+echo "svu-host-paced-sweep: payload=${PBYTES}B hd=${HD}bps losses=[$LOSSES] nseeds=$NSEEDS"
 for loss in $LOSSES; do
   for s in $(seq 1 "$NSEEDS"); do
     L="sb_L${loss}_s${s}"; ORA="$REPO/captures/${L}_oracleA.csv"; OUT="/tmp/${L}_out.bin"; rm -f "$OUT"

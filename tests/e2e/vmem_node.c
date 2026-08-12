@@ -37,11 +37,11 @@
  * Defined with custom read/write over a static buffer and a FIXED vaddr, instead of the
  * VMEM_DEFINE_STATIC_RAM macro. The macro sets vaddr = &heap (an ASLR-dynamic pointer that
  * moves each launch), which forces callers to discover the address. A fixed vaddr means
- * experiments/exp_rdp.csh can hardcode the address and be a runnable, reproducible .csh.
+ * experiments/rdp-baseline.csh can hardcode the address and be a runnable, reproducible .csh.
  * The server passes (client_addr - vaddr) as the offset to write()/read(), so vaddr is a
  * logical base only (never dereferenced) — safe to pin. */
 #define BIGMEM_SIZE  1048576
-#define BIGMEM_VADDR 0x10000000ULL      /* hardcode this in exp_rdp.csh */
+#define BIGMEM_VADDR 0x10000000ULL      /* hardcode this in rdp-baseline.csh */
 
 static uint8_t bigmem_buf[BIGMEM_SIZE];
 

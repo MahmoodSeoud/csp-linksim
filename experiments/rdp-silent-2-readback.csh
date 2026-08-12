@@ -1,6 +1,6 @@
-# rdp-silent-2-verify.csh -- PHASE 2: read the region back and judge phase 1.
+# rdp-silent-2-readback.csh -- PHASE 2: read the region back and judge phase 1.
 #
-#     csh -i experiments/rdp-silent-2-verify.csh
+#     csh -i experiments/rdp-silent-2-readback.csh
 #
 # A fresh csh process, a CLEAN bridge (no loss), so the read-back cannot be
 # blamed for anything. Phase 1's sender is long dead, which is the condition

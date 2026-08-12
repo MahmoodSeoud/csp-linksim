@@ -48,12 +48,12 @@ echo
 
 echo "--- arm A: unpaced ---"
 LOSSES="$LOSS" NSEEDS="$NSEEDS" PBYTES="$PBYTES" HD_RATE=0 CSV="$FAST" \
-    CELL_TIMEOUT=900 "$REPO/scripts/rdp-zmq-sweep"
+    CELL_TIMEOUT=900 "$REPO/scripts/rdp-host-sweep"
 
 echo
 echo "--- arm B: paced at ${RATE} bit/s ---"
 LOSSES="$LOSS" NSEEDS="$NSEEDS" PBYTES="$PBYTES" HD_RATE="$RATE" CSV="$SLOW" \
-    CELL_TIMEOUT=3600 "$REPO/scripts/rdp-zmq-sweep"
+    CELL_TIMEOUT=3600 "$REPO/scripts/rdp-host-sweep"
 
 echo
 echo "======================================================================"

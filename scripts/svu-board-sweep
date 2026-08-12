@@ -5,7 +5,7 @@
 # This is the measurement that closes SVU's evidentiary gap: every SVU cell so far is
 # host-arm (loopback ZMQ). Here the receiving end is the flight-representative payload
 # board, reached over can0, with the injector bridging the ground's ZMQ segment onto the
-# bus exactly as scripts/satdeploy-sweep does for the satdeploy arm:
+# bus exactly as scripts/satdeploy-board-sweep does for the satdeploy arm:
 #
 #   svu (push, ZMQ 127.0.0.1 as $GS_ADDR) -> broker -> ci_inject_bridge -> can0 -> svu_daemon on board
 #                                                (drops SVU data frames, dport 9 = oracle A)

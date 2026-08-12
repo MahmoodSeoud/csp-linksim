@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# rdp-zmq-sweep - the RDP+CRC32 reference arm over a pure-ZMQ path. No CAN bus, no flatsat,
+# rdp-host-sweep - the RDP+CRC32 reference arm over a pure-ZMQ path. No CAN bus, no flatsat,
 # no built csh.
 #
 # WHY THIS EXISTS
@@ -15,7 +15,7 @@
 #   rdp_push -z 127.0.0.1 (addr 26) -> broker A -> ci_inject_bridge -> broker B -> vmem_node
 #                                        (drops forward RDP packets to dport 14 = oracle A)
 #
-# Two brokers on loopback aliases, bridged by the injector, exactly as svu-zmq-sweep does.
+# Two brokers on loopback aliases, bridged by the injector, exactly as svu-host-sweep does.
 # The injector impersonates the NODE on side A so traffic addressed to it is routed inward.
 #
 # THREE ORACLES PER CELL (the thesis's oracle design, Section sec:method-oracles)
@@ -36,7 +36,7 @@
 # (claimed, sha) ARE comparable: they are properties of the mechanism, not the link. The CSV
 # records transport= so the two cannot be mixed up.
 #
-# Usage: rdp-zmq-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
+# Usage: rdp-host-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
 # Resumable: an already-recorded (loss, seed) is skipped.
 set -uo pipefail
 
@@ -46,12 +46,12 @@ CLI_ADDR=26; NODE=5431; DPORT=14          # VMEM_PORT_SERVER
 MTU="${MTU:-200}"; OVH="${OVH:-8}"; BURST="${BURST:-4}"
 HD_RATE="${HD_RATE:-0}"                   # integrity is rate-independent; default unpaced
 PBYTES="${PBYTES:-262144}"                # 256 KiB, the size the other arms use
-PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"  # same seed as svu-zmq-sweep => same payload bytes
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"  # same seed as svu-host-sweep => same payload bytes
 VADDR="${VADDR:-0x10000000}"              # must match vmem_node's BIGMEM_VADDR
 UP_TO="${UP_TO:-120000}"                  # vmem_upload timeout, ms
 SETTLE="${SETTLE:-3}"                     # seconds to let the receiver finalize before read-back
 
-. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
+. "$(dirname "$0")/lib/host-sweep-lib.sh"
 CSV="${CSV:-$CAP/rdp_zmq_sweep.csv}"
 NODEBIN="$BUILD/tests/e2e/vmem_node"
 PUSH="$BUILD/tests/e2e/rdp_push"
@@ -59,9 +59,9 @@ SWEEP_PROCS="vmem_node"
 
 sweep_require "$PROXY" "$INJ" "$NODEBIN" "$PUSH"
 
-# Deterministic payload, identical to svu-zmq-sweep's so the two arms move the same bytes.
+# Deterministic payload, identical to svu-host-sweep's so the two arms move the same bytes.
 sweep_payload "$PBYTES" "$PAYLOAD_SEED"
-echo "rdp-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "rdp-host-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU burst=$BURST hd_rate=$HD_RATE vaddr=$VADDR"
 echo "  csv=$CSV"
 

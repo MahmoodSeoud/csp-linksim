@@ -4,7 +4,7 @@
 # sequences them and echoes the lines they print.
 #
 #   phase 1  experiments/rdp-silent-1-upload.csh   upload under loss, exit at once
-#   phase 2  experiments/rdp-silent-2-verify.csh   fresh csh reads back, prints verdict
+#   phase 2  experiments/rdp-silent-2-readback.csh   fresh csh reads back, prints verdict
 #
 # With no arguments it runs the committed cell exactly as-is (seed 4, which is
 # known to corrupt often). With seeds it runs a /tmp COPY per seed -- the
@@ -34,7 +34,7 @@ run_cell() {  # <phase1.csh> <seed-label>
   claim=OTHER
   grep -qa '^Uploaded 262144 bytes' /tmp/try_ph1_s$s.log && claim=CLAIMED_SUCCESS
   grep -qa "didn't complete"        /tmp/try_ph1_s$s.log && claim=HONEST_ABORT
-  script -qec "$CSH -i $REPO/experiments/rdp-silent-2-verify.csh" /dev/null </dev/null 2>&1 | strip > /tmp/try_ph2_s$s.log
+  script -qec "$CSH -i $REPO/experiments/rdp-silent-2-readback.csh" /dev/null </dev/null 2>&1 | strip > /tmp/try_ph2_s$s.log
   grep -aE 'DELIVERED OK|FILE WRONG|CELL INVALID|first differing byte|SILENT CORRUPTION' /tmp/try_ph2_s$s.log | sed 's/^/  verdict: /'
   region=UNKNOWN
   grep -qa 'DELIVERED OK' /tmp/try_ph2_s$s.log && region=INTACT

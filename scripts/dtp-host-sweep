@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# dtp-zmq-sweep - the deployed-uploader arm over a pure-ZMQ path. No CAN bus, no payload
+# dtp-host-sweep - the deployed-uploader arm over a pure-ZMQ path. No CAN bus, no payload
 # board, no built csh.
 #
 # WHY THIS EXISTS
@@ -15,7 +15,7 @@
 #   * csh and the APM are replaced by tests/e2e/dtp_trigger, which reproduces the single
 #     packet `upload_file` puts on the wire. Same move rdp_push made for the reliable path.
 #   * The CAN segment is replaced by two brokers on loopback aliases, exactly as
-#     svu-zmq-sweep does, because both uploader ends already support -z (the vendor's own
+#     svu-host-sweep does, because both uploader ends already support -z (the vendor's own
 #     run-server.sh / run-client.sh use -z localhost; this is their dev configuration).
 #
 #   upload_gs-server -z 127.0.0.1 -> broker A -> ci_inject_bridge -> broker B -> upload_client
@@ -46,7 +46,7 @@
 # through the injector, then an EXTERNAL sha256 decides delivery.
 #   SILENT CORRUPTION == full-size delivery, no loud failure, and sha MISMATCH.
 #
-# Usage: dtp-zmq-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
+# Usage: dtp-host-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
 # Resumable: an already-recorded (loss, seed) is skipped.
 set -uo pipefail
 
@@ -60,7 +60,7 @@ PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
 SETTLE="${SETTLE:-5}"               # seconds after the server finishes, before read-back
 WINDOW="${WINDOW:-120}"             # max seconds to observe one cell
 
-. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
+. "$(dirname "$0")/lib/host-sweep-lib.sh"
 DISCO_SRC="${DISCO_SRC:-/disco}"
 DISCO_BUILD="${DISCO_BUILD:-/tmp/disco-build}"
 CSV="${CSV:-$CAP/dtp_zmq_sweep.csv}"
@@ -82,7 +82,7 @@ sweep_require "$PROXY" "$INJ" "$TRIG"
 build_disco() {
     local src="$1" dst="$2" name="$3"
     if [ -x "$dst/$name" ]; then return 0; fi
-    echo "[dtp-zmq-sweep] building $name ..."
+    echo "[dtp-host-sweep] building $name ..."
     meson setup "$dst" "$src" >/dev/null 2>&1 || \
         meson setup --reconfigure "$dst" "$src" >/dev/null 2>&1 || {
             echo "FAIL: meson setup $name"; return 1; }
@@ -99,7 +99,7 @@ sweep_payload "$PBYTES" "$PAYLOAD_SEED"
 SRVDIR=/tmp/dtp_srvdir
 mkdir -p "$SRVDIR"
 cp -f "$IN" "$SRVDIR/file.bin"
-echo "dtp-zmq-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "dtp-host-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST hd_rate=$HD_RATE"
 echo "  csv=$CSV"
 

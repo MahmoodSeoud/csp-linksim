@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dtp-flight-sweep - the pre-registered T1 grid: the DEPLOYED uploader at FLIGHT
+# dtp-board-sweep - the pre-registered T1 grid: the DEPLOYED uploader at FLIGHT
 # pacing (4800 bit/s) on the payload board, judged by the board-side sha256.
 #
 # This is the matrix's one unmeasured row. The design doc pre-registers all three
@@ -11,8 +11,8 @@
 # Each cell is ~7.4 min of airtime (256 KiB at 4800 bit/s) plus settle, so budget
 # ~10 min/cell. Resumable: a cell already in the CSV is skipped.
 #
-# Usage: dtp-flight-sweep [losses] [nseeds]      default: "0 0.10 0.30" 3
-#        BURST_CELLS=1 dtp-flight-sweep          adds the GE burst point (7.8)
+# Usage: dtp-board-sweep [losses] [nseeds]      default: "0 0.10 0.30" 3
+#        BURST_CELLS=1 dtp-board-sweep          adds the GE burst point (7.8)
 set -uo pipefail
 REPO=/home/mseo/thesis/csp-linksim
 CSV="${CSV:-$REPO/captures/dtp_flight_sweep.csv}"
@@ -29,7 +29,7 @@ run_cell() {
 
   echo "== $label =="
   local out="/tmp/${label}.out"
-  STRICT_SHA=1 RATE_BPS="$RATE_BPS" BURST="$burst" bash "$REPO/scripts/upload-point" "$loss" "$seed" "$label" > "$out" 2>&1
+  STRICT_SHA=1 RATE_BPS="$RATE_BPS" BURST="$burst" bash "$REPO/scripts/dtp-board-point" "$loss" "$seed" "$label" > "$out" 2>&1
   local rc=$?
   if [ $rc -ne 0 ]; then echo "   FAILED (rc=$rc), not recorded:"; tail -3 "$out"; return 1; fi
 

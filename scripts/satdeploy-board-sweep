@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# satdeploy-sweep <arm_label>   (env: MAX_PASSES, LOSSES, SEEDS)
+# satdeploy-board-sweep <arm_label>   (env: MAX_PASSES, LOSSES, SEEDS)
 # Arm B (satDeploy). Agent (smart|naive) must be running on the payload board as 5427.
 #
 # Per (loss,seed): push the pinned payload to a UNIQUE target repeatedly (resume ON

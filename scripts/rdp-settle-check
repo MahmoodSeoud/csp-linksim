@@ -4,7 +4,7 @@
 # verify-timing harness artifact that Chapter 5 already reports as refuted.
 #
 # THE QUESTION
-# rdp-zmq-sweep found cells where vmem_upload reported success (returned the full byte count)
+# rdp-host-sweep found cells where vmem_upload reported success (returned the full byte count)
 # while the region read back with a different sha256. There are two explanations:
 #
 #   (H-artifact) the receiver had the bytes but had not finalized the write when the read-back
@@ -34,7 +34,7 @@ MTU="${MTU:-200}"; OVH="${OVH:-8}"; BURST="${BURST:-4}"
 PBYTES="${PBYTES:-262144}"; PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
 VADDR="${VADDR:-0x10000000}"; UP_TO="${UP_TO:-120000}"
 
-. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
+. "$(dirname "$0")/lib/host-sweep-lib.sh"
 NODEBIN="$BUILD/tests/e2e/vmem_node"; PUSH="$BUILD/tests/e2e/rdp_push"
 SWEEP_PROCS="vmem_node"
 

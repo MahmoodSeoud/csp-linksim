@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# upload-point - one fully-instrumented loss point of the DEPLOYED dipp upload arm.
+# dtp-board-point - one fully-instrumented loss point of the DEPLOYED dipp upload arm.
 #
 # Per point: (1) restart upload_client (it exits after each transfer), (2) start the
 # promiscuous csp_monitor (oracle B), (3) start the injector bridge (oracle A),
@@ -13,7 +13,7 @@
 # Assumes loopback infra up: zmqproxy-lossy (6000/7000) + upload_gs-server (-a 5424,
 # started with cwd=.../upload_gs-server so it finds the pinned file.bin).
 #
-# Usage: upload-point <loss> <seed> <label>     e.g.  upload-point 0.10 1 v2
+# Usage: dtp-board-point <loss> <seed> <label>     e.g.  dtp-board-point 0.10 1 v2
 set -uo pipefail
 LOSS="${1:?loss}"; SEED="${2:?seed}"; LABEL="${3:?label}"
 MTU="${MTU:-256}"; OVH="${OVH:-4}"; SRV_ADDR="${SRV_ADDR:-5424}"

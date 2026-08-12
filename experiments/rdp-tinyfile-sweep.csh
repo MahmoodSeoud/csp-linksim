@@ -37,7 +37,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 1
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 1
 
 # ---------------- seed 2 ----------------
 sh echo ================ SEED 2 ================
@@ -54,7 +54,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 2
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 2
 
 # ---------------- seed 3 ----------------
 sh echo ================ SEED 3 ================
@@ -71,7 +71,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 3
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 3
 
 # ---------------- seed 4 ----------------
 sh echo ================ SEED 4 ================
@@ -88,7 +88,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 4
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 4
 
 # ---------------- seed 5 ----------------
 sh echo ================ SEED 5 ================
@@ -105,7 +105,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 5
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 5
 
 # ---------------- seed 6 ----------------
 sh echo ================ SEED 6 ================
@@ -122,7 +122,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 6
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 6
 
 # ---------------- seed 7 ----------------
 sh echo ================ SEED 7 ================
@@ -139,7 +139,7 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 7
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 7
 
 # ---------------- seed 8 ----------------
 sh echo ================ SEED 8 ================
@@ -156,6 +156,6 @@ csp_loss stop
 sleep 12000
 download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verify 8
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict 8
 
 exit

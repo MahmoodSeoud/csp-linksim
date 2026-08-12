@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rdp-tinyfile-verify -- external verdict for rdp-tinyfile.csh.
+# rdp-tinyfile-verdict -- external verdict for rdp-tinyfile.csh.
 # Judges the first 12 bytes of the read-back region: are they the file, or still
 # the 0xAA sentinel (= this upload never delivered them)?
 set -uo pipefail

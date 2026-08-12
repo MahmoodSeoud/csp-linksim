@@ -1,4 +1,4 @@
-# updown_flatsat.csh - the flight-pass rehearsal against the PAYLOAD BOARD.
+# flatsat-updown.csh - the flight-pass rehearsal against the PAYLOAD BOARD.
 #
 # Same instrument as updown_selftest.csh, but the far end is the flight-
 # representative payload: APPSYS (5421) supervises, and this drill brings up
@@ -8,7 +8,7 @@
 # Validated 2026-08-04 against the live board: both payload nodes answer on
 # iface "CAN" -- NOT "CAN0" (which times out and reads exactly like node-down).
 #
-#   csh -i /home/mseo/thesis/csp-linksim/experiments/updown_flatsat.csh
+#   csh -i /home/mseo/thesis/csp-linksim/experiments/flatsat-updown.csh
 #
 # PREREQ: payload board powered (APPSYS answers ping at 5421).
 run /home/mseo/thesis/disco/config/init/can.csh

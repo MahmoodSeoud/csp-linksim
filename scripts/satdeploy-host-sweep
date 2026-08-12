@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# satdeploy-zmq-sweep - the satdeploy arm over the loopback-ZMQ path, no flatsat.
+# satdeploy-host-sweep - the satdeploy arm over the loopback-ZMQ path, no flatsat.
 #
 # WHY THIS EXISTS
 # The committed satdeploy data (captures/satdeploy_sweep.csv) came from the payload board
@@ -26,7 +26,7 @@
 # property of satdeploy's design (it installs to a filesystem the ground cannot re-read),
 # not of the topology, and it does not change here.
 #
-# Usage: satdeploy-zmq-sweep <smart|naive> ["0 0.02 ..."] [nseeds]
+# Usage: satdeploy-host-sweep <smart|naive> ["0 0.02 ..."] [nseeds]
 set -uo pipefail
 
 ARM="${1:-smart}"
@@ -48,7 +48,7 @@ PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
 MAX_PASSES="${MAX_PASSES:-10}"
 PUSH_TO="${PUSH_TO:-600}"
 
-. "$(dirname "$0")/lib/zmq-sweep-lib.sh"
+. "$(dirname "$0")/lib/host-sweep-lib.sh"
 F="${FLATSAT_BUILD:-/tmp/flatsat}"
 CSV="${CSV:-$CAP/satdeploy_zmq_sweep.csv}"
 CSH="$F/csh/csh"
@@ -62,7 +62,7 @@ for b in "$CSH" "$APMSO" "$AGENT"; do
 done
 
 sweep_payload "$PBYTES" "$PAYLOAD_SEED"
-echo "satdeploy-zmq-sweep[$ARM]: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "satdeploy-host-sweep[$ARM]: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU ovh=$OVH burst=$BURST max_passes=$MAX_PASSES"
 echo "  csv=$CSV"
 
