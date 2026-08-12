@@ -29,7 +29,7 @@ figures in `figures/`):
 
 | Result | Evidence | Number |
 |--------|----------|--------|
-| **Calibration** — the injector drops exactly what it claims | `figures/calibration.*` | worst error 1.66 pp (under the 2 pp bound) |
+| **Calibration** — realised loss tracks the nominal level | `figures/calibration.*` | worst deviation 3.0 pp; realised runs *above* nominal, as the Gilbert–Elliott burst model predicts |
 | **H1** — fire-and-forget upload collapses under loss | `captures/dipp_sweep.csv` | completion 100% at 0% loss, **0% at any loss ≥2%** |
 | **RQ3 (headline)** — flight software silently accepts corruption | `captures/rq3_corruption.csv` | **25/25** lossy uploads delivered a corrupt file reported as success; **0/5** at zero loss |
 | **RQ4** — the cost of a real fix (sha256 verify-retry) | `captures/satdeploy_sweep.csv` | completes 0–30% loss at **≤1.7×** bytes |
@@ -126,7 +126,7 @@ scripts/bench dtp-host-sweep
 # Reliable vmem reference path (RDP + CRC32):
 scripts/bench rdp-host-sweep
 
-# SVU, the self-verifying uploader:
+# The manifest core (July era, standalone):
 scripts/bench satdeploy-core-host-sweep
 ```
 
@@ -224,7 +224,7 @@ diagnostic, named for what it does. **Provenance note:** the committed CSVs in
 ## What you gain from using it
 
 - **A go/no-go on your own stack:** does it silently accept a corrupt file under realistic loss?
-- **A trustworthy number, not a guess:** calibrated to under 2 pp, three oracles agree.
+- **A trustworthy number, not a guess:** calibration measured and plotted per arm, three oracles agree.
 - **A fair A/B between mechanisms:** the same seed replays a byte-identical drop pattern across
   two uploaders, so comparisons are clean.
 - **The cost of a fix:** does adding integrity checking help, and what does it cost in passes/bytes?

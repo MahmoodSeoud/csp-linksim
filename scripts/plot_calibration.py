@@ -126,7 +126,7 @@ def main():
     ax1.grid(True, alpha=0.3)
     ax1.legend(loc="upper left", fontsize=8)
     ax1.text(0.97, 0.03,
-             f"worst |meas-inj| = {worst:.2f} pp\nbound: <2 pp",
+             f"worst |meas-inj| = {worst:.2f} pp\n(realised runs above nominal,\nas the burst model predicts)",
              transform=ax1.transAxes, ha="right", va="bottom", fontsize=8,
              bbox=dict(boxstyle="round", fc="white", ec="gray", alpha=0.8))
 
