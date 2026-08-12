@@ -1,0 +1,8 @@
+[dtp4800_L030_b4_s2] pacing: RATE_BPS=4800 pace_us=426666us -> ~444s transmit (inj_to=534s mon_to=564s)
+, errno 100: Network is down
+[dtp4800_L030_b4_s2] loss=0.30 seed=2  (MTU=256 ovh=4, file=1041 frags)
+  oracle A : sent_unique=1041  kept=705  dropped=336  realized=0.323
+  oracle B : observed_unique=705
+  AGREEMENT: dropped&observed=0 (want ~0)   kept&observed=705 / 705
+  COMPLETION (deliv/total): 705 / 1041 = 67.7%
+  EXTERNAL CHECK : board sha256(/home/root/csp_dtp4800_L030_b4_s2.bin) = ABSENT   board_bytes=NA (want 262144)

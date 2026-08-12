@@ -1,0 +1,8 @@
+[dtp4800_L0_b4_s2] pacing: RATE_BPS=4800 pace_us=426666us -> ~444s transmit (inj_to=534s mon_to=564s)
+socketcan_rx_thread[CAN]: read() failed, errno 100: Network is down
+[dtp4800_L0_b4_s2] loss=0 seed=2  (MTU=256 ovh=4, file=1041 frags)
+  oracle A : sent_unique=1041  kept=1041  dropped=0  realized=0.000
+  oracle B : observed_unique=1041
+  AGREEMENT: dropped&observed=0 (want ~0)   kept&observed=1041 / 1041
+  COMPLETION (deliv/total): 1041 / 1041 = 100.0%
+  EXTERNAL CHECK : board sha256(/home/root/csp_dtp4800_L0_b4_s2.bin) = MATCH   board_bytes=262144 (want 262144)

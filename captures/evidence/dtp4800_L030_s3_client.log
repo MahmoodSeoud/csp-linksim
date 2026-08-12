@@ -1,0 +1,373 @@
+Initialising CSP
+er thread started
+	[36m - [INFO] Initializing all parameters [0m
+	[36m - [INFO] Initialising log... [0m
+	[36m - [INFO] Initializing VMEM subsystem [0m
+INIT CAN: device: [can0], bitrate: 1000000, promisc: 1
+Connection table
+[00 0xaaaaaecfba78] S:0, 0 -> 0, 0 -> 0 (17) fl 0
+[01 0xaaaaaecfbb88] S:0, 0 -> 0, 0 -> 0 (18) fl 0
+[02 0xaaaaaecfbc98] S:0, 0 -> 0, 0 -> 0 (19) fl 0
+[03 0xaaaaaecfbda8] S:0, 0 -> 0, 0 -> 0 (20) fl 0
+[04 0xaaaaaecfbeb8] S:0, 0 -> 0, 0 -> 0 (21) fl 0
+[05 0xaaaaaecfbfc8] S:0, 0 -> 0, 0 -> 0 (22) fl 0
+[06 0xaaaaaecfc0d8] S:0, 0 -> 0, 0 -> 0 (23) fl 0
+[07 0xaaaaaecfc1e8] S:0, 0 -> 0, 0 -> 0 (24) fl 0
+Interfaces
+LOOP       addr: 0 netmask: 14 dfl: 0
+           tx: 00000 rx: 00000 txe: 00000 rxe: 00000
+           drop: 00000 autherr: 00000 frame: 00000
+           txb: 0 (0B) rxb: 0 (0B) 
+
+CAN        addr: 5426 netmask: 0 dfl: 1
+           tx: 00000 rx: 00000 txe: 00000 rxe: 00000
+me: 00000
+           txb: 0 (0B) rxb: 0 (0B) 
+
+Client started
+	[33m - [DEBUG] Received DTP trigger request on port 10. [0m
+	[33m - [DEBUG] Received metadata NOT null. [0m
+	[33m - [DEBUG] session_hooks:set_dest_addr -> Setting new DTP path to: /home/root/csp_dtp4800_L030_b4_s3.bin [0m
+Starting DTP client for payload 0 from server 5424
+	[33m - [DEBUG] Following values from 'opts' to be sent:[0m
+		[33m * server: 5424 [0m
+		[33m * throughput: 1024 [0m
+id: 0 [0m
+		[33m * mtu: 256 [0m
+		[33m * resume: 0 [0m
+		[33m * session: 0xffffaf6feec0 [0m
+[0;32m[LOG] ../git/lib/dtp/src/dtp_client.c:23: Session created: 0xaaaaaecf9ff8[0m
+[0;32m[LOG] ../git/lib/dtp/src/dtp_protocol.c:37: Setting session total bytes to 262144[0m
+	[33m - [DEBUG] session_hooks:apm_on_start [0m
+[0;32m[LOG] ../git/lib/dtp/src/dtp_client.c:117: Start receiving data[0m
+262144[2K1764/262144[2K2016/262144[2K2268/262144[2K2520/262144[2K2772/262144[2K3024/262144[2K3276/262144[2K3528/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=14[0m
+[2K3780/262144[2K4032/262144[2K4284/262144[2K4536/262144[2K4788/262144[2K5040/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=22[0m
+ta received for 2000 ms, last packet_seq=22[0m
+[2K5292/262144[2K5544/262144[2K5796/262144[2K6048/262144[2K6300/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=35[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=35[0m
+144[2K9072/262144[2K9324/262144[2K9576/262144[2K9828/262144[2K10080/262144[2K10332/262144[2K10584/262144[2K10836/262144[2K11088/262144[2K11340/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=59[0m
+it/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=73[0m
+[2K14616/262144[2K14868/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=78[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=78[0m
+62144[2K17640/262144[2K17892/262144[2K18144/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=96[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=96[0m
+2/262144[2K21924/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=117[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=117[0m
+[2K22176/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=122[0m
+for 1000 ms, last packet_seq=128[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=128[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=128[0m
+[2K23436/262144[2K23688/262144[2K23940/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=138[0m
+1000 ms, last packet_seq=141[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=141[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=141[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=141[0m
+60/262144[2K26712/262144[2K26964/262144[2K27216/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=162[0m
+[2K27468/262144[2K27720/262144[2K27972/262144[2K28224/262144[2K28476/262144[2K28728/262144[2K28980/262144[2K29232/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=172[0m
+K30744/262144[2K30996/262144[2K31248/262144[2K31500/262144[2K31752/262144[2K32004/262144[2K32256/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=187[0m
+[2K32508/262144[2K32760/262144[2K33012/262144[2K33264/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=194[0m
+: No data received for 1000 ms, last packet_seq=200[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=200[0m
+[2K34272/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=205[0m
+7548/262144[2K37800/262144[2K38052/262144[2K38304/262144[2K38556/262144[2K38808/262144[2K39060/262144[2K39312/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=227[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=227[0m
+m
+[2K40320/262144[2K40572/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=238[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=238[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=238[0m
+42840/262144[2K43092/262144[2K43344/262144[2K43596/262144[2K43848/262144[2K44100/262144[2K44352/262144[2K44604/262144[2K44856/262144[2K45108/262144[2K45360/262144[2K45612/262144[2K45864/262144[2K46116/262144[2K46368/262144[2K46620/262144[2K46872/262144[2K47124/262144[2K47376/262144[2K47628/262144[2K47880/262144[2K48132/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=275[0m
+lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=275[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=275[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=275[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 5000 ms, last packet_seq=275[0m
+44/262144[2K49896/262144[2K50148/262144[2K50400/262144[2K50652/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=298[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=298[0m
+K53928/262144[2K54180/262144[2K54432/262144[2K54684/262144[2K54936/262144[2K55188/262144[2K55440/262144[2K55692/262144[2K55944/262144[2K56196/262144[2K56448/262144[2K56700/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=328[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=328[0m
+d for 1000 ms, last packet_seq=334[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=334[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=334[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=334[0m
+acket_seq=346[0m
+[2K57960/262144[2K58212/262144[2K58464/262144[2K58716/262144[2K58968/262144[2K59220/262144[2K59472/262144[2K59724/262144[2K59976/262144[2K60228/262144[2K60480/262144[2K60732/262144[2K60984/262144[2K61236/262144[2K61488/262144[2K61740/262144[2K61992/262144[2K62244/262144[2K62496/262144[2K62748/262144[2K63000/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=370[0m
+../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=370[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=370[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=370[0m
+66024/262144[2K66276/262144[2K66528/262144[2K66780/262144[2K67032/262144[2K67284/262144[2K67536/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=397[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=397[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=397[0m
+rc/dtp_client.c:128: No data received for 1000 ms, last packet_seq=407[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=407[0m
+[2K68292/262144[2K68544/262144[2K68796/262144[2K69048/262144[2K69300/262144[2K69552/262144[2K69804/262144[2K70056/262144[2K70308/262144[2K70560/262144[2K70812/262144[2K71064/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=423[0m
+33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=423[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=423[0m
+4[2K75600/262144[2K75852/262144[2K76104/262144[2K76356/262144[2K76608/262144[2K76860/262144[2K77112/262144[2K77364/262144[2K77616/262144[2K77868/262144[2K78120/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=460[0m
+[0m
+[2K79884/262144[2K80136/262144[2K80388/262144[2K80640/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=474[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=474[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=474[0m
+[2K80892/262144[2K81144/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=486[0m
+[2K81396/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=490[0m
+[2K81648/262144[2K81900/262144[2K82152/262144[2K82404/262144[2K82656/262144[2K82908/262144[2K83160/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=499[0m
+3412/262144[2K83664/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=504[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=504[0m
+[2K83916/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=509[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=509[0m
+p/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=509[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=509[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 5000 ms, last packet_seq=509[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 6000 ms, last packet_seq=509[0m
+ast packet_seq=525[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=525[0m
+[2K84420/262144[2K84672/262144[2K84924/262144[2K85176/262144[2K85428/262144[2K85680/262144[2K85932/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=537[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=537[0m
+p_client.c:128: No data received for 3000 ms, last packet_seq=537[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=537[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 5000 ms, last packet_seq=537[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 6000 ms, last packet_seq=537[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 7000 ms, last packet_seq=537[0m
+[2K86184/262144[2K86436/262144[2K86688/262144[2K86940/262144[2K87192/262144[2K87444/262144[2K87696/262144[2K87948/262144[2K88200/262144[2K88452/262144[2K88704/262144[2K88956/262144[2K89208/262144[2K89460/262144[2K89712/262144[2K89964/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=570[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=570[0m
+ ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=570[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=570[0m
+[2K90216/262144[2K90468/262144[2K90720/262144[2K90972/262144[2K91224/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=584[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=584[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=584[0m
+4[2K97272/262144[2K97524/262144[2K97776/262144[2K98028/262144[2K98280/262144[2K98532/262144[2K98784/262144[2K99036/262144[2K99288/262144[2K99540/262144[2K99792/262144[2K100044/262144[2K100296/262144[2K100548/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=629[0m
+[2K100800/262144[2K101052/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=634[0m
+m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=634[0m
+[2K101304/262144[2K101556/262144[2K101808/262144[2K102060/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=644[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=644[0m
+103824/262144[2K104076/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=657[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=657[0m
+[2K104328/262144[2K104580/262144[2K104832/262144[2K105084/262144[2K105336/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=668[0m
+ta received for 2000 ms, last packet_seq=668[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=668[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=668[0m
+[2K108864/262144[2K109116/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=692[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=692[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=692[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=692[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=703[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=703[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=703[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=703[0m
+[2K110880/262144[2K111132/262144[2K111384/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=719[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=719[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=719[0m
+44[2K113400/262144[2K113652/262144[2K113904/262144[2K114156/262144[2K114408/262144[2K114660/262144[2K114912/262144[2K115164/262144[2K115416/262144[2K115668/262144[2K115920/262144[2K116172/262144[2K116424/262144[2K116676/262144[2K116928/262144[2K117180/262144[2K117432/262144[2K117684/262144[2K117936/262144[2K118188/262144[2K118440/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=755[0m
+2/262144[2K118944/262144[2K119196/262144[2K119448/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=762[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=762[0m
+22724/262144[2K122976/262144[2K123228/262144[2K123480/262144[2K123732/262144[2K123984/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=785[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=785[0m
+ta received for 1000 ms, last packet_seq=797[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=797[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=797[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=797[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 5000 ms, last packet_seq=797[0m
+ib/dtp/src/dtp_client.c:128: No data received for 6000 ms, last packet_seq=797[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 7000 ms, last packet_seq=797[0m
+[2K126000/262144[2K126252/262144[2K126504/262144[2K126756/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=817[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=817[0m
+ib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=817[0m
+[2K127008/262144[2K127260/262144[2K127512/262144[2K127764/262144[2K128016/262144[2K128268/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=830[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=830[0m
+2K129780/262144[2K130032/262144[2K130284/262144[2K130536/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=844[0m
+[2K130788/262144[2K131040/262144[2K131292/262144[2K131544/262144[2K131796/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=851[0m
+cket_seq=855[0m
+[2K132552/262144[2K132804/262144[2K133056/262144[2K133308/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=862[0m
+262144[2K137844/262144[2K138096/262144[2K138348/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=885[0m
+t.c:128: No data received for 1000 ms, last packet_seq=903[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=903[0m
+00 ms, last packet_seq=923[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=923[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=923[0m
+[2K149688/262144[2K149940/262144[2K150192/262144[2K150444/262144[2K150696/262144[2K150948/262144[2K151200/262144[2K151452/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=953[0m
+262144[2K155232/262144[2K155484/262144[2K155736/262144[2K155988/262144[2K156240/262144[2K156492/262144[2K156744/262144[2K156996/262144[2K157248/262144[2K157500/262144[2K157752/262144[2K158004/262144[2K158256/262144[2K158508/262144[2K158760/262144[2K159012/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=986[0m
+=986[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=986[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=986[0m
+163044/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=1012[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=1012[0m
+44[2K167076/262144[2K167328/262144[2K167580/262144[2K167832/262144[2K168084/262144[2K168336/262144[2K168588/262144[2K168840/262144[2K168904/262144[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=1040[0m
+N] ../git/lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 5000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 6000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 7000 ms, last packet_seq=1040[0m
+, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 9000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 10000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 11000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 12000 ms, last packet_seq=1040[0m
+client.c:128: No data received for 13000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 14000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 15000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:128: No data received for 16000 ms, last packet_seq=1040[0m
+0[0m
+[0;33m[WARN] ../git/lib/dtp/src/dtp_client.c:144: No data received for 17000 ms, bailing out[0m
+[0;32m[LOG] ../git/src/session/session_hooks.c:272: 
+Received segments:[0m
+Segment #0, start=0, end=11
+Segment #1, start=13, end=14
+Segment #2, start=17, end=22
+Segment #3, start=29, end=29
+Segment #4, start=31, end=33
+Segment #5, start=35, end=35
+Segment #6, start=40, end=59
+Segment #7, start=62, end=73
+Segment #8, start=77, end=78
+Segment #9, start=83, end=93
+ start=95, end=96
+Segment #11, start=101, end=106
+Segment #12, start=108, end=114
+Segment #13, start=116, end=117
+Segment #14, start=122, end=122
+Segment #15, start=125, end=128
+Segment #16, start=136, end=138
+Segment #17, start=141, end=141
+Segment #18, start=151, end=162
+Segment #19, start=165, end=172
+Segment #20, start=176, end=187
+Segment #21, start=191, end=194
+Segment #22, start=198, end=200
+Segment #23, start=205, end=205
+Segment #24, start=208, end=227
+art=232, end=234
+Segment #26, start=237, end=238
+Segment #27, start=246, end=275
+Segment #28, start=289, end=298
+Segment #29, start=304, end=323
+Segment #30, start=325, end=328
+Segment #31, start=334, end=334
+Segment #32, start=344, end=346
+Segment #33, start=350, end=370
+Segment #34, start=380, end=397
+Segment #35, start=406, end=407
+Segment #36, start=412, end=423
+Segment #37, start=432, end=438
+Segment #38, start=440, end=460
+Segment #39, start=463, end=468
+rt=471, end=474
+Segment #41, start=485, end=486
+Segment #42, start=490, end=490
+Segment #43, start=493, end=499
+Segment #44, start=503, end=504
+Segment #45, start=509, end=509
+Segment #46, start=525, end=525
+Segment #47, start=531, end=537
+Segment #48, start=555, end=570
+Segment #49, start=580, end=584
+Segment #50, start=592, end=604
+Segment #51, start=606, end=629
+Segment #52, start=632, end=632
+Segment #53, start=634, end=634
+Segment #54, start=640, end=642
+t=644, end=644
+Segment #56, start=650, end=657
+Segment #57, start=664, end=668
+Segment #58, start=678, end=692
+Segment #59, start=702, end=703
+Segment #60, start=713, end=719
+Segment #61, start=727, end=728
+Segment #62, start=730, end=755
+Segment #63, start=759, end=762
+Segment #64, start=768, end=785
+Segment #65, start=791, end=797
+Segment #66, start=814, end=817
+Segment #67, start=825, end=830
+Segment #68, start=836, end=844
+Segment #69, start=847, end=851
+=854, end=855
+Segment #71, start=859, end=862
+Segment #72, start=865, end=872
+Segment #73, start=874, end=885
+Segment #74, start=888, end=903
+Segment #75, start=910, end=923
+Segment #76, start=931, end=946
+Segment #77, start=948, end=953
+Segment #78, start=956, end=960
+Segment #79, start=962, end=986
+Segment #80, start=996, end=998
+Segment #81, start=1000, end=1012
+Segment #82, start=1017, end=1040
+[0;32m[LOG] ../git/src/session/session_hooks.c:275: Missing segments:[0m
+nt #0, start=11, end=13
+Segment #1, start=14, end=17
+Segment #2, start=22, end=31
+Segment #3, start=33, end=40
+Segment #4, start=59, end=62
+Segment #5, start=73, end=77
+Segment #6, start=78, end=83
+Segment #7, start=93, end=95
+Segment #8, start=96, end=101
+Segment #9, start=106, end=108
+Segment #10, start=114, end=116
+Segment #11, start=117, end=125
+Segment #12, start=128, end=136
+Segment #13, start=138, end=151
+Segment #14, start=162, end=165
+Segment #15, start=172, end=176
+Segment #16, start=187, end=191
+Segment #17, start=194, end=198
+Segment #18, start=200, end=208
+Segment #19, start=227, end=232
+Segment #20, start=234, end=237
+Segment #21, start=238, end=246
+Segment #22, start=275, end=289
+Segment #23, start=298, end=304
+Segment #24, start=323, end=325
+Segment #25, start=328, end=344
+Segment #26, start=346, end=350
+Segment #27, start=370, end=380
+Segment #28, start=397, end=406
+Segment #29, start=407, end=412
+Segment #30, start=423, end=432
+egment #31, start=438, end=440
+Segment #32, start=460, end=463
+Segment #33, start=468, end=471
+Segment #34, start=474, end=485
+Segment #35, start=486, end=493
+Segment #36, start=499, end=503
+Segment #37, start=504, end=531
+Segment #38, start=537, end=555
+Segment #39, start=570, end=580
+Segment #40, start=584, end=592
+Segment #41, start=604, end=606
+Segment #42, start=629, end=640
+Segment #43, start=642, end=650
+Segment #44, start=657, end=664
+Segment #45, start=668, end=678
+gment #46, start=692, end=702
+Segment #47, start=703, end=713
+Segment #48, start=719, end=727
+Segment #49, start=728, end=730
+Segment #50, start=755, end=759
+Segment #51, start=762, end=768
+Segment #52, start=785, end=791
+Segment #53, start=797, end=814
+Segment #54, start=817, end=825
+Segment #55, start=830, end=836
+Segment #56, start=844, end=847
+Segment #57, start=851, end=854
+Segment #58, start=855, end=859
+Segment #59, start=862, end=865
+Segment #60, start=872, end=874
+ment #61, start=885, end=888
+Segment #62, start=903, end=910
+Segment #63, start=923, end=931
+Segment #64, start=946, end=948
+Segment #65, start=953, end=956
+Segment #66, start=960, end=962
+Segment #67, start=986, end=996
+Segment #68, start=998, end=1000
+Segment #69, start=1012, end=1017
+Segment #70, start=1040, end=-1
+[0;32m[LOG] ../git/src/session/session_hooks.c:277: Done[0m
+	[33m - [DEBUG] session_hooks:apm_on_end [0m
+oot/csp_dtp4800_L030_b4_s3.bin [0m
+	[36m - [INFO] Not a task file. [0m
+[0;32m[LOG] ../git/lib/dtp/src/dtp_client.c:155: Received 168904 bytes, last seq: 1040, status: 0[0m
+[0;32m[LOG] ../git/lib/dtp/src/dtp_client.c:156: Session duration: 448.436 s, avg throughput: 0 KB/sec[0m
+[0;32m[LOG] ../git/lib/dtp/src/dtp_client.c:74: Bye...[0m
