@@ -13,7 +13,7 @@
 # WHAT THIS COVERS, AND WHAT IT DOES NOT
 # Four transfer mechanisms appear in the evaluation. Three are reproducible from source:
 #
-#   SVU  (self-verifying uploader)   -> scripts/svu-host-sweep   captures/svu_sweep.csv
+#   SVU  (self-verifying uploader)   -> scripts/satdeploy-core-host-sweep   captures/svu_sweep.csv
 #   RDP  (reliable vmem reference)   -> scripts/rdp-host-sweep   captures/rdp_zmq_sweep.csv
 #   Deployed uploader (DTP)          -> scripts/dtp-host-sweep   captures/dtp_zmq_sweep.csv
 #
@@ -85,7 +85,7 @@ echo "  Expect: every cell VERIFIED with sha=MATCH. Rounds grow with loss."
 echo "  A VERIFIED cell with sha=MISMATCH would falsify the mechanism's core claim."
 echo
 LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_svu_sweep.csv \
-    scripts/bench svu-host-sweep
+    scripts/bench satdeploy-core-host-sweep
 echo
 
 bold "[4/4] RDP arm  (reliable vmem reference path, CSP_O_RDP | CSP_O_CRC32)"

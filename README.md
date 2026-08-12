@@ -127,7 +127,7 @@ scripts/bench dtp-host-sweep
 scripts/bench rdp-host-sweep
 
 # SVU, the self-verifying uploader:
-scripts/bench svu-host-sweep
+scripts/bench satdeploy-core-host-sweep
 ```
 
 The flatsat arms (`scripts/satdeploy-board-sweep`, `scripts/dtp-board-point`) need the payload board
@@ -156,7 +156,8 @@ python3 scripts/plot_calibration.py     # injector calibration
 ## Scripts reference
 
 Naming convention: `<arm>-<place>-sweep` runs a full loss grid, where the arm is
-the upload mechanism (`rdp`, `dtp`, `satdeploy`; `svu` = July-era predecessor) and
+the upload mechanism (`rdp`, `dtp`, `satdeploy`; `satdeploy-core` = the manifest
+core measured standalone in the July era, before its adoption into satdeploy) and
 the place is where it runs: `host` = loopback ZMQ in the container, no hardware;
 `board` = the real payload board / flatsat CAN. `<arm>-<place>-point` runs one
 instrumented cell. Everything else is an operational helper or a one-off
@@ -165,7 +166,9 @@ diagnostic, named for what it does. **Provenance note:** the committed CSVs in
 `rdp-host-sweep` was `rdp-zmq-sweep` and writes `rdp_zmq_sweep.csv`;
 `rdp-board-sweep` was `rdp-csploss-sweep` → `rdp_csploss_sweep.csv`;
 `dtp-board-sweep` was `dtp-flight-sweep` → `dtp_flight_sweep.csv`;
-`satdeploy-board-sweep` was `satdeploy-sweep` → `satdeploy_sweep.csv`).
+`satdeploy-board-sweep` was `satdeploy-sweep` → `satdeploy_sweep.csv`;
+`satdeploy-core-*` were `svu-*` — the code modules are still `svu_*` — and write
+`svu_sweep.csv` / `h2h_svu.csv`).
 
 **Entry points**
 
@@ -181,13 +184,13 @@ diagnostic, named for what it does. **Provenance note:** the committed CSVs in
 |--------|--------------|
 | `scripts/dtp-host-sweep` | deployed-uploader (DTP) arm on loopback ZMQ; builds DISCO's sources |
 | `scripts/rdp-host-sweep` | reliable vmem reference arm (RDP+CRC32) on loopback ZMQ |
-| `scripts/svu-host-sweep` | SVU arm on loopback ZMQ |
+| `scripts/satdeploy-core-host-sweep` | the manifest core (July era, standalone) on loopback ZMQ |
 | `scripts/satdeploy-host-sweep` | satdeploy smart/naive arm on loopback ZMQ (matched head-to-head vs SVU) |
 | `scripts/rdp-board-sweep` | RDP+CRC32 integrity sweep against the board `vmem_node` (csp_loss injection) |
 | `scripts/dtp-board-sweep` | the pre-registered T1 grid: deployed uploader at flight pacing on the board (per-cell driver `dtp-board-point`) |
 | `scripts/satdeploy-board-sweep` | satdeploy smart/naive sweep on the flatsat; agent on the payload board as 5427 |
-| `scripts/svu-board-sweep` | SVU sweep against the payload board over can0; optional scp read-back oracle |
-| `scripts/svu-host-paced-sweep` | SVU under half-duplex airtime pacing (reverse frames cost airtime) |
+| `scripts/satdeploy-core-board-sweep` | the manifest core against the payload board over can0 (July era) |
+| `scripts/satdeploy-core-host-paced-sweep` | the manifest core under half-duplex airtime pacing (July era) |
 
 **Diagnostics (back specific claims in the write-up)**
 

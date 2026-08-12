@@ -15,7 +15,7 @@
 #   * csh and the APM are replaced by tests/e2e/dtp_trigger, which reproduces the single
 #     packet `upload_file` puts on the wire. Same move rdp_push made for the reliable path.
 #   * The CAN segment is replaced by two brokers on loopback aliases, exactly as
-#     svu-host-sweep does, because both uploader ends already support -z (the vendor's own
+#     satdeploy-core-host-sweep does, because both uploader ends already support -z (the vendor's own
 #     run-server.sh / run-client.sh use -z localhost; this is their dev configuration).
 #
 #   upload_gs-server -z 127.0.0.1 -> broker A -> ci_inject_bridge -> broker B -> upload_client

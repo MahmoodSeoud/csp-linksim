@@ -25,7 +25,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     docker build -q -t "$IMAGE" -f "$REPO/docker/Dockerfile.bench" "$REPO/docker" || exit 1
 fi
 
-# Forward the knobs the sweep drivers read, so `LOSSES=... scripts/bench svu-host-sweep` works
+# Forward the knobs the sweep drivers read, so `LOSSES=... scripts/bench satdeploy-core-host-sweep` works
 # the same way it would on the bench host. Only forwards vars that are actually set.
 ENVARGS=()
 for v in LOSSES NSEEDS CSV PBYTES PAYLOAD_SEED BLOCK MTU OVH BURST HD_RATE N RATE SEED \

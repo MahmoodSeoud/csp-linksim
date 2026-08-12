@@ -15,7 +15,7 @@
 #   rdp_push -z 127.0.0.1 (addr 26) -> broker A -> ci_inject_bridge -> broker B -> vmem_node
 #                                        (drops forward RDP packets to dport 14 = oracle A)
 #
-# Two brokers on loopback aliases, bridged by the injector, exactly as svu-host-sweep does.
+# Two brokers on loopback aliases, bridged by the injector, exactly as satdeploy-core-host-sweep does.
 # The injector impersonates the NODE on side A so traffic addressed to it is routed inward.
 #
 # THREE ORACLES PER CELL (the thesis's oracle design, Section sec:method-oracles)
@@ -46,7 +46,7 @@ CLI_ADDR=26; NODE=5431; DPORT=14          # VMEM_PORT_SERVER
 MTU="${MTU:-200}"; OVH="${OVH:-8}"; BURST="${BURST:-4}"
 HD_RATE="${HD_RATE:-0}"                   # integrity is rate-independent; default unpaced
 PBYTES="${PBYTES:-262144}"                # 256 KiB, the size the other arms use
-PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"  # same seed as svu-host-sweep => same payload bytes
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"  # same seed as satdeploy-core-host-sweep => same payload bytes
 VADDR="${VADDR:-0x10000000}"              # must match vmem_node's BIGMEM_VADDR
 UP_TO="${UP_TO:-120000}"                  # vmem_upload timeout, ms
 SETTLE="${SETTLE:-3}"                     # seconds to let the receiver finalize before read-back
@@ -59,7 +59,7 @@ SWEEP_PROCS="vmem_node"
 
 sweep_require "$PROXY" "$INJ" "$NODEBIN" "$PUSH"
 
-# Deterministic payload, identical to svu-host-sweep's so the two arms move the same bytes.
+# Deterministic payload, identical to satdeploy-core-host-sweep's so the two arms move the same bytes.
 sweep_payload "$PBYTES" "$PAYLOAD_SEED"
 echo "rdp-host-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS mtu=$MTU burst=$BURST hd_rate=$HD_RATE vaddr=$VADDR"

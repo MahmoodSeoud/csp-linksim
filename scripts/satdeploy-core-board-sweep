@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# svu-board-sweep - the SVU arm against the payload board over the real CAN bus.
+# satdeploy-core-board-sweep - the SVU arm against the payload board over the real CAN bus.
 #
 # This is the measurement that closes SVU's evidentiary gap: every SVU cell so far is
 # host-arm (loopback ZMQ). Here the receiving end is the flight-representative payload
@@ -29,7 +29,7 @@
 # Pacing defaults to 9600 bit/s to match the committed board satdeploy sweep; set
 # RATE_BPS=4800 for the flight uplink rate, RATE_BPS=0 for unpaced.
 #
-# Usage: svu-board-sweep            (env: LOSSES, SEEDS, RATE_BPS, BOARD_SSH, TAG)
+# Usage: satdeploy-core-board-sweep            (env: LOSSES, SEEDS, RATE_BPS, BOARD_SSH, TAG)
 # Resumable: cells already recorded status=ok are skipped. Exit 2 = daemon down.
 set -uo pipefail
 
@@ -81,7 +81,7 @@ daemon_up(){
     grep -qaE "OK|FAIL" /tmp/svub_probe.log
 }
 
-echo "svu-board-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "satdeploy-core-board-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  grid=fixed mtu=$MTU total=$TOTAL rate_bps=$RATE_BPS pace_us=$PACE_US push_to=${PUSH_TO}s"
 echo "  board=$BOARD_ADDR external_oracle=$([ -n "$BOARD_SSH" ] && echo scp || echo none)  csv=$OUT"
 

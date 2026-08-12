@@ -8,7 +8,7 @@
 # Build and run through scripts/bench, which wires the mounts:
 #   scripts/bench build          # configure + compile the front-ends
 #   scripts/bench test           # meson test suite
-#   scripts/bench svu-host-sweep  # the host SVU arm, no CAN bus and no payload board
+#   scripts/bench satdeploy-core-host-sweep  # the host SVU arm, no CAN bus and no payload board
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 # The extra packages below are not needed by csp-intercept itself. They are the external

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# svu-host-sweep - the SVU host arm over a pure-ZMQ path. No CAN bus, no payload board.
+# satdeploy-core-host-sweep - the SVU host arm over a pure-ZMQ path. No CAN bus, no payload board.
 #
 # WHY THIS EXISTS, AND HOW IT DIFFERS FROM svu-point
 # svu-point wires the client onto can0, so it needs the flatsat. This runs the identical
@@ -26,7 +26,7 @@
 # per-block manifest. Then an EXTERNAL sha256 confirms the self-verification did not lie.
 #   SILENT CORRUPTION == claimed VERIFIED & sha MISMATCH. Expected: never.
 #
-# Usage: svu-host-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
+# Usage: satdeploy-core-host-sweep ["0 0.02 0.05 0.10 0.20 0.30"] [nseeds]
 # Resumable: an already-recorded (loss, seed) is skipped.
 set -uo pipefail
 
@@ -51,7 +51,7 @@ sweep_require "$PROXY" "$INJ" "$SRV" "$CLI"
 # A seeded PRNG gives a payload that IS reproducible by anyone who runs this script, and its
 # digest is recorded alongside the results.
 sweep_payload "$PBYTES" "$PAYLOAD_SEED"
-echo "svu-host-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "satdeploy-core-host-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
 echo "  losses=[$LOSSES] nseeds=$NSEEDS block=$BLOCK mtu=$MTU burst=$BURST hd_rate=$HD_RATE"
 echo "  csv=$CSV"
 
