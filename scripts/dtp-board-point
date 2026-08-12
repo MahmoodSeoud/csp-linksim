@@ -64,8 +64,18 @@ if pgrep -x ci_inject_bridge >/dev/null 2>&1; then
   exit 1
 fi
 
-# 1) restart deployed client (exits after each transfer)
-bash "$REPO/scripts/restart-upload-client" 5426 5424 || { echo "FAIL: client restart"; exit 1; }
+# 1) the deployed client (exits after each transfer). Default: toggle mng_util on
+#    the app-sys manager, which spawns it at 5426 on THAT node -- whose filesystem
+#    no console reaches, so oracle C comes back ABSENT (found 2026-08-11).
+#    CLIENT_ON_BOARD=1 starts the payload's own /usr/bin/upload_client over the
+#    serial console instead; the wire topology is identical (both nodes sit on
+#    can0 as 5426) but the delivered file lands where oracle C can hash it.
+if [ "${CLIENT_ON_BOARD:-0}" = "1" ]; then
+  bash "$REPO/scripts/board-cmd" 'killall upload_client 2>/dev/null; cd /home/root && (upload_client -c can0 -a 5426 -s 5424 >/tmp/upload_client.log 2>&1 &); sleep 1; ps w | grep [u]pload_client >/dev/null' \
+    || { echo "FAIL: board client did not start (see /tmp/upload_client.log on the board)"; exit 1; }
+else
+  bash "$REPO/scripts/restart-upload-client" 5426 5424 || { echo "FAIL: client restart"; exit 1; }
+fi
 rm -f "$ORA" "$ORB"
 
 # 2) promisc monitor = oracle B
@@ -98,6 +108,9 @@ rm -f "$UPINIT"
 kill "$INJPID" 2>/dev/null; wait "$INJPID" 2>/dev/null || true
 wait "$MONPID" 2>/dev/null || true
 rm -rf "$APMROOT" "$MONINIT"
+# the client exits after each transfer by design; make sure a wedged one cannot
+# leak into the next cell as a duplicate 5426
+[ "${CLIENT_ON_BOARD:-0}" = "1" ] && bash "$REPO/scripts/board-cmd" 'killall upload_client 2>/dev/null; true' >/dev/null 2>&1
 
 # 6) join oracles (frag-index sets; oracle B filtered to server src so client port-8 pkts don't pollute)
 if [ ! -s "$ORA" ]; then echo "[$LABEL] FAIL: empty oracle A"; tail -6 "/tmp/${LABEL}_inj.log"; exit 1; fi

@@ -105,12 +105,25 @@ def verdict_satdeploy(arm):
 
 
 def verdict_dtp():
-    """Deployed uploader. Canonical board-4800 cell is PENDING (console-gated).
+    """Deployed uploader. Canonical row: the board-4800 grid (dtp_flight_sweep),
+    measured 2026-08-12 with the client on the payload board and the sha probe
+    on its console. Pre-registered rule: verdict = modal outcome across
+    harness-valid lossy cells, judged by the external board sha.
 
-    Committed supporting evidence: host-4800 ZMQ reproduction (dtp_zmq_sweep)
-    and board-9600 (rq3_corruption). Both already show silent corruption in
-    every lossy cell; the board-4800 measurement drops into this slot when run.
+    The 4800 outcome is its own class: every lossy cell came back ABSENT (no
+    file at the destination at all) while the client's session log reports
+    status 0 -- false success over a missing artifact, versus board-9600's
+    false success over a size-correct corrupt one (rq3_corruption) and
+    host-4800's (dtp_zmq_sweep). Supporting rows are kept for the contrast.
     """
+    fl = rows("dtp_flight_sweep.csv")
+    fl_lossy = [r for r in fl if is_lossy(r["loss"])]
+    fl_clean = [r for r in fl if not is_lossy(r["loss"])]
+    fl_clean_ok = [r for r in fl_clean if r["sha"] == "MATCH"]
+    fl_absent = [r for r in fl_lossy if r["sha"] == "ABSENT"]
+    fl_corrupt = [r for r in fl_lossy if r["sha"] == "MISMATCH"]
+    from collections import Counter
+    modal = Counter(r["sha"] for r in fl_lossy).most_common(1)
     zmq = rows("dtp_zmq_sweep.csv")
     zmq_lossy = [r for r in zmq if is_lossy(r["loss"])]
     zmq_corrupt = [r for r in zmq_lossy if r["client_verdict"] == "REPORTED_OK" and r["sha"] != "MATCH"]
@@ -119,14 +132,16 @@ def verdict_dtp():
     rq3_corrupt = [r for r in rq3_lossy if r["corrupt_but_accepted"] == "yes"]
     return {
         "mechanism": "Deployed uploader (DTP)",
-        "regime": "board 4800 (flight) \\emph{pending}; host-4800 + board-9600 committed",
-        "clean_controls": "5/5 (host-4800), 5/5 (board-9600)",
-        "lossy_cells": len(zmq_lossy),
+        "regime": "board 4800 (flight); host-4800 + board-9600 committed",
+        "clean_controls": f"{len(fl_clean_ok)}/{len(fl_clean)} (board-4800), 5/5 (host-4800), 5/5 (board-9600)",
+        "lossy_cells": len(fl_lossy),
         "invalid_excluded": 0,
-        "modal_verdict": "PENDING_BOARD_4800",
-        "silent_corruptions": (f"{len(zmq_corrupt)}/{len(zmq_lossy)} host-4800, "
+        "modal_verdict": "SILENT_FALSE_SUCCESS_ABSENT" if modal and modal[0][0] == "ABSENT" else (modal[0][0] if modal else "n/a"),
+        "silent_corruptions": (f"{len(fl_absent)}/{len(fl_lossy)} absent board-4800, "
+                               f"{len(zmq_corrupt)}/{len(zmq_lossy)} host-4800, "
                                f"{len(rq3_corrupt)}/{len(rq3_lossy)} board-9600"),
-        "claim_vs_reality": "claims success over a corrupt file (board-4800 pre-registered, pending)",
+        "claim_vs_reality": ("claims success and delivers nothing at flight pacing "
+                             "(client status 0, artifact absent); corrupt file at 9600/host"),
     }
 
 
