@@ -179,7 +179,6 @@ one-off diagnostic, named for what it does.
 | `scripts/satdeploy-sweep` | satdeploy smart/naive sweep on the flatsat; agent on the payload board as 5427 |
 | `scripts/svu-board-sweep` | SVU sweep against the payload board over can0; optional scp read-back oracle |
 | `scripts/svu-paced-sweep` | SVU under half-duplex airtime pacing (reverse frames cost airtime) |
-| `scripts/rdp-bigmem-sweep` | RDP arm against the big-memory vmem target (uses `rdp-bigmem-point` per cell) |
 
 **Diagnostics (back specific claims in the write-up)**
 
@@ -187,7 +186,7 @@ one-off diagnostic, named for what it does.
 |--------|--------------|
 | `scripts/rdp-rate-compare` | paced-vs-unpaced RDP failure-mode comparison (same seeds, same drops) |
 | `scripts/rdp-settle-check` | discriminates real corruption from verify-timing artifacts |
-| `scripts/rdp-bigmem-point` | one instrumented RDP cell against the big-memory target |
+| `experiments/rdp-silent-*` | csh-operator silent-corruption cell (see `experiments/README.md`) |
 
 **Flatsat operations**
 

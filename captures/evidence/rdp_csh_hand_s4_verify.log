@@ -1,0 +1,86 @@
+
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Aug  6 2026 git: a7a27df
+
+  Init file: /home/mseo/thesis/csp-linksim/experiments/rdp-silent-2-verify.csh
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+Loaded: /home/mseo/.local/lib/csh/libcsh_obc.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_monitor.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_ippc.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_shell.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_loss.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_uploader.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_csp_link.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_dtp_client.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_svu.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_satdeploy_apm.so
+infra: bridge up (loss=0 seed=1)
+sh: rc=0
+  ZMQ init ZMQ0: addr: 26, pub(tx): [tcp://127.0.0.1:6000], sub(rx): [tcp://127.0.0.1:7000]
+Using RDP options window: 3, conn_timeout: 10000, packet_timeout: 5000, ack_timeout: 2000, ack_count: 2
+No previous status file to resume from
+Download 262144 bytes from 5431 addr 0x10000000 to /tmp/hostgot.bin with timeout 120000 version 2
+  ................................ - 6 K
+  ................................ - 12 K
+  ................................ - 18 K
+  ................................ - 24 K
+  ................................ - 30 K
+  ................................ - 36 K
+  ................................ - 42 K
+  ................................ - 48 K
+  ................................ - 54 K
+  ................................ - 60 K
+  ................................ - 66 K
+  ................................ - 72 K
+  ................................ - 78 K
+  ................................ - 84 K
+  ................................ - 90 K
+  ................................ - 96 K
+  ................................ - 102 K
+  ................................ - 108 K
+  ................................ - 114 K
+  ................................ - 120 K
+  ................................ - 126 K
+  ................................ - 132 K
+  ................................ - 138 K
+  ................................ - 144 K
+  ................................ - 150 K
+  ................................ - 156 K
+  ................................ - 162 K
+  ................................ - 168 K
+  ................................ - 174 K
+  ................................ - 180 K
+  ................................ - 186 K
+  ................................ - 192 K
+  ................................ - 198 K
+  ................................ - 204 K
+  ................................ - 210 K
+  ................................ - 216 K
+  ................................ - 222 K
+  ................................ - 228 K
+  ................................ - 234 K
+  ................................ - 240 K
+  ................................ - 246 K
+  ................................ - 252 K
+  ...................... - 256 K
+  Downloaded 262144 bytes in 237.089 s at 1105 Bps
+ - 256 K
+wrote 262144 bytes to /tmp/hostgot.bin
+==================== VERDICT ====================
+[1] PREFILL CLEAN : region was exactly 0xAA before the run
+[2] FILE WRONG    : delivered file != source
+    first differing byte: 262081 of 262144  (99.98% arrived)
+    offset 262080 = 1365 whole packets x 192 B, remainder 0
+[3] TAIL IS SENTINEL: every wrong byte is 0xAA -- those packets NEVER arrived.
+    Pair with the upload line above: 'Uploaded 262144 bytes' = SILENT CORRUPTION.
+sh: rc=0
+infra: torn down; ground proxy restored (2 listeners)
+sh: rc=0

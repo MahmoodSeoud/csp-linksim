@@ -1,73 +1,81 @@
-# Upload integrity experiments (csh)
+# Upload integrity experiments (csh-operator style)
 
-Each experiment is a single `.csh` you `run` from your csh session — it does the whole
-clean-link check (bring up the node, upload, read back, verify) and writes its own
-received file, so the arms are directly comparable. **This folder is `.csh` only.**
-Controlled **loss sweeps** (which need the bash loss injector) live in `../scripts/`.
-
-Run from an initialised session (`csp init` + `csp add can` + `apm load` already done):
+Every experiment here is driven by the operator's own tool: a plain `.csh` init
+file that csh runs top to bottom. What's committed is exactly what ran —
+no harness binaries in the measurement path. Shell prep and the external
+verdict run inside csh via the `sh` command (csp_shell APM).
 
 ```
-run /home/mseo/thesis/csp-linksim/experiments/exp_rdp.csh
-run /home/mseo/thesis/csp-linksim/experiments/exp_upload_file.csh
-run /home/mseo/thesis/csp-linksim/experiments/exp_svu.csh
+~/thesis/csh/builddir/csh -i experiments/<cell>.csh
 ```
 
-| Arm | File | Uploader | Target | Verify |
-|---|---|---|---|---|
-| CSH RDP | `exp_rdp.csh` | `upload`/`download` (vmem) | node 5431 `bigmem` | expect **OK** |
-| Deployed DTP (push) | `exp_upload_file.csh` | `upload_file` | payload file | silently corrupts under loss |
-| SVU | `exp_svu.csh` | `svu` (csh command) | `svu_daemon` | expect **VERIFIED** |
-| ~~Deployed DTP (pull)~~ | (deleted) | — | — | **RETIRED** — `dtp_client` is the DIPP downlink proxy, not the deployed upload path; use the push arm |
+## The RDP silent-corruption cell (host transport)
 
-The `svu` command is scp/cp-like: `svu -p <src> <dest>` uploads to the **default node**
-(set once with `node <addr>`), or `svu -p <src> <node>:<dest>` to name it explicitly.
-`-p` preserves the source mode (so a deployed binary lands executable); `svu_daemon`
-answers `ping` like any node.
+The flagship cell. csh's `upload` reports **queued** bytes, not delivered ones;
+if the process exits right after the report (as any scripted upload does),
+whatever the final RDP window still had in flight is silently lost. Two files,
+run in order:
 
-**RDP arm uses a purpose-built RAM oracle, not DIPP `stora`.** `stora` is only 10 KB
-(overflows a 256 KiB upload) and wedges under retransmit stress — both produce *false*
-"corruption". `vmem_node` (in-project `tests/e2e/vmem_node.c`) serves a 1 MiB flat RAM
-`bigmem` region at node 5431 that is byte-faithful and won't wedge. Start it with
-`../scripts/bringup-vmem-node`, then run `exp_rdp.csh` (clean check) or the loss sweep
-`../scripts/rdp-bigmem-sweep`. Full finding + data in
-`~/thesis/MasterThesis---SatDeploy/notes/rdp-integrity-finding.md`.
+| Phase | File | What it does |
+|---|---|---|
+| 1 | `rdp-silent-1-upload.csh` | pre-fill region with 0xAA sentinel, upload the pinned 256 KiB payload under 20% seeded loss, **exit immediately** |
+| 2 | `rdp-silent-2-verify.csh` | fresh csh (the sender is dead), read the region back over a clean bridge, print the verdict |
 
-`svu <src> <node>:<dest>` is the scp-like SVU uploader as a native csh command (APM
-`libcsh_svu.so`, loaded by `apm load`). The destination node runs `svu_daemon` (the
-receiver); on the payload use the aarch64 build `build-arm/svu/svu_daemon`.
+Phase 1's last line is csh printing `Uploaded 262144 bytes`. Phase 2 then says
+whether that was true: `DELIVERED OK`, or `FILE WRONG` + `TAIL IS SENTINEL`
+(= the final packets never arrived — silent corruption). The verdict logic
+lives outside the mechanism, in `rdp-silent-verdict`.
 
-`verify` is the proof (did the file arrive intact); the monitor CSV is context (how
-lossy the link was). The monitor number is trustworthy only for a bulk transfer
-captured whole — on RDP it double-counts retransmits, so treat RDP's figure as
-indicative; RDP's real result is `verify → OK`.
+Whether a given run lies is decided mostly by the seed's drop schedule (does it
+hit the final window?) plus wall-clock retransmit jitter. Seed 4 lies often;
+seed 8 has never lied. To sample across seeds and append run-tagged rows to
+`captures/rdp_csh_silent.csv`:
 
-## Node bring-up (also csh, chained via `run`)
+```
+experiments/rdp-silent-try              # one attempt, committed cell as-is (seed 4)
+experiments/rdp-silent-try 4 6 15 16    # one attempt per seed (runs a /tmp copy)
+```
 
-The experiments pull these in automatically, but you can run them alone too:
+Helpers (bash, called from the .csh via `sh`): `host-rdp-infra` (brokers,
+receiver `vmem_node` @5431, seeded loss bridge — start/bridge/stop),
+`mk-sentinel`, `prefill-check`, `rdp-silent-verdict`.
 
-- `bringup_dipp.csh` — turns on the DIPP node (5423) via `mng_dipp` on the A53 manager
-  (5421).
-- `bringup_upload_client.csh` — turns on the Upload-Client (5426) via `mng_util` on 5421.
-  `exp_upload_file.csh` runs this first.
+## The tiny-file cell (can0)
 
-## One-time ground infra (not csh — a server binary, started once)
+`rdp-tinyfile.csh` / `rdp-tinyfile-sweep.csh` / `rdp-tinyfile-verify` — the
+1-packet-transfer regime the on-orbit logs revealed. Result on record: can0
+stays honest even here (see `captures/` data, committed 2026-08-11).
 
-The two DTP arms pull from the ground gs-server. Start it once per session:
+## Clean-link checks and bring-up (board/flatsat)
+
+From an initialised session (`csp init` + `csp add can` + `apm load`), chain
+with `run`:
+
+- `exp_rdp.csh` — RDP `upload`/`download` against `vmem_node` 5431 (`bigmem`,
+  1 MiB byte-faithful RAM; DIPP `stora` is too small and wedges — don't use it
+  for this). Node up via `../scripts/bringup-vmem-node`.
+- `exp_upload_file.csh` — deployed DTP push arm (`upload_file`); runs
+  `bringup_upload_client.csh` first. Needs the ground gs-server (below).
+- `exp_svu.csh` — the satdeploy manifest-core arm (`svu` csh command against
+  `svu_daemon`; on the payload use the aarch64 build `build-arm/svu/svu_daemon`).
+- `bringup_dipp.csh`, `bringup_upload_client.csh`, `updown_flatsat.csh` —
+  node bring-up over the manager (5421).
+
+Ground gs-server (one-time per session, not csh):
 
 ```
 cd ~/thesis/disco/src/upload_gs-server/builddir
 cp ~/thesis/csp-linksim/captures/payload_256k.bin file.bin
 setsid nohup ./upload_gs-server -c can0 -a 5424 >/tmp/upsrv_can0.log 2>&1 </dev/null &
-ps -eo pid,args | grep '[u]pload_gs-server'    # liveness check — NOT ping (the server ignores ping)
+ps -eo pid,args | grep '[u]pload_gs-server'   # liveness check — NOT ping
 ```
 
-Its `file.bin` must be the same bytes as `payload_256k.bin`, or the pull arms' `verify`
-compares against the wrong manifest and reports a false FAILED.
+Its `file.bin` must be byte-identical to `payload_256k.bin`, or the pull arms
+compare against the wrong manifest and report a false FAILED.
 
-## Loss
+## Loss sweeps
 
-The `.csh` clean-link checks run on live can0, so loss is only what the real link drops.
-To sweep controlled loss levels, use the injector-based bash drivers in `../scripts/`:
-the RDP arm is `scripts/rdp-bigmem-sweep` (per-cell driver `scripts/rdp-bigmem-point`,
-node up via `scripts/bringup-vmem-node`); the other arms use the `scripts/*-sweep` bench.
+Controlled-loss sweeps that need the bash injectors live in `../scripts/`
+(board: `rdp-csploss-sweep`, `satdeploy-sweep`; host RDP: `rdp-silent-try`
+here). The `.csh` clean-link checks run on live can0 — loss is whatever the
+real link drops.

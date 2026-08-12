@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# External verdict for rdp-host-silent.csh. Judges what LANDED; the CLAIM is the
-# "Uploaded 262144 bytes" line csh printed above.
+# External verdict for the rdp-silent cell (phase 2 calls this). Judges what
+# LANDED; the CLAIM is the "Uploaded 262144 bytes" line csh printed in phase 1.
 set -uo pipefail
 PAY=/home/mseo/thesis/csp-linksim/captures/payload_256k.bin
 SENT=/tmp/sentinel_256k.bin; PRE=/tmp/hostpre.bin; GOT=/tmp/hostgot.bin; SIZE=262144

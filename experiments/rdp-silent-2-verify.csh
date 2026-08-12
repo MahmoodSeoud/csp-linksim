@@ -17,6 +17,6 @@ csp add zmq -d 26 127.0.0.1
 
 download -n 5431 -v 2 -t 120000 0x10000000 262144 /tmp/hostgot.bin
 sleep 1000
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-host-silent-verify
+sh /home/mseo/thesis/csp-linksim/experiments/rdp-silent-verdict
 sh /home/mseo/thesis/csp-linksim/experiments/host-rdp-infra stop
 exit
