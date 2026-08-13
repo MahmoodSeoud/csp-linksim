@@ -43,6 +43,10 @@ captures/*
 # rate_*: the RDP failure-mode-vs-link-rate comparison. Backs the rate caveat in the
 # evaluation's threats section, so it is evidence, not scratch.
 !captures/rate_*.csv
+# satdeploy_core_paced + its per-cell drop logs: the flight-rate paced replication of
+# the core arm (frames-to-seconds conversion). Evidence, cited in the appendix.
+!captures/satdeploy_core_paced.csv
+!captures/svup_*_oracleA.csv
 # repro_*: demo output from scripts/reproduce. Regenerated on every run by design, so it
 # must NOT be tracked even though it matches the *_sweep.csv negation above.
 captures/repro_*
