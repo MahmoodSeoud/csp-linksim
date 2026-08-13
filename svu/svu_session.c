@@ -17,6 +17,23 @@
 #include "svu_proto.h"
 #include "ci_svu.h"
 
+/* Idle window that ends a drain. The 2000 ms default assumes back-to-back frames
+ * (unpaced loopback); on a rate-paced link a legitimate loss burst is silent for
+ * burst_len x frame_airtime, so the window must scale with the link rate or a
+ * mid-stream burst reads as end-of-blast, triggering a re-request the server
+ * cannot hear mid-blast. SVU_IDLE_MS overrides for paced runs; the default
+ * preserves every previously recorded cell. */
+static uint32_t drain_idle_ms(void)
+{
+    static uint32_t v = 0u;
+    if (v == 0u) {
+        const char *s = getenv("SVU_IDLE_MS");
+        long n = (s != NULL) ? strtol(s, NULL, 10) : 0;
+        v = (n > 0) ? (uint32_t)n : 2000u;
+    }
+    return v;
+}
+
 /* Receive data packets until the link goes idle for `idle_ms`, feeding ci_svu. */
 /* Returns the number of data frames accepted, so the caller can tell a genuinely
  * idle link (0) from a drain that is still making progress. */
@@ -178,7 +195,7 @@ int svu_client_run(uint16_t server_addr, uint32_t block_size, uint32_t mtu,
          * only when a full idle window passed with nothing new AND gaps remain. */
         uint32_t nout = 0u;
         for (;;) {
-            uint32_t got = drain_data(&data_sock, recv, 2000);
+            uint32_t got = drain_data(&data_sock, recv, drain_idle_ms());
             st = ci_svu_verify(recv, ivs, SVU_MAX_INTERVALS, &nout);
             if (st == CI_SVU_COMPLETE_VERIFIED || got == 0u) {
                 break;
