@@ -1,45 +1,109 @@
 #!/usr/bin/env bash
-# satdeploy-core-host-paced-sweep - SVU over a HALF-DUPLEX link, where reverse ACKs/re-requests cost
-# airtime (unlike the unpaced sweeps' free return path). The injector's single-threaded pump charges
-# every crossing its on-air time at HD_RATE bps, both directions -> one frame on the channel
-# at a time = half-duplex. Metric: time-to-complete + reverse-frame airtime vs loss. This is
-# where SVU's BATCHED selective-resume (few reverse frames/round) should stay cheap while a
-# chatty per-packet-ACK protocol would pay in reverse airtime.
 #
-# host-to-host: server -z(25) -> zmq broker -> injector(hd) -> can0 -> client(26). data dropped
-# on dport 9; ctrl/re-requests (port 11) return clean but now COST airtime.
-# Usage: satdeploy-core-host-paced-sweep ["0 0.05 0.10 0.20"] [nseeds] [hd_rate_bps] [payload_bytes]
+# satdeploy-core-host-paced-sweep - the SVU host arm with airtime PRICED. Identical topology,
+# payload, grid, and verdict logic to satdeploy-core-host-sweep; the single variable is
+# HD_RATE, which makes ci_inject_bridge's single-threaded pump charge every crossing its
+# on-air time at that rate, both directions -> one frame on the channel at a time =
+# half-duplex. This converts the unpaced sweep's frame counts into seconds: the reverse
+# channel's one-packet-per-round cost becomes a measured share of wall-clock time on a
+# link where reverse airtime is no longer free.
+#
+#   svu_server -z 127.0.0.1 -> broker A -> ci_inject_bridge(HD) -> broker B -> svu_client -z 127.0.0.2
+#
+# Expect cells to take MINUTES: 256 KiB at 4800 bit/s is ~7.3 min of forward airtime
+# before any recovery. Results go to their own CSV (never svu_sweep.csv, which is the
+# committed unpaced era file) with secs and hd_rate columns added.
+#
+# Usage: satdeploy-core-host-paced-sweep ["0 0.10 0.30"] [nseeds]
+#   env: HD_RATE (default 4800, the flight uplink), CSV, MTU/OVH/BLOCK/BURST/PBYTES as
+#   in the unpaced driver. Resumable: an already-recorded (loss, seed) is skipped.
 set -uo pipefail
-LOSSES="${1:-0 0.05 0.10 0.20}"; NSEEDS="${2:-2}"; HD="${3:-19200}"; PBYTES="${4:-65536}"
-REPO=/home/mseo/thesis/csp-linksim
-INJ="$REPO/build/tests/e2e/ci_inject_bridge"; SRV="$REPO/build-fe/svu/svu_server"; CLI="$REPO/build-fe/svu/svu_client"
-IN=/tmp/stageb_payload.bin; [ "$(stat -c%s "$IN" 2>/dev/null || echo 0)" = "$PBYTES" ] || head -c "$PBYTES" /dev/urandom > "$IN"
-IN_SHA=$(sha256sum "$IN" | cut -d' ' -f1)
-ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: broker 6000 down"; exit 1; }
-CSV="$REPO/captures/svu_stageb.csv"
-[ -f "$CSV" ] || echo "loss,seed,hd_bps,secs,rounds,fwd,drops,rev_frames,sha,ts" > "$CSV"
-echo "satdeploy-core-host-paced-sweep: payload=${PBYTES}B hd=${HD}bps losses=[$LOSSES] nseeds=$NSEEDS"
+
+LOSSES="${LOSSES:-${1:-0 0.10 0.30}}"
+NSEEDS="${NSEEDS:-${2:-2}}"
+SRV_ADDR=25; CLI_ADDR=26; DPORT=9
+MTU="${MTU:-200}"; OVH="${OVH:-8}"; BLOCK="${BLOCK:-4096}"; BURST="${BURST:-4}"
+HD_RATE="${HD_RATE:-4800}"
+[ "$HD_RATE" -gt 0 ] || { echo "FAIL: HD_RATE must be > 0 here; the unpaced arm is satdeploy-core-host-sweep"; exit 1; }
+PBYTES="${PBYTES:-262144}"
+PAYLOAD_SEED="${PAYLOAD_SEED:-20260729}"
+
+. "$(dirname "$0")/lib/host-sweep-lib.sh"
+CSV="${CSV:-$CAP/satdeploy_core_paced.csv}"
+SRV="$BUILD/svu/svu_server"
+CLI="$BUILD/svu/svu_client"
+SWEEP_PROCS="svu_server"
+
+sweep_require "$PROXY" "$INJ" "$SRV" "$CLI"
+
+if ss -ltn 2>/dev/null | grep -q '0\.0\.0\.0:6000'; then
+    echo "FAIL: something already binds 0.0.0.0:6000 (ground zmqproxy?) -- stop it first"
+    exit 1
+fi
+
+sweep_payload "$PBYTES" "$PAYLOAD_SEED"
+echo "satdeploy-core-host-paced-sweep: payload=${PBYTES}B sha256=${IN_SHA}"
+echo "  losses=[$LOSSES] nseeds=$NSEEDS block=$BLOCK mtu=$MTU burst=$BURST hd_rate=$HD_RATE"
+echo "  csv=$CSV"
+
+[ -f "$CSV" ] || echo "loss,seed,injected,dropped,claimed,rounds,rev_frames,sha,size,transport,harness,payload_sha256,ts,mtu,hd_rate,secs" > "$CSV"
+
+sweep_trap
+
 for loss in $LOSSES; do
   for s in $(seq 1 "$NSEEDS"); do
-    L="sb_L${loss}_s${s}"; ORA="$REPO/captures/${L}_oracleA.csv"; OUT="/tmp/${L}_out.bin"; rm -f "$OUT"
-    pkill -x svu_server 2>/dev/null; pkill -f 'tests/e2e/ci_inject_bridge' 2>/dev/null; sleep 0.5
-    "$SRV" -z 127.0.0.1 -a 25 -f "$IN" -b 4096 >/tmp/${L}_srv.log 2>&1 &
-    for i in $(seq 1 60); do grep -q serving /tmp/${L}_srv.log 2>/dev/null && break; sleep 0.1; done
-    "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,26 can:can0 9 200 8 "$loss" 4 "$s" "$ORA" 25 0 "$HD" >/tmp/${L}_inj.log 2>&1 &
-    IP=$!; sleep 2
+    if sweep_cell_recorded "$CSV" "$loss" "$s" "$MTU"; then
+        echo "[L${loss}_s${s}] already recorded, skipping"
+        continue
+    fi
+    L="svup_L${loss}_s${s}"
+    ORA="$CAP/${L}_oracleA.csv"; OUT="/tmp/${L}_out.bin"; ILOG="/tmp/${L}_inj.log"
+    rm -f "$OUT" "$ORA"
+    sweep_cleanup
+    sweep_start_brokers "$L"
+
+    "$SRV" -z 127.0.0.1 -a $SRV_ADDR -f "$IN" -b "$BLOCK" >/tmp/${L}_srv.log 2>&1 &
+    sweep_wait_log /tmp/${L}_srv.log serving
+
+    "$INJ" "zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,$CLI_ADDR" \
+           "zmq:tcp://127.0.0.2:6000,tcp://127.0.0.2:7000" \
+           $DPORT "$MTU" "$OVH" "$loss" "$BURST" "$s" "$ORA" $SRV_ADDR 0 "$HD_RATE" >"$ILOG" 2>&1 &
+    INJPID=$!
+    sleep 2
+
     t0=$(date +%s.%N)
-    out=$(timeout 600 "$CLI" -c can0 -a 26 -C 25 -o "$OUT" -b 4096 -m 200 2>&1)
+    out=$(timeout 1800 "$CLI" -z 127.0.0.2 -a $CLI_ADDR -C $SRV_ADDR -o "$OUT" -b "$BLOCK" -m "$MTU" 2>&1)
     t1=$(date +%s.%N)
-    kill "$IP" 2>/dev/null; wait "$IP" 2>/dev/null || true; pkill -x svu_server 2>/dev/null
-    rounds='?'; echo "$out" | grep -qE "VERIFIED $PBYTES bytes" && rounds=$(echo "$out"|grep -oE 'in [0-9]+ round'|grep -oE '[0-9]+'|head -1)
-    got=$(sha256sum "$OUT" 2>/dev/null|cut -d' ' -f1); sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
-    rev=$(grep -oE 'reverse_frames=[0-9]+' /tmp/${L}_inj.log | grep -oE '[0-9]+' | tail -1)
-    fwd=$(grep -oE 'forwarded=[0-9]+' /tmp/${L}_inj.log | grep -oE '[0-9]+' | tail -1)
-    drp=$(grep -oE 'injected_drops=[0-9]+' /tmp/${L}_inj.log | grep -oE '[0-9]+' | tail -1)
+    sweep_stop_pid "$INJPID"
+    sweep_cleanup
+
+    claimed=INCOMPLETE; rounds='?'
+    if echo "$out" | grep -qE "VERIFIED $PBYTES bytes"; then
+        claimed=VERIFIED
+        rounds=$(echo "$out" | grep -oE 'in [0-9]+ round' | grep -oE '[0-9]+' | head -1)
+    fi
+    sweep_oracle_counts "$ORA"
+    sweep_harness_health "$ILOG"
+    sweep_grid_guard "$ORA" "$MTU" "$OVH" "$PBYTES"
+    sweep_rev_frames "$ILOG"
+    got=$(sweep_sha "$OUT")
+    sha=MISMATCH; [ "$got" = "$IN_SHA" ] && sha=MATCH
+    gsz=$(sweep_size "$OUT")
+    ts=$(sweep_ts)
     secs=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.1f", b-a}')
-    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    echo "$loss,$s,$HD,$secs,${rounds:-?},${fwd:-0},${drp:-0},${rev:-0},$sha,$ts" >> "$CSV"
-    echo "[$L] secs=$secs rounds=${rounds:-?} rev_frames=${rev:-0} fwd=${fwd:-0} drops=${drp:-0} sha=$sha"
+
+    warn=""
+    [ "$claimed" = VERIFIED ] && [ "$sha" = MISMATCH ] && warn="  *** SILENT CORRUPTION ***"
+    echo "$loss,$s,${inj:-0},${drp:-0},$claimed,${rounds:-?},${rev:-0},$sha,$gsz,zmq,$harness,$IN_SHA,$ts,$MTU,$HD_RATE,$secs" >> "$CSV"
+    echo "[$L] claimed=$claimed rounds=${rounds:-?} sha=$sha secs=$secs inj=${inj:-0} drop=${drp:-0} rev=${rev:-0} harness=$harness$warn"
   done
 done
-echo "=== svu_stageb.csv ==="; column -t -s, "$CSV"
+
+echo
+echo "=== $CSV ==="
+column -t -s, "$CSV" 2>/dev/null || cat "$CSV"
+echo
+echo "--- completion (VERIFIED per cell) ---"
+awk -F, 'NR>1{n++; if($5=="VERIFIED") v++} END{print v+0"/"n+0" VERIFIED"}' "$CSV"
+echo "--- silent corruption (VERIFIED & sha MISMATCH, expect 0) ---"
+awk -F, 'NR>1 && $5=="VERIFIED" && $8=="MISMATCH"{c++} END{print c+0}' "$CSV"
