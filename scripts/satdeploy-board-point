@@ -30,6 +30,10 @@ OUT="$REPO/captures/satdeploy_external.csv"
 TOTAL=1058
 TAG="${TAG:-ext_}"
 RATE_BPS="${RATE_BPS:-9600}"     # 9600 matches the committed satdeploy arm; 4800 = flight
+# The APM's push MTU must be pinned: its compiled default moved to 1024 after the era
+# sweep, and an unpinned push runs a 259-fragment grid instead of the board arm's 1058
+# (found 2026-08-14: overhead_ratio 0.24 at zero loss = the wrong grid, not contamination).
+MTU_PUSH="${MTU_PUSH:-256}"
 MTU_B=256
 PACE_US=$(( RATE_BPS > 0 ? MTU_B * 8 * 1000000 / RATE_BPS : 0 ))
 SER_S=$(( TOTAL * PACE_US / 1000000 ))
@@ -80,7 +84,7 @@ while [ "$passes" -lt "$MAX_PASSES" ]; do
   timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5427 can:can0 9 256 8 "$LOSS" 4 "$pseed" "$ORA" 5425 "$PACE_US" >/dev/null 2>&1 &
   INJPID=$!; sleep 3
   INIT=$(mktemp --suffix=.csh)
-  printf 'csp init\ncsp add zmq -d 5425 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n 5427\nsleep 1500\nexit\n' "$APMDIR" "$PAY" "$DEST" > "$INIT"
+  printf 'csp init\ncsp add zmq -d 5425 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n 5427 -m %s\nsleep 1500\nexit\n' "$APMDIR" "$PAY" "$DEST" "$MTU_PUSH" > "$INIT"
   timeout "$PUSH_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null >/tmp/${TAG}${label}_p${pidx}_a${attempt}.log 2>&1 || true
   rm -f "$INIT"; kill $INJPID 2>/dev/null; wait $INJPID 2>/dev/null || true
   raw=$(awk -F, '!/^#/{c++}END{print c+0}' "$ORA"); drp=$(awk -F, '!/^#/&&$8==1{c++}END{print c+0}' "$ORA")
@@ -100,19 +104,40 @@ ratio=$(awk -v r=$total_inj -v t=$TOTAL 'BEGIN{if(t)printf "%.2f",r/t;else print
 
 # ORACLE C: hash the delivered artifact on the payload board over the serial
 # console, outside the mechanism. Verdict vocabulary matches dtp-board-point:
-#   UNVERIFIED (console silent) / ABSENT (no file) / MATCH / MISMATCH.
+#   UNVERIFIED (console gave no trustworthy answer) / ABSENT / MATCH / MISMATCH.
+#
+# The console drops characters in BOTH directions (the T1 flap problem), so a
+# single probe is not trustworthy: a mangled outbound path stats a nonexistent
+# file (false ABSENT), a mangled inbound hash fails the 64-hex parse (false
+# UNVERIFIED) -- both happened on 2026-08-14 against files that were present and
+# correct. Trust rules, garble-proof by construction:
+#   - every answer must carry an intact canary line (round-trip proof);
+#   - a well-formed SIZE + 64-hex HASH pair is accepted (char loss cannot
+#     fabricate one, and cannot turn one valid digest into another);
+#   - ABSENT needs two consecutive canary-validated NOFILE answers.
 WANT_SHA=$(sha256sum "$PAY" | cut -d' ' -f1)
-sha=UNVERIFIED; bsize=NA
-probe=$(TO=25 bash "$REPO/scripts/board-cmd" "stat -c%s $DEST 2>/dev/null || echo NOFILE; sha256sum $DEST 2>/dev/null | cut -d' ' -f1" 2>/dev/null)
-if [ -n "$probe" ]; then
-  if echo "$probe" | grep -qa NOFILE; then
-    sha=ABSENT
-  else
-    bsize=$(echo "$probe" | grep -aoE '^[0-9]+$' | head -1)
-    got=$(echo "$probe" | grep -aoE '^[0-9a-f]{64}$' | head -1)
-    if [ -n "$got" ]; then sha=MISMATCH; [ "$got" = "$WANT_SHA" ] && sha=MATCH; fi
+sha=UNVERIFIED; bsize=NA; nofile_seen=0
+for _p in 1 2 3 4 5 6; do
+  probe=$(TO=30 bash "$REPO/scripts/board-cmd" \
+    "echo CANARY_SD_OK; echo PATH_$DEST; stat -c 'SIZE%s' $DEST 2>/dev/null || echo SD_NOFILE; sha256sum $DEST 2>/dev/null | cut -d' ' -f1" 2>/dev/null)
+  # Both marker lines must round-trip exactly: the canary proves the console is
+  # answering, the echoed path proves the board statted the file we asked about
+  # (the board echoes the path AS RECEIVED, so outbound garbling shows up here).
+  echo "$probe" | grep -qa '^CANARY_SD_OK$' || { sleep 4; continue; }
+  echo "$probe" | grep -qaF "PATH_$DEST" || { sleep 4; continue; }
+  got=$(echo "$probe" | grep -aoE '^[0-9a-f]{64}$' | head -1)
+  bs=$(echo "$probe" | grep -aoE '^SIZE[0-9]+$' | head -1 | tr -dc 0-9)
+  if [ -n "$got" ]; then
+    bsize="${bs:-NA}"
+    sha=MISMATCH; [ "$got" = "$WANT_SHA" ] && sha=MATCH
+    break
   fi
-fi
+  if echo "$probe" | grep -qa '^SD_NOFILE$'; then
+    nofile_seen=$((nofile_seen+1))
+    [ "$nofile_seen" -ge 2 ] && { sha=ABSENT; break; }
+  fi
+  sleep 4
+done
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "$ARM,$LOSS,$SEED,$label,$passes,$total_inj,$total_drop,$ratio,$result,$sha,$bsize,$RATE_BPS,$ts" >> "$OUT"
 echo "[$label] passes=$passes injected=$total_inj overhead=${ratio}x -> agent=$result external=$sha board_bytes=$bsize"
