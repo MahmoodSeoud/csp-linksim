@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# satdeploy-board-rev-point <smart|naive> <loss> <seed>  (env: MAX_PASSES, TAG, RATE_BPS, DEV)
+#
+# ONE satdeploy board cell that MEASURES THE REVERSE CHANNEL. Same push loop and
+# external serial-console digest as satdeploy-board-point (oracle C retained), with
+# one addition: the injector's own summary line is kept instead of discarded, and
+# its reverse_frames counter (board->ground CSP frames crossing the CAN boundary,
+# echo-clones excluded -- ci_inject_bridge.c) is accumulated across counted passes.
+#
+# Purpose: the thesis's reverse-channel result (one reverse packet per resume
+# round) comes from the host arm; this script produces the same number on the
+# payload board over the real CAN bus, with the same bridge doing the counting.
+#
+# Results append to captures/satdeploy_board_rev.csv (own schema: adds
+# rev_frames + rev_per_pass; satdeploy_external.csv is not touched).
+# Per-pass injector summaries are preserved as captures/<cell>_p<N>_a<N>_inj.log.
+#
+# Usage: satdeploy-board-rev-point smart 0.30 1
+set -uo pipefail
+ARM="${1:?arm: smart|naive}"; LOSS="${2:?loss}"; SEED="${3:?seed}"
+MAX_PASSES="${MAX_PASSES:-12}"
+REPO=/home/mseo/thesis/csp-linksim
+CSH=/home/mseo/thesis/csh/builddir/csh
+INJ="$REPO/build/tests/e2e/ci_inject_bridge"
+APMSO=/home/mseo/thesis/satDeploy/satdeploy-apm/build/libcsh_satdeploy_apm.so
+PAY="$REPO/captures/payload_256k.bin"
+OUT="$REPO/captures/satdeploy_board_rev.csv"
+TOTAL=1058
+TAG="${TAG:-rev_}"
+RATE_BPS="${RATE_BPS:-9600}"     # 9600 matches the committed satdeploy board arm
+# APM push MTU must stay pinned to the era grid (compiled default drifted to 1024).
+MTU_PUSH="${MTU_PUSH:-256}"
+MTU_B=256
+PACE_US=$(( RATE_BPS > 0 ? MTU_B * 8 * 1000000 / RATE_BPS : 0 ))
+SER_S=$(( TOTAL * PACE_US / 1000000 ))
+PUSH_TO=$(( SER_S * 3 + 60 )); [ "$PUSH_TO" -lt 180 ] && PUSH_TO=180
+INJ_TO=$(( PUSH_TO + 60 ))
+echo "pacing: RATE_BPS=$RATE_BPS pace_us=${PACE_US}us -> ~${SER_S}s/clean-pass; push_to=${PUSH_TO}s inj_to=${INJ_TO}s"
+strip(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'; }
+agent_up(){
+  local _t
+  for _t in 1 2 3; do
+    printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping -t 3000 5427\nsleep 2000\n' > /tmp/sdp_ping.csh
+    timeout 15 script -qec "$CSH -i /tmp/sdp_ping.csh" /dev/null </dev/null > /tmp/sdp_ping.out 2>&1 || true
+    grep -qa "Reply in" /tmp/sdp_ping.out && return 0
+    sleep 5
+  done
+  return 1
+}
+
+# External-check preflight: a cell that cannot be externally judged must not run.
+if [ "${STRICT_SHA:-1}" = "1" ]; then
+  stty -F "${DEV:-/dev/ttyUSB1}" >/dev/null 2>&1 \
+    || { echo "FAIL: serial console unreadable (set DEV=/dev/serial/by-id/usb-FTDI_...-port0; dialout membership or sg dialout)"; exit 1; }
+fi
+[ -f "$PAY" ] || { echo "FAIL: pinned payload missing at $PAY"; exit 1; }
+ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: broker (6000) down"; exit 1; }
+if pgrep -x ci_inject_bridge >/dev/null 2>&1; then
+  echo "FAIL: another ci_inject_bridge is already running — kill it first:"; pgrep -ax ci_inject_bridge; exit 1
+fi
+agent_up || { echo "FAIL: agent 5427 not answering — launch satdeploy-agent-$ARM on the payload board"; exit 1; }
+
+[ -f "$OUT" ] || echo "arm,loss,seed,label,passes,total_injected,total_dropped,overhead_ratio,result,ext_sha,board_bytes,rev_frames,rev_per_pass,rate_bps,ts" > "$OUT"
+APMDIR=$(mktemp -d)/apm; mkdir -p "$APMDIR"; cp "$APMSO" "$APMDIR/"
+trap 'rm -rf "$(dirname "$APMDIR")"' EXIT
+
+label="${ARM}_L${LOSS}_s${SEED}"
+if awk -F, -v a="$ARM" -v l="$LOSS" -v s="$SEED" '$1==a&&$2==l&&$3==s{f=1}END{exit !f}' "$OUT"; then
+  echo "-- $label already recorded in $OUT (delete the row to re-run)"; exit 0
+fi
+DEST="/home/root/sd_${TAG}${label}.bin"
+total_inj=0; total_drop=0; result=INCOMPLETE; passes=0
+total_rev=0; rev_list=""
+setup_fails=0; SETUP_RETRIES="${SETUP_RETRIES:-4}"; attempt=0
+while [ "$passes" -lt "$MAX_PASSES" ]; do
+  if pgrep -x ci_inject_bridge >/dev/null; then echo "$label: stray bridge"; result=ABORT; break; fi
+  attempt=$((attempt+1)); pidx=$((passes+1))
+  pseed=$((SEED*1000 + pidx*10 + setup_fails))
+  ORA="$REPO/captures/${TAG}${label}_p${pidx}_a${attempt}_oracleA.csv"; rm -f "$ORA"
+  ILOG="$REPO/captures/${TAG}${label}_p${pidx}_a${attempt}_inj.log"; rm -f "$ILOG"
+  timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5427 can:can0 9 256 8 "$LOSS" 4 "$pseed" "$ORA" 5425 "$PACE_US" > "$ILOG" 2>&1 &
+  INJPID=$!; sleep 3
+  INIT=$(mktemp --suffix=.csh)
+  printf 'csp init\ncsp add zmq -d 5425 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n 5427 -m %s\nsleep 1500\nexit\n' "$APMDIR" "$PAY" "$DEST" "$MTU_PUSH" > "$INIT"
+  timeout "$PUSH_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null >/tmp/${TAG}${label}_p${pidx}_a${attempt}.log 2>&1 || true
+  rm -f "$INIT"; kill $INJPID 2>/dev/null; wait $INJPID 2>/dev/null || true
+  raw=$(awk -F, '!/^#/{c++}END{print c+0}' "$ORA"); drp=$(awk -F, '!/^#/&&$8==1{c++}END{print c+0}' "$ORA")
+  rev=$(grep -oE 'reverse_frames=[0-9]+' "$ILOG" 2>/dev/null | grep -oE '[0-9]+' | tail -1); rev="${rev:-0}"
+  deployed=0
+  strip </tmp/${TAG}${label}_p${pidx}_a${attempt}.log | grep -qaE "> Deployed|Already deployed" && deployed=1
+  if [ "$deployed" -eq 0 ] && [ "$raw" -eq 0 ]; then
+    agent_up || { echo ">>> AGENT DOWN during $label (attempt $attempt) — restart satdeploy-agent-$ARM, then re-run. <<<"; exit 2; }
+    setup_fails=$((setup_fails+1))
+    echo "  [$label] setup hard-error (0 injected, agent alive), retry $setup_fails/$SETUP_RETRIES"
+    if [ "$setup_fails" -ge "$SETUP_RETRIES" ]; then result=STUCK; break; fi
+    sleep 3; continue
+  fi
+  total_inj=$((total_inj+raw)); total_drop=$((total_drop+drp)); passes=$((passes+1))
+  total_rev=$((total_rev+rev)); rev_list="${rev_list:+$rev_list;}$rev"
+  echo "  [$label] pass $passes: injected=$raw dropped=$drp reverse=$rev"
+  if [ "$deployed" -eq 1 ]; then result=DEPLOYED; break; fi
+done
+ratio=$(awk -v r=$total_inj -v t=$TOTAL 'BEGIN{if(t)printf "%.2f",r/t;else print "NA"}')
+
+# ORACLE C: hash the delivered artifact on the payload board over the serial
+# console, outside the mechanism (trust rules from satdeploy-board-point:
+# canary + echoed-path round-trip; 2x NOFILE for ABSENT).
+WANT_SHA=$(sha256sum "$PAY" | cut -d' ' -f1)
+sha=UNVERIFIED; bsize=NA; nofile_seen=0
+for _p in 1 2 3 4 5 6; do
+  probe=$(TO=30 bash "$REPO/scripts/board-cmd" \
+    "echo CANARY_SD_OK; echo PATH_$DEST; stat -c 'SIZE%s' $DEST 2>/dev/null || echo SD_NOFILE; sha256sum $DEST 2>/dev/null | cut -d' ' -f1" 2>/dev/null)
+  echo "$probe" | grep -qa '^CANARY_SD_OK$' || { sleep 4; continue; }
+  echo "$probe" | grep -qaF "PATH_$DEST" || { sleep 4; continue; }
+  got=$(echo "$probe" | grep -aoE '^[0-9a-f]{64}$' | head -1)
+  bs=$(echo "$probe" | grep -aoE '^SIZE[0-9]+$' | head -1 | tr -dc 0-9)
+  if [ -n "$got" ]; then
+    bsize="${bs:-NA}"
+    sha=MISMATCH; [ "$got" = "$WANT_SHA" ] && sha=MATCH
+    break
+  fi
+  if echo "$probe" | grep -qa '^SD_NOFILE$'; then
+    nofile_seen=$((nofile_seen+1))
+    [ "$nofile_seen" -ge 2 ] && { sha=ABSENT; break; }
+  fi
+  sleep 4
+done
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo "$ARM,$LOSS,$SEED,$label,$passes,$total_inj,$total_drop,$ratio,$result,$sha,$bsize,$total_rev,$rev_list,$RATE_BPS,$ts" >> "$OUT"
+echo "[$label] passes=$passes injected=$total_inj overhead=${ratio}x rev=$total_rev ($rev_list) -> agent=$result external=$sha board_bytes=$bsize"
+case "$result:$sha" in
+  DEPLOYED:MATCH)    echo "  VERDICT: agent claim CONFIRMED by external digest; reverse channel = $total_rev frame(s) over $passes pass(es)" ;;
+  DEPLOYED:*)        echo "  VERDICT: *** agent claimed DEPLOYED but external check says $sha -- investigate before citing ***" ;;
+  *:UNVERIFIED)      echo "  VERDICT: cell VOID (console did not answer); re-run with the console free" ;;
+  *)                 echo "  VERDICT: agent=$result, external=$sha" ;;
+esac

@@ -51,6 +51,12 @@ captures/*
 # that closes the satdeploy self-verdict exception. Evidence, cited in 4.5/5.5.
 !captures/satdeploy_external.csv
 !captures/x2_*_oracleA.csv
+# satdeploy_board_rev + its per-cell drop logs and injector summaries: the seven-cell
+# board reverse-channel grid (reverse frames counted at the bridge, same instrument
+# as the host arm). Evidence, cited in the evaluation's completion section.
+!captures/satdeploy_board_rev.csv
+!captures/rev_*_oracleA.csv
+!captures/rev_*_inj.log
 # repro_*: demo output from scripts/reproduce. Regenerated on every run by design, so it
 # must NOT be tracked even though it matches the *_sweep.csv negation above.
 captures/repro_*
