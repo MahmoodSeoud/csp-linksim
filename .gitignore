@@ -65,6 +65,12 @@ captures/repro_*
 # Cost flatsat hours to produce and CANNOT regenerate (nondeterministic failures);
 # same survive-a-disk-loss class as the sweep tables.
 !captures/evidence
+# traced resume cell, primary sources: the loss-0 re-run that reproduces ch5's
+# figures bit for bit, and the July sibling run (resume left lossy). Includes the
+# delivered corrupt files themselves (the 5028-bytes-wrong forensics), so the
+# *.bin rule is negated for these two directories.
+!captures/evidence/rawdtp_trace_20260719/*
+!captures/evidence/rawdtp_trace_loss0_20260816/*
 
 # stray VM memory dumps (flatsat sim scratch; not part of the instrument)
 *.vmem

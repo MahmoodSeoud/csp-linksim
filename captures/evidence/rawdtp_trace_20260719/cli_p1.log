@@ -1,0 +1,114 @@
+[33m
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+[32m  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Jun  5 2026 git: a7a27df
+
+[0m[34m  Init file: /tmp/rawdtp_dbg_dtp10_w4JL/cli_p1.csh[0m
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+INIT CAN0: device: [can0], bitrate: 0, promisc: 0
+[32mLoaded: /tmp/rawdtp_dbg_dtp10_w4JL/apm/libcsh_dtp_client.so[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:23: Session created: 0x7fe3424dcf40[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_protocol.c:37: Setting session total bytes to 262144[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:117: Start receiving data[0m
+[2K252/262144[2K2772/262144[2K5292/262144[2K7812/262144[2K10332/262144[2K12348/262144[2K14868/262144[2K17388/262144[2K19908/262144[2K22428/262144[2K24948/262144[2K27468/262144[2K29988/262144[2K32508/262144[2K35028/262144[2K37548/262144[2K39312/262144[2K41832/262144[2K44352/262144[2K46872/262144[2K49392/262144[2K51912/262144[2K54432/262144[2K56952/262144[2K59472/262144[2K61992/262144[2K64512/262144[2K66780/262144[2K69300/262144[2K69552/262144[2K71820/262144[2K74340/262144[2K76860/262144[2K78876/262144[2K81396/262144[2K83664/262144[2K86184/262144[2K88704/262144[2K91224/262144[2K93744/262144[2K96012/262144[2K98532/262144[2K101052/262144[2K103572/262144[2K106092/262144[2K108612/262144[2K111132/262144[2K113652/262144[2K116172/262144[2K118692/262144[2K121212/262144[2K123732/262144[2K125748/262144[2K128268/262144[2K129780/262144[2K132300/262144[2K134820/262144[2K137340/262144[2K139860/262144[2K141624/262144[2K144144/262144[2K146664/262144[2K149184/262144[2K151452/262144[2K153972/262144[2K156492/262144[2K159012/262144[2K161280/262144[2K163548/262144[2K166068/262144[2K168588/262144[2K171108/262144[2K173628/262144[2K175896/262144[2K178416/262144[2K180684/262144[2K183204/262144[2K185724/262144[2K188244/262144[2K190764/262144[2K193284/262144[2K195804/262144[2K198324/262144[2K200844/262144[2K203364/262144[2K205128/262144[2K207648/262144[2K210168/262144[2K211428/262144[2K213948/262144[2K215712/262144[2K218232/262144[2K220752/262144[2K223272/262144[2K225792/262144[2K228312/262144[2K230832/262144[2K233352/262144[2K235872/262144[2K238392/262144[0;33m[WARN] ../lib/dtp/src/dtp_client.c:128: No data received for 1000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../lib/dtp/src/dtp_client.c:128: No data received for 2000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../lib/dtp/src/dtp_client.c:128: No data received for 3000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../lib/dtp/src/dtp_client.c:128: No data received for 4000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../lib/dtp/src/dtp_client.c:128: No data received for 5000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../lib/dtp/src/dtp_client.c:128: No data received for 6000 ms, last packet_seq=1040[0m
+[0;33m[WARN] ../lib/dtp/src/dtp_client.c:144: No data received for 6000 ms, bailing out[0m
+[0;32m[LOG] ../src/session_hooks.c:86: 
+Received segments:[0m
+Segment #0, start=0, end=16
+Segment #1, start=18, end=44
+Segment #2, start=49, end=155
+Segment #3, start=159, end=159
+Segment #4, start=162, end=184
+Segment #5, start=189, end=271
+Segment #6, start=273, end=278
+Segment #7, start=283, end=293
+Segment #8, start=309, end=312
+Segment #9, start=315, end=347
+Segment #10, start=354, end=367
+Segment #11, start=370, end=422
+Segment #12, start=425, end=543
+Segment #13, start=547, end=562
+Segment #14, start=578, end=620
+Segment #15, start=625, end=659
+Segment #16, start=661, end=700
+Segment #17, start=702, end=710
+Segment #18, start=713, end=767
+Segment #19, start=769, end=786
+Segment #20, start=789, end=887
+Segment #21, start=893, end=914
+Segment #22, start=923, end=937
+Segment #23, start=943, end=1040
+[0;32m[LOG] ../src/session_hooks.c:89: Missing segments:[0m
+Segment #0, start=16, end=18
+Segment #1, start=44, end=49
+Segment #2, start=155, end=162
+Segment #3, start=184, end=189
+Segment #4, start=271, end=273
+Segment #5, start=278, end=283
+Segment #6, start=293, end=309
+Segment #7, start=312, end=315
+Segment #8, start=347, end=354
+Segment #9, start=367, end=370
+Segment #10, start=422, end=425
+Segment #11, start=543, end=547
+Segment #12, start=562, end=578
+Segment #13, start=620, end=625
+Segment #14, start=659, end=661
+Segment #15, start=700, end=702
+Segment #16, start=710, end=713
+Segment #17, start=767, end=769
+Segment #18, start=786, end=789
+Segment #19, start=887, end=893
+Segment #20, start=914, end=923
+Segment #21, start=937, end=943
+Segment #22, start=1040, end=-1
+[0;32m[LOG] ../src/session_hooks.c:91: Done[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:155: Received 238708 bytes, last seq: 1040, status: 0[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:156: Session duration: 16.48 s, avg throughput: 13 KB/sec[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:74: Bye...[0m
+[0;33m[WARN] ../src/session_hooks.c:185: apm_on_deserialize: done[0m
+  remote address: 5424
+  timeout: 119
+  throughput: 1024 KB/s
+  MTU: 256 bytes
+  payload id: 0
+  bytes_received: 238708
+  payload size: 262144
+  Missing: 23436
+  Missing intervals: 23
+		interval #0: start=16, end=18
+		interval #1: start=44, end=49
+		interval #2: start=155, end=162
+		interval #3: start=184, end=189
+		interval #4: start=271, end=273
+		interval #5: start=278, end=283
+		interval #6: start=293, end=309
+		interval #7: start=312, end=315
+		interval #8: start=347, end=354
+		interval #9: start=367, end=370
+		interval #10: start=422, end=425
+		interval #11: start=543, end=547
+		interval #12: start=562, end=578
+		interval #13: start=620, end=625
+		interval #14: start=659, end=661
+		interval #15: start=700, end=702
+		interval #16: start=710, end=713
+		interval #17: start=767, end=769
+		interval #18: start=786, end=789
+		interval #19: start=887, end=893
+		interval #20: start=914, end=923
+		interval #21: start=937, end=943
+		interval #22: start=1040, end=4294967295
+*** stack smashing detected ***: terminated

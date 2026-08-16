@@ -1,0 +1,3 @@
+INIT BROUT: device: [can0], bitrate: 0, promisc: 1
+ci_inject_bridge: zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,16 -> [shim: per-attempt GE] -> can:can0 | dport=8 mtu=256 overhead=4 loss=0.100 burst seed=101 src=5424
+ci_inject_bridge: stopped. injected_drops=93 forwarded=948 passthrough=8 reverse_frames=65 echoes_dropped(in=38 out=0)

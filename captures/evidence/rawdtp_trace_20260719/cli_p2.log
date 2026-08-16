@@ -1,0 +1,94 @@
+[33m
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+[32m  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Jun  5 2026 git: a7a27df
+
+[0m[34m  Init file: /tmp/rawdtp_dbg_dtp10_w4JL/cli_p2.csh[0m
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+INIT CAN0: device: [can0], bitrate: 0, promisc: 0
+[32mLoaded: /tmp/rawdtp_dbg_dtp10_w4JL/apm/libcsh_dtp_client.so[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:23: Session created: 0x7f786c81ef40[0m
+[0;33m[WARN] ../src/session_hooks.c:185: apm_on_deserialize: done[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_protocol.c:37: Setting session total bytes to 3090533264[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:117: Start receiving data[0m
+[2K238960/262144[2K240472/262144[2K242740/262144[2K244252/262144[2K246520/262144[2K249040/262144[2K251308/262144[2K253576/262144[2K255592/262144[2K258112/262144[2K260632/262144[2K261892/262144[0;32m[LOG] ../src/session_hooks.c:86: 
+Received segments:[0m
+Segment #0, start=0, end=17
+Segment #1, start=18, end=1040
+Segment #2, start=44, end=48
+Segment #3, start=155, end=161
+Segment #4, start=184, end=188
+Segment #5, start=271, end=272
+Segment #6, start=278, end=282
+Segment #7, start=293, end=308
+Segment #8, start=312, end=312
+Segment #9, start=314, end=314
+Segment #10, start=347, end=353
+Segment #11, start=367, end=369
+Segment #12, start=422, end=424
+Segment #13, start=543, end=546
+Segment #14, start=562, end=577
+Segment #15, start=620, end=624
+Segment #16, start=659, end=660
+Segment #17, start=700, end=701
+Segment #18, start=710, end=712
+Segment #19, start=767, end=768
+Segment #20, start=786, end=787
+[0;32m[LOG] ../src/session_hooks.c:89: Missing segments:[0m
+Segment #0, start=17, end=44
+Segment #1, start=48, end=155
+Segment #2, start=161, end=184
+Segment #3, start=188, end=271
+Segment #4, start=272, end=278
+Segment #5, start=282, end=293
+Segment #6, start=308, end=347
+Segment #7, start=353, end=367
+Segment #8, start=369, end=422
+Segment #9, start=424, end=543
+Segment #10, start=546, end=562
+Segment #11, start=577, end=620
+Segment #12, start=624, end=659
+Segment #13, start=660, end=700
+Segment #14, start=701, end=710
+Segment #15, start=712, end=767
+Segment #16, start=768, end=786
+Segment #17, start=787, end=-1
+[0;32m[LOG] ../src/session_hooks.c:91: Done[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:155: Received 262144 bytes, last seq: 787, status: 0[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:156: Session duration: 1.954 s, avg throughput: 130 KB/sec[0m
+[0;32m[LOG] ../lib/dtp/src/dtp_client.c:74: Bye...[0m
+[0;33m[WARN] ../src/session_hooks.c:185: apm_on_deserialize: done[0m
+  remote address: 5424
+  timeout: 5
+  throughput: 1024 KB/s
+  MTU: 256 bytes
+  payload id: 0
+  bytes_received: 262144
+  payload size: 262144
+  Missing: 0
+  Missing intervals: 18
+		interval #0: start=17, end=44
+		interval #1: start=48, end=155
+		interval #2: start=161, end=184
+		interval #3: start=188, end=271
+		interval #4: start=272, end=278
+		interval #5: start=282, end=293
+		interval #6: start=308, end=347
+		interval #7: start=353, end=367
+		interval #8: start=369, end=422
+		interval #9: start=424, end=543
+		interval #10: start=546, end=562
+		interval #11: start=577, end=620
+		interval #12: start=624, end=659
+		interval #13: start=660, end=700
+		interval #14: start=701, end=710
+		interval #15: start=712, end=767
+		interval #16: start=768, end=786
+		interval #17: start=787, end=4294967295
