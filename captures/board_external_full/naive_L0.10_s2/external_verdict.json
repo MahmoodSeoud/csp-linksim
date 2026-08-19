@@ -1,0 +1,17 @@
+{
+  "label": "naive_L0.10_s2",
+  "arm": "naive",
+  "loss": "0.10",
+  "seed": "2",
+  "dest": "/home/root/sd_xf_naive_L0.10_s2.bin",
+  "verdict": "INVALID",
+  "reason": "AGENT_DOWN",
+  "ext_sha": null,
+  "board_bytes": null,
+  "groundtruth_sha": "2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5",
+  "probes_used": 2,
+  "ts_utc": "2026-08-17T12:08:16Z",
+  "aux_sha": null,
+  "aux_bytes": null,
+  "aux_verdict": null
+}

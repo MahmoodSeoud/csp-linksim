@@ -1,0 +1,279 @@
+2026-08-18T09:45:02Z sweep start arm=smart losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3 4 5} rate=4800 pace_us=426666 ser_s=451 push_to=1413 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=1200000 apm_sha=e5a23dcc79bd
+-- smart_L0_s1_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0_s2_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0_s3_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0_s4_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0_s5_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.02_s1_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.02_s2_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.02_s3_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.02_s4_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.02_s5_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.05_s1_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.05_s2_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.05_s3_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.05_s4_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.05_s5_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.10_s1_r4800p already recorded (INVALID cells are never re-rolled); skip
+-- smart_L0.10_s2_r4800p already recorded (INVALID cells are never re-rolled); skip
+2026-08-18T09:45:02Z cell start smart_L0.10_s3_r4800p dest=/home/root/sd_xf_smart_L0.10_s3_r4800p.bin
+2026-08-18T09:45:19Z pass 1 attempt 1 pseed=3010
+2026-08-18T09:53:09Z pass 1 done injected=1058 dropped=73 deployed=0
+2026-08-18T09:53:09Z pass 2 attempt 2 pseed=3020
+2026-08-18T10:02:26Z pass 2 done injected=1201 dropped=130 deployed=1
+== CELL smart_L0.10_s3_r4800p loss=0.10 seed=3 tool=DEPLOYED external=PASS
+2026-08-18T10:02:52Z cell start smart_L0.10_s4_r4800p dest=/home/root/sd_xf_smart_L0.10_s4_r4800p.bin
+2026-08-18T10:03:10Z pass 1 attempt 1 pseed=4010
+2026-08-18T10:10:59Z pass 1 done injected=1058 dropped=127 deployed=0
+2026-08-18T10:10:59Z pass 2 attempt 2 pseed=4020
+2026-08-18T10:18:34Z pass 2 done injected=1009 dropped=106 deployed=0
+2026-08-18T10:18:34Z pass 3 attempt 3 pseed=4030
+2026-08-18T10:23:27Z pass 3 done injected=634 dropped=70 deployed=0
+2026-08-18T10:23:27Z pass 4 attempt 4 pseed=4040
+2026-08-18T10:28:13Z pass 4 done injected=617 dropped=57 deployed=0
+2026-08-18T10:28:13Z pass 5 attempt 5 pseed=4050
+2026-08-18T10:31:49Z pass 5 done injected=416 dropped=17 deployed=1
+== CELL smart_L0.10_s4_r4800p loss=0.10 seed=4 tool=DEPLOYED external=PASS
+2026-08-18T10:31:53Z cell start smart_L0.10_s5_r4800p dest=/home/root/sd_xf_smart_L0.10_s5_r4800p.bin
+2026-08-18T10:32:30Z pass 1 attempt 1 pseed=5010
+2026-08-18T10:41:26Z pass 1 done injected=1162 dropped=98 deployed=1
+== CELL smart_L0.10_s5_r4800p loss=0.10 seed=5 tool=DEPLOYED external=PASS
+2026-08-18T10:41:30Z cell start smart_L0.20_s1_r4800p dest=/home/root/sd_xf_smart_L0.20_s1_r4800p.bin
+2026-08-18T10:41:48Z pass 1 attempt 1 pseed=1010
+2026-08-18T10:49:37Z pass 1 done injected=1058 dropped=180 deployed=0
+2026-08-18T10:49:37Z pass 2 attempt 2 pseed=1020
+2026-08-18T10:57:18Z pass 2 done injected=1024 dropped=206 deployed=0
+2026-08-18T10:57:18Z pass 3 attempt 3 pseed=1030
+2026-08-18T11:04:59Z pass 3 done injected=1024 dropped=192 deployed=0
+2026-08-18T11:04:59Z pass 4 attempt 4 pseed=1040
+2026-08-18T11:12:40Z pass 4 done injected=1024 dropped=233 deployed=0
+2026-08-18T11:12:40Z pass 5 attempt 5 pseed=1050
+2026-08-18T11:20:21Z pass 5 done injected=1024 dropped=181 deployed=0
+2026-08-18T11:20:21Z pass 6 attempt 6 pseed=1060
+2026-08-18T11:27:27Z pass 6 done injected=942 dropped=206 deployed=0
+2026-08-18T11:27:27Z pass 7 attempt 7 pseed=1070
+2026-08-18T11:34:25Z pass 7 done injected=925 dropped=216 deployed=0
+2026-08-18T11:34:25Z pass 8 attempt 8 pseed=1080
+2026-08-18T11:41:16Z pass 8 done injected=909 dropped=182 deployed=0
+2026-08-18T11:41:16Z pass 9 attempt 9 pseed=1090
+2026-08-18T11:47:54Z pass 9 done injected=876 dropped=184 deployed=0
+2026-08-18T11:47:54Z pass 10 attempt 10 pseed=1100
+2026-08-18T11:53:56Z pass 10 done injected=796 dropped=173 deployed=0
+2026-08-18T11:53:56Z pass 11 attempt 11 pseed=1110
+2026-08-18T11:59:09Z pass 11 done injected=680 dropped=127 deployed=0
+2026-08-18T11:59:09Z pass 12 attempt 12 pseed=1120
+2026-08-18T12:03:46Z pass 12 done injected=598 dropped=145 deployed=0
+== CELL smart_L0.20_s1_r4800p loss=0.20 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T12:04:00Z cell start smart_L0.20_s2_r4800p dest=/home/root/sd_xf_smart_L0.20_s2_r4800p.bin
+2026-08-18T12:04:20Z pass 1 attempt 1 pseed=2010
+2026-08-18T12:12:08Z pass 1 done injected=1058 dropped=217 deployed=0
+2026-08-18T12:12:08Z pass 2 attempt 2 pseed=2020
+2026-08-18T12:20:04Z pass 2 done injected=1058 dropped=273 deployed=0
+2026-08-18T12:20:04Z pass 3 attempt 3 pseed=2030
+2026-08-18T12:27:45Z pass 3 done injected=1025 dropped=203 deployed=0
+2026-08-18T12:27:45Z pass 4 attempt 4 pseed=2040
+2026-08-18T12:34:25Z pass 4 done injected=882 dropped=160 deployed=0
+2026-08-18T12:34:25Z pass 5 attempt 5 pseed=2050
+2026-08-18T12:40:01Z pass 5 done injected=733 dropped=156 deployed=0
+2026-08-18T12:40:01Z pass 6 attempt 6 pseed=2060
+2026-08-18T12:45:29Z pass 6 done injected=716 dropped=114 deployed=0
+2026-08-18T12:45:29Z pass 7 attempt 7 pseed=2070
+2026-08-18T12:49:51Z pass 7 done injected=563 dropped=157 deployed=0
+2026-08-18T12:49:51Z pass 8 attempt 8 pseed=2080
+2026-08-18T12:54:13Z pass 8 done injected=563 dropped=126 deployed=0
+2026-08-18T12:54:13Z pass 9 attempt 9 pseed=2090
+2026-08-18T13:01:43Z pass 9 done injected=913 dropped=167 deployed=0
+2026-08-18T13:01:43Z pass 10 attempt 10 pseed=2100
+2026-08-18T13:06:53Z pass 10 done injected=602 dropped=108 deployed=0
+2026-08-18T13:06:53Z pass 11 attempt 11 pseed=2110
+2026-08-18T13:11:02Z pass 11 done injected=436 dropped=102 deployed=0
+2026-08-18T13:11:02Z pass 12 attempt 12 pseed=2120
+2026-08-18T13:14:56Z pass 12 done injected=402 dropped=87 deployed=0
+== CELL smart_L0.20_s2_r4800p loss=0.20 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T13:15:07Z cell start smart_L0.20_s3_r4800p dest=/home/root/sd_xf_smart_L0.20_s3_r4800p.bin
+2026-08-18T13:15:45Z pass 1 attempt 1 pseed=3010
+2026-08-18T13:23:34Z pass 1 done injected=1058 dropped=178 deployed=0
+2026-08-18T13:23:34Z pass 2 attempt 2 pseed=3020
+2026-08-18T13:30:05Z pass 2 done injected=863 dropped=186 deployed=0
+2026-08-18T13:30:05Z pass 3 attempt 3 pseed=3030
+2026-08-18T13:35:40Z pass 3 done injected=730 dropped=114 deployed=0
+2026-08-18T13:35:40Z pass 4 attempt 4 pseed=3040
+2026-08-18T13:40:38Z pass 4 done injected=646 dropped=108 deployed=0
+2026-08-18T13:40:38Z pass 5 attempt 5 pseed=3050
+2026-08-18T13:44:39Z pass 5 done injected=513 dropped=95 deployed=0
+2026-08-18T13:44:39Z pass 6 attempt 6 pseed=3060
+2026-08-18T13:50:17Z pass 6 done injected=686 dropped=112 deployed=1
+== CELL smart_L0.20_s3_r4800p loss=0.20 seed=3 tool=DEPLOYED external=PASS
+2026-08-18T13:50:40Z cell start smart_L0.20_s4_r4800p dest=/home/root/sd_xf_smart_L0.20_s4_r4800p.bin
+2026-08-18T13:50:58Z pass 1 attempt 1 pseed=4010
+2026-08-18T13:58:16Z pass 1 done injected=986 dropped=199 deployed=0
+2026-08-18T13:58:16Z pass 2 attempt 2 pseed=4020
+2026-08-18T14:05:57Z pass 2 done injected=1026 dropped=225 deployed=0
+2026-08-18T14:05:57Z pass 3 attempt 3 pseed=4030
+2026-08-18T14:12:49Z pass 3 done injected=910 dropped=177 deployed=0
+2026-08-18T14:12:49Z pass 4 attempt 4 pseed=4040
+2026-08-18T14:19:27Z pass 4 done injected=876 dropped=156 deployed=0
+2026-08-18T14:19:27Z pass 5 attempt 5 pseed=4050
+2026-08-18T14:25:43Z pass 5 done injected=827 dropped=168 deployed=0
+2026-08-18T14:25:43Z pass 6 attempt 6 pseed=4060
+2026-08-18T14:31:44Z pass 6 done injected=793 dropped=153 deployed=0
+2026-08-18T14:31:44Z pass 7 attempt 7 pseed=4070
+2026-08-18T14:37:46Z pass 7 done injected=793 dropped=128 deployed=0
+2026-08-18T14:37:46Z pass 8 attempt 8 pseed=4080
+2026-08-18T14:43:34Z pass 8 done injected=761 dropped=177 deployed=0
+2026-08-18T14:43:34Z pass 9 attempt 9 pseed=4090
+2026-08-18T14:49:00Z pass 9 done injected=712 dropped=121 deployed=0
+2026-08-18T14:49:00Z pass 10 attempt 10 pseed=4100
+2026-08-18T14:53:23Z pass 10 done injected=563 dropped=97 deployed=0
+2026-08-18T14:53:23Z pass 11 attempt 11 pseed=4110
+2026-08-18T14:57:38Z pass 11 done injected=546 dropped=84 deployed=0
+2026-08-18T14:57:38Z pass 12 attempt 12 pseed=4120
+2026-08-18T15:01:17Z pass 12 done injected=464 dropped=132 deployed=0
+== CELL smart_L0.20_s4_r4800p loss=0.20 seed=4 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T15:01:45Z cell start smart_L0.20_s5_r4800p dest=/home/root/sd_xf_smart_L0.20_s5_r4800p.bin
+2026-08-18T15:02:05Z pass 1 attempt 1 pseed=5010
+2026-08-18T15:09:54Z pass 1 done injected=1058 dropped=149 deployed=0
+2026-08-18T15:09:54Z pass 2 attempt 2 pseed=5020
+2026-08-18T15:15:59Z pass 2 done injected=800 dropped=160 deployed=0
+2026-08-18T15:15:59Z pass 3 attempt 3 pseed=5030
+2026-08-18T15:20:22Z pass 3 done injected=566 dropped=157 deployed=0
+2026-08-18T15:20:22Z pass 4 attempt 4 pseed=5040
+2026-08-18T15:24:09Z pass 4 done injected=481 dropped=97 deployed=0
+2026-08-18T15:24:09Z pass 5 attempt 5 pseed=5050
+2026-08-18T15:27:34Z pass 5 done injected=431 dropped=72 deployed=0
+2026-08-18T15:27:34Z pass 6 attempt 6 pseed=5060
+2026-08-18T15:33:46Z pass 6 done injected=702 dropped=82 deployed=1
+== CELL smart_L0.20_s5_r4800p loss=0.20 seed=5 tool=DEPLOYED external=PASS
+2026-08-18T15:33:52Z preventive agent refresh after 8 measured cells
+2026-08-18T15:35:42Z agent refresh done
+2026-08-18T15:35:45Z cell start smart_L0.30_s1_r4800p dest=/home/root/sd_xf_smart_L0.30_s1_r4800p.bin
+2026-08-18T15:36:02Z pass 1 attempt 1 pseed=1010
+2026-08-18T15:43:51Z pass 1 done injected=1058 dropped=301 deployed=0
+2026-08-18T15:43:51Z pass 2 attempt 2 pseed=1020
+2026-08-18T15:51:46Z pass 2 done injected=1058 dropped=308 deployed=0
+2026-08-18T15:51:46Z pass 3 attempt 3 pseed=1030
+2026-08-18T15:59:20Z pass 3 done injected=1008 dropped=258 deployed=0
+2026-08-18T15:59:20Z pass 4 attempt 4 pseed=1040
+2026-08-18T16:06:32Z pass 4 done injected=959 dropped=288 deployed=0
+2026-08-18T16:06:32Z pass 5 attempt 5 pseed=1050
+2026-08-18T16:13:45Z pass 5 done injected=959 dropped=227 deployed=0
+2026-08-18T16:13:45Z pass 6 attempt 6 pseed=1060
+2026-08-18T16:20:09Z pass 6 done injected=845 dropped=269 deployed=0
+2026-08-18T16:20:09Z pass 7 attempt 7 pseed=1070
+2026-08-18T16:26:25Z pass 7 done injected=828 dropped=252 deployed=0
+2026-08-18T16:26:25Z pass 8 attempt 8 pseed=1080
+2026-08-18T16:32:34Z pass 8 done injected=812 dropped=229 deployed=0
+2026-08-18T16:32:34Z pass 9 attempt 9 pseed=1090
+2026-08-18T16:38:07Z pass 9 done injected=729 dropped=230 deployed=0
+2026-08-18T16:38:07Z pass 10 attempt 10 pseed=1100
+2026-08-18T16:42:58Z pass 10 done injected=630 dropped=186 deployed=0
+2026-08-18T16:42:58Z pass 11 attempt 11 pseed=1110
+2026-08-18T16:47:42Z pass 11 done injected=614 dropped=200 deployed=0
+2026-08-18T16:47:42Z pass 12 attempt 12 pseed=1120
+2026-08-18T16:51:21Z pass 12 done injected=464 dropped=125 deployed=0
+== CELL smart_L0.30_s1_r4800p loss=0.30 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T16:51:37Z cell start smart_L0.30_s2_r4800p dest=/home/root/sd_xf_smart_L0.30_s2_r4800p.bin
+2026-08-18T16:51:55Z pass 1 attempt 1 pseed=2010
+2026-08-18T16:59:43Z pass 1 done injected=1058 dropped=324 deployed=0
+2026-08-18T16:59:43Z pass 2 attempt 2 pseed=2020
+2026-08-18T17:07:38Z pass 2 done injected=1058 dropped=348 deployed=0
+2026-08-18T17:07:38Z pass 3 attempt 3 pseed=2030
+2026-08-18T17:15:26Z pass 3 done injected=1041 dropped=290 deployed=0
+2026-08-18T17:15:26Z pass 4 attempt 4 pseed=2040
+2026-08-18T17:22:46Z pass 4 done injected=977 dropped=300 deployed=0
+2026-08-18T17:22:46Z pass 5 attempt 5 pseed=2050
+2026-08-18T17:29:52Z pass 5 done injected=944 dropped=289 deployed=0
+2026-08-18T17:29:52Z pass 6 attempt 6 pseed=2060
+2026-08-18T17:36:51Z pass 6 done injected=927 dropped=284 deployed=0
+2026-08-18T17:36:51Z pass 7 attempt 7 pseed=2070
+2026-08-18T17:43:28Z pass 7 done injected=878 dropped=291 deployed=0
+2026-08-18T17:43:28Z pass 8 attempt 8 pseed=2080
+2026-08-18T17:49:59Z pass 8 done injected=862 dropped=224 deployed=0
+2026-08-18T17:49:59Z pass 9 attempt 9 pseed=2090
+2026-08-18T17:56:30Z pass 9 done injected=862 dropped=236 deployed=0
+2026-08-18T17:56:30Z pass 10 attempt 10 pseed=2100
+2026-08-18T18:02:54Z pass 10 done injected=845 dropped=262 deployed=0
+2026-08-18T18:02:54Z pass 11 attempt 11 pseed=2110
+2026-08-18T18:09:02Z pass 11 done injected=811 dropped=257 deployed=0
+2026-08-18T18:09:02Z pass 12 attempt 12 pseed=2120
+2026-08-18T18:14:49Z pass 12 done injected=761 dropped=243 deployed=0
+== CELL smart_L0.30_s2_r4800p loss=0.30 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T18:15:07Z cell start smart_L0.30_s3_r4800p dest=/home/root/sd_xf_smart_L0.30_s3_r4800p.bin
+2026-08-18T18:15:30Z pass 1 attempt 1 pseed=3010
+2026-08-18T18:23:18Z pass 1 done injected=1058 dropped=343 deployed=0
+2026-08-18T18:23:18Z pass 2 attempt 2 pseed=3020
+2026-08-18T18:31:06Z pass 2 done injected=1041 dropped=306 deployed=0
+2026-08-18T18:31:06Z pass 3 attempt 3 pseed=3030
+2026-08-18T18:38:04Z pass 3 done injected=926 dropped=284 deployed=0
+2026-08-18T18:38:04Z pass 4 attempt 4 pseed=3040
+2026-08-18T18:44:41Z pass 4 done injected=876 dropped=244 deployed=0
+2026-08-18T18:44:41Z pass 5 attempt 5 pseed=3050
+2026-08-18T18:51:04Z pass 5 done injected=843 dropped=222 deployed=0
+2026-08-18T18:51:04Z pass 6 attempt 6 pseed=3060
+2026-08-18T18:56:44Z pass 6 done injected=745 dropped=196 deployed=0
+2026-08-18T18:56:44Z pass 7 attempt 7 pseed=3070
+2026-08-18T19:05:56Z pass 7 done injected=1164 dropped=310 deployed=0
+2026-08-18T19:05:56Z pass 8 attempt 8 pseed=3080
+2026-08-18T19:09:44Z pass 8 done injected=484 dropped=158 deployed=0
+2026-08-18T19:09:44Z pass 9 attempt 9 pseed=3090
+2026-08-18T19:13:10Z pass 9 done injected=433 dropped=117 deployed=0
+2026-08-18T19:13:10Z pass 10 attempt 10 pseed=3100
+2026-08-18T19:16:29Z pass 10 done injected=416 dropped=98 deployed=0
+2026-08-18T19:16:29Z pass 11 attempt 11 pseed=3110
+2026-08-18T19:19:40Z pass 11 done injected=399 dropped=136 deployed=0
+2026-08-18T19:19:40Z pass 12 attempt 12 pseed=3120
+2026-08-18T19:22:44Z pass 12 done injected=383 dropped=133 deployed=0
+== CELL smart_L0.30_s3_r4800p loss=0.30 seed=3 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T19:22:56Z cell start smart_L0.30_s4_r4800p dest=/home/root/sd_xf_smart_L0.30_s4_r4800p.bin
+2026-08-18T19:23:16Z pass 1 attempt 1 pseed=4010
+2026-08-18T19:31:04Z pass 1 done injected=1058 dropped=306 deployed=0
+2026-08-18T19:31:04Z pass 2 attempt 2 pseed=4020
+2026-08-18T19:38:59Z pass 2 done injected=1058 dropped=325 deployed=0
+2026-08-18T19:38:59Z pass 3 attempt 3 pseed=4030
+2026-08-18T19:46:12Z pass 3 done injected=960 dropped=273 deployed=0
+2026-08-18T19:46:12Z pass 4 attempt 4 pseed=4040
+2026-08-18T19:53:25Z pass 4 done injected=960 dropped=252 deployed=0
+2026-08-18T19:53:25Z pass 5 attempt 5 pseed=4050
+2026-08-18T20:00:24Z pass 5 done injected=927 dropped=320 deployed=0
+2026-08-18T20:00:24Z pass 6 attempt 6 pseed=4060
+2026-08-18T20:07:22Z pass 6 done injected=927 dropped=280 deployed=0
+2026-08-18T20:07:23Z pass 7 attempt 7 pseed=4070
+2026-08-18T20:14:21Z pass 7 done injected=927 dropped=244 deployed=0
+2026-08-18T20:14:21Z pass 8 attempt 8 pseed=4080
+2026-08-18T20:21:13Z pass 8 done injected=910 dropped=293 deployed=0
+2026-08-18T20:21:13Z pass 9 attempt 9 pseed=4090
+2026-08-18T20:27:29Z pass 9 done injected=829 dropped=259 deployed=0
+2026-08-18T20:27:29Z pass 10 attempt 10 pseed=4100
+2026-08-18T20:33:38Z pass 10 done injected=812 dropped=248 deployed=0
+2026-08-18T20:33:38Z pass 11 attempt 11 pseed=4110
+2026-08-18T20:39:40Z pass 11 done injected=795 dropped=202 deployed=0
+2026-08-18T20:39:40Z pass 12 attempt 12 pseed=4120
+2026-08-18T20:45:35Z pass 12 done injected=778 dropped=286 deployed=0
+== CELL smart_L0.30_s4_r4800p loss=0.30 seed=4 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T20:45:59Z cell start smart_L0.30_s5_r4800p dest=/home/root/sd_xf_smart_L0.30_s5_r4800p.bin
+2026-08-18T20:46:17Z pass 1 attempt 1 pseed=5010
+2026-08-18T20:54:06Z pass 1 done injected=1058 dropped=258 deployed=0
+2026-08-18T20:54:06Z pass 2 attempt 2 pseed=5020
+2026-08-18T21:01:47Z pass 2 done injected=1026 dropped=324 deployed=0
+2026-08-18T21:01:47Z pass 3 attempt 3 pseed=5030
+2026-08-18T21:09:15Z pass 3 done injected=994 dropped=295 deployed=0
+2026-08-18T21:09:15Z pass 4 attempt 4 pseed=5040
+2026-08-18T21:16:13Z pass 4 done injected=927 dropped=264 deployed=0
+2026-08-18T21:16:13Z pass 5 attempt 5 pseed=5050
+2026-08-18T21:22:50Z pass 5 done injected=876 dropped=232 deployed=0
+2026-08-18T21:22:50Z pass 6 attempt 6 pseed=5060
+2026-08-18T21:29:06Z pass 6 done injected=827 dropped=191 deployed=0
+2026-08-18T21:29:06Z pass 7 attempt 7 pseed=5070
+2026-08-18T21:34:40Z pass 7 done injected=730 dropped=190 deployed=0
+2026-08-18T21:34:40Z pass 8 attempt 8 pseed=5080
+2026-08-18T21:39:53Z pass 8 done injected=681 dropped=137 deployed=0
+2026-08-18T21:39:53Z pass 9 attempt 9 pseed=5090
+2026-08-18T21:44:09Z pass 9 done injected=547 dropped=132 deployed=0
+2026-08-18T21:44:09Z pass 10 attempt 10 pseed=5100
+2026-08-18T21:51:42Z pass 10 done injected=912 dropped=316 deployed=0
+2026-08-18T21:51:42Z pass 11 attempt 11 pseed=5110
+2026-08-18T21:55:15Z pass 11 done injected=448 dropped=139 deployed=0
+2026-08-18T21:55:15Z pass 12 attempt 12 pseed=5120
+2026-08-18T21:58:40Z pass 12 done injected=431 dropped=130 deployed=0
+== CELL smart_L0.30_s5_r4800p loss=0.30 seed=5 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-18T21:58:55Z sweep done arm=smart -> /home/mseo/thesis/csp-linksim/captures/board_external_full/transfer.csv / /home/mseo/thesis/csp-linksim/captures/board_external_full/verdicts.csv

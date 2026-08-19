@@ -1,0 +1,14 @@
+2026-08-19T10:37:54Z sweep start arm=naive losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3} rate=4800 pace_us=426666 ser_s=451 push_to=1413 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=1200000 apm_sha=e5a23dcc79bd
+-- naive_L0_s1_r4800p already recorded (INVALID cells are never re-rolled); skip
+2026-08-19T10:37:54Z cell start naive_L0_s2_r4800p dest=/home/root/sd_xf_naive_L0_s2_r4800p.bin
+2026-08-19T10:38:12Z pass 1 attempt 1 pseed=2010
+2026-08-19T10:46:03Z pass 1 done injected=1058 dropped=0 deployed=1
+== CELL naive_L0_s2_r4800p loss=0 seed=2 tool=DEPLOYED external=PASS
+2026-08-19T10:46:12Z cell start naive_L0_s3_r4800p dest=/home/root/sd_xf_naive_L0_s3_r4800p.bin
+2026-08-19T10:46:34Z pass 1 attempt 1 pseed=3010
+2026-08-19T10:54:26Z pass 1 done injected=1058 dropped=0 deployed=1
+== CELL naive_L0_s3_r4800p loss=0 seed=3 tool=DEPLOYED external=PASS
+2026-08-19T10:54:30Z cell start naive_L0.02_s1_r4800p dest=/home/root/sd_xf_naive_L0.02_s1_r4800p.bin
+2026-08-19T10:54:48Z pass 1 attempt 1 pseed=1010
+2026-08-19T11:02:41Z pass 1 done injected=1058 dropped=8 deployed=0
+2026-08-19T11:02:41Z pass 2 attempt 2 pseed=1020

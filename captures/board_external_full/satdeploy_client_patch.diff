@@ -1,0 +1,38 @@
+diff --git a/satdeploy-apm/src/satdeploy_apm.c b/satdeploy-apm/src/satdeploy_apm.c
+index 1a872a3..747bbc4 100644
+--- a/satdeploy-apm/src/satdeploy_apm.c
++++ b/satdeploy-apm/src/satdeploy_apm.c
+@@ -46,6 +46,24 @@
+  * is ~167 s on the wire, plus DTP setup, plus checksum). */
+ #define DEFAULT_TIMEOUT 360000
+ 
++/* The deploy wait doubles as the SVU serve window: when it expires the ground
++ * stops serving and the agent's recovery rounds go unanswered mid-transfer.
++ * On a paced link the serialization time alone can exceed the compiled
++ * default (256 KiB at 4800 bit/s is ~451 s on the wire), so the window must
++ * scale with the link, not with the binary. SATDEPLOY_PUSH_TIMEOUT_MS
++ * overrides it; unset keeps the compiled default. */
++static uint32_t push_timeout_ms(void)
++{
++    const char *s = getenv("SATDEPLOY_PUSH_TIMEOUT_MS");
++    if (s && *s) {
++        char *end = NULL;
++        unsigned long v = strtoul(s, &end, 10);
++        if (end && *end == '\0' && v > 0 && v <= 86400000UL)
++            return (uint32_t)v;
++    }
++    return DEFAULT_TIMEOUT;
++}
++
+ /* DTP defaults.
+  * Throughput is intentionally conservative: at 10 MB/s with MTU 1024 the
+  * receiver fires ~9.8k packets/sec, exhausting CSP_BUFFER_COUNT (1000) on
+@@ -458,7 +476,7 @@ static int deploy_single_app(unsigned int node, char *app_name,
+     }
+ 
+     Satdeploy__DeployResponse *resp = NULL;
+-    int rc = send_deploy_request_timeout(node, &deploy_req, &resp, DEFAULT_TIMEOUT);
++    int rc = send_deploy_request_timeout(node, &deploy_req, &resp, push_timeout_ms());
+ 
+     /* Step 4: Wind the SVU server down. svu_serve_loop frees its CTRL port on
+      * stop, so a later push in the same process re-binds cleanly -- the

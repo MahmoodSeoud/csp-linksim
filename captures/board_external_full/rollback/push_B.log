@@ -1,0 +1,21 @@
+[33m
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+[32m  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Aug  6 2026 git: a7a27df
+
+[0m[34m  Init file: /tmp/tmp.EB9HScojBk.csh[0m
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+INIT CAN0: device: [can0], bitrate: 0, promisc: 0
+[32mLoaded: /tmp/tmp.zd41POn3d2/apm/libcsh_satdeploy_apm.so[0m
+checking node 5427...
+/home/mseo/thesis/csp-linksim/captures/payload_256k_B.bin -> node 5427:/home/root/sd_rb_20260818.bin  (262144 bytes, e7163f41)
+  waiting for the satellite to verify...
+svu-server: served a request from node 5427 (0 intervals, 262144 bytes blasted)
+[32m> Deployed sd_rb_20260818 (e7163f41) over SVU[0m

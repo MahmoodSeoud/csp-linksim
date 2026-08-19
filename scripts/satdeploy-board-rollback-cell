@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# satdeploy-board-rollback-cell — the pre-registered rollback demonstration
+# (RUNLOG Amendment 3). Deploy A, deploy B over it, then `satdeploy rollback`;
+# the EXTERNAL console digest of the destination must come back equal to A.
+# No loss injected: this cell tests the rollback mechanism, not the link.
+# Every verdict is written by scripts/external-verdict.py, never by this script.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+CSH=/home/mseo/thesis/csh/builddir/csh
+APMSO=/home/mseo/thesis/satDeploy/satdeploy-apm/build/libcsh_satdeploy_apm.so
+A="$REPO/captures/payload_256k.bin"
+B="$REPO/captures/payload_256k_B.bin"
+CELL="$REPO/captures/board_external_full/rollback"
+VCSV="$CELL/verdicts.csv"
+VERDICT="$REPO/scripts/external-verdict.py"
+DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
+DEST="/home/root/sd_rb_20260818.bin"
+MTU_PUSH=256
+ts(){ date -u +%Y-%m-%dT%H:%M:%SZ; }
+log(){ echo "$(ts) $*" | tee -a "$CELL/harness.log"; }
+mkdir -p "$CELL"
+APMDIR=$(mktemp -d)/apm; mkdir -p "$APMDIR"; cp "$APMSO" "$APMDIR/"
+MAIN=$BASHPID
+trap '[ "$BASHPID" = "$MAIN" ] && rm -rf "$(dirname "$APMDIR")"' EXIT
+push(){ # push <file> <tag>
+  local INIT; INIT=$(mktemp --suffix=.csh)
+  printf 'csp init\ncsp add can -c can0 -b 0 -d 16\napm load -p %s\nsatdeploy push -f %s -r %s -n 5427 -m %s\nsleep 1500\nexit\n' \
+    "$APMDIR" "$1" "$DEST" "$MTU_PUSH" > "$INIT"
+  timeout 900 script -qec "$CSH -i $INIT" /dev/null </dev/null > "$CELL/push_$2.log" 2>&1 || true
+  rm -f "$INIT"
+  sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$CELL/push_$2.log" | grep -qaE "> Deployed|Already deployed" && echo DEPLOYED || echo INCOMPLETE
+}
+log "rollback cell start dest=$DEST"
+log "step 1: push A"; rA=$(push "$A" A); log "  tool=$rA"
+vA=$(python3 "$VERDICT" judge --cell "$CELL" --dest "$DEST" --groundtruth "$CELL/groundtruth_A.json" \
+      --label rollback_step1_A --arm smart --loss 0 --seed 0 --csv "$VCSV" --dev "$DEV" | awk -F'[= ]' '/^EXTVERDICT=/{print $2}')
+for f in "$CELL"/console_probe_*.txt; do mv "$f" "${f%.txt}_step1.txt" 2>/dev/null; done
+log "  external=$vA"
+log "step 2: push B"; rB=$(push "$B" B); log "  tool=$rB"
+vB=$(python3 "$VERDICT" judge --cell "$CELL" --dest "$DEST" --groundtruth "$CELL/groundtruth_B.json" \
+      --label rollback_step2_B --arm smart --loss 0 --seed 0 --csv "$VCSV" --dev "$DEV" | awk -F'[= ]' '/^EXTVERDICT=/{print $2}')
+for f in "$CELL"/console_probe_[0-9].txt; do mv "$f" "${f%.txt}_step2.txt" 2>/dev/null; done
+log "  external=$vB"
+log "step 3: rollback"
+INIT=$(mktemp --suffix=.csh)
+printf 'csp init\ncsp add can -c can0 -b 0 -d 16\napm load -p %s\nsatdeploy rollback %s -n 5427\nsleep 3000\nexit\n' "$APMDIR" "$DEST" > "$INIT"
+timeout 300 script -qec "$CSH -i $INIT" /dev/null </dev/null > "$CELL/rollback.log" 2>&1 || true
+rm -f "$INIT"
+rRB=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$CELL/rollback.log" | grep -aiE "rolled back|restored|Error" | tail -1)
+log "  tool: ${rRB:-<no line>}"
+vRB=$(python3 "$VERDICT" judge --cell "$CELL" --dest "$DEST" --groundtruth "$CELL/groundtruth_A.json" \
+      --label rollback_step3_afterRollback --arm smart --loss 0 --seed 0 --csv "$VCSV" --dev "$DEV" | awk -F'[= ]' '/^EXTVERDICT=/{print $2}')
+for f in "$CELL"/console_probe_[0-9].txt; do mv "$f" "${f%.txt}_step3.txt" 2>/dev/null; done
+log "  external(vs A)=$vRB"
+echo "== ROLLBACK CELL: A:tool=$rA/ext=$vA  B:tool=$rB/ext=$vB  afterRollback:ext_vs_A=$vRB"
+[ "$vA" = PASS ] && [ "$vB" = PASS ] && [ "$vRB" = PASS ] \
+  && echo "   VERDICT: rollback DEMONSTRATED — external digest restored to A" \
+  || echo "   VERDICT: see steps above (a non-PASS at step 1/2 invalidates the demonstration)"

@@ -1,0 +1,8 @@
+2026-08-17T02:21:54Z cell start smart_L0_s98 dest=/home/root/sd_xf_smart_L0_s98.bin
+2026-08-17T02:22:11Z pass 1 attempt 1 pseed=98010
+2026-08-17T02:30:16Z pass 1 done injected=1061 dropped=0 deployed=0
+2026-08-17T02:30:16Z pass 2 attempt 2 pseed=98020
+2026-08-17T02:38:08Z pass 2 done injected=1058 dropped=0 deployed=0
+2026-08-17T02:38:08Z pass 3 attempt 3 pseed=98030
+2026-08-17T02:38:13Z pass 3 done injected=0 dropped=0 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=1

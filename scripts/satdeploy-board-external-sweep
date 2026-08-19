@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+# satdeploy-board-external-sweep <smart|naive>   (env: LOSSES, SEEDS, RATE_BPS,
+#   MAX_PASSES, TAG, MTU_PUSH, DEV, SETUP_RETRIES)
+#
+# Full board loss sweep where EVERY cell's verdict comes from the external
+# check, not from satdeploy. Per cell:
+#   1. preflight (no stray bridge, agent liveness, board uptime snapshot)
+#   2. promiscuous candump capture of all can0 traffic for the whole cell
+#   3. satdeploy push loop -- byte-identical semantics to satdeploy-board-point
+#      (resume ON, fresh injector seed per pass, setup-hard-error retries
+#      uncounted, MAX_PASSES cap); the tool runs AS RELEASED
+#   4. verdict by scripts/external-verdict.py (stdlib-only, serial console
+#      read-back) -- the harness never writes an external verdict
+#   5. one status line: cell, seed, loss, tool verdict, external verdict
+#
+# Evidence per cell under captures/board_external_full/<arm>_L<loss>_s<seed>/:
+#   harness.log  push_p<N>_a<M>.log  inject_p<N>_a<M>.csv|.out  candump.log.gz
+#   console_probe_<n>.txt  external_verdict.json
+# Sweep-level: transfer.csv (harness, tool-side facts) + verdicts.csv (external
+# script only) + RUNLOG.md (frozen exclusion rule -- written BEFORE first run).
+#
+# Exclusion rule enforcement (see RUNLOG.md; INVALID cells are recorded and
+# NEVER re-rolled -- the resume logic skips any label already in transfer.csv):
+#   AGENT_DOWN   agent fails 3-try liveness probe before/during cell -> record
+#                INVALID, halt (exit 2) for operator agent restart; resume
+#                continues from the NEXT cell.
+#   HARNESS      stray injector bridge / injector failure -> record, halt (3).
+#   SETUP_STUCK  4 consecutive 0-injected passes with live agent -> record,
+#                continue to next cell.
+#   BOARD_RESET  board /proc/uptime end < start -> record, halt (exit 2).
+#   CONSOLE_UNVERIFIED is detected and recorded by external-verdict.py itself.
+set -uo pipefail
+ARM="${1:?arm: smart|naive|v1}"
+MAX_PASSES="${MAX_PASSES:-12}"
+REPO=/home/mseo/thesis/csp-linksim
+CSH=/home/mseo/thesis/csh/builddir/csh
+INJ="$REPO/build/tests/e2e/ci_inject_bridge"
+# v1 = the whole-artifact predecessor (satDeploy e8b0842, pre-SVU): DTP data
+# plane on dport 8 with 4-byte overhead (252-byte payload -> 1041 fragments),
+# matched v1 APM from the same commit. v2 arms: SVU dport 9, 8-byte overhead.
+case "$ARM" in
+  v1) APMSO=/home/mseo/thesis/satDeploy-v1/satdeploy-apm/build/libcsh_satdeploy_apm.so
+      AGENT_BIN=/home/root/satdeploy-agent-v1
+      DPORT=8; OVH=4; TOTAL=1041 ;;
+  *)  APMSO=/home/mseo/thesis/satDeploy/satdeploy-apm/build/libcsh_satdeploy_apm.so
+      # Slow-rate rows (window env set) MUST run the patched client pinned in
+      # the evidence dir: the tree build is the released 360 s binary, and the
+      # 2026-08-18 naive-4800 mis-execution came from exactly this mixup.
+      [ -n "${SATDEPLOY_PUSH_TIMEOUT_MS:-}" ] && APMSO=/home/mseo/thesis/csp-linksim/captures/board_external_full/bin/libcsh_satdeploy_apm_patched.so
+      AGENT_BIN="/home/root/satdeploy-agent-${ARM}-bk"
+      DPORT=9; OVH=8; TOTAL=1058 ;;
+esac
+PAY="$REPO/captures/payload_256k.bin"
+BASE="$REPO/captures/board_external_full"
+TCSV="$BASE/transfer.csv"
+VCSV="$BASE/verdicts.csv"
+VERDICT="$REPO/scripts/external-verdict.py"
+TAG="${TAG:-xf_}"
+RATE_BPS="${RATE_BPS:-9600}"    # grid standard (era as-run); 4800 row passes it explicitly
+MTU_PUSH="${MTU_PUSH:-256}"     # pinned: compiled APM default drifted to 1024 post-era
+# SATDEPLOY_PUSH_TIMEOUT_MS is set ONLY for slow-rate exploration rows run
+# with the patched client (see RUNLOG.md); unset means the compiled 360 s =
+# the released behavior. The 9600 grid runs the released client untouched.
+[ -n "${SATDEPLOY_PUSH_TIMEOUT_MS:-}" ] && export SATDEPLOY_PUSH_TIMEOUT_MS
+MTU_B=256
+DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
+LOSSES="${LOSSES:-0 0.02 0.05 0.10 0.20 0.30}"
+if [ -z "${SEEDS:-}" ]; then
+  case "$ARM" in smart|v1) SEEDS="1 2 3 4 5";; naive) SEEDS="1 2 3";; esac
+fi
+PACE_US=$(( RATE_BPS > 0 ? MTU_B * 8 * 1000000 / RATE_BPS : 0 ))
+SER_S=$(( TOTAL * PACE_US / 1000000 ))
+PUSH_TO=$(( SER_S * 3 + 60 )); [ "$PUSH_TO" -lt 180 ] && PUSH_TO=180
+# csh must outlive the client's own window, else the harness kill masquerades
+# as a tool timeout.
+CLI_TO=$(( ${SATDEPLOY_PUSH_TIMEOUT_MS:-360000} / 1000 + 120 )); [ "$PUSH_TO" -lt "$CLI_TO" ] && PUSH_TO=$CLI_TO
+INJ_TO=$(( PUSH_TO + 60 ))
+strip(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'; }
+ts(){ date -u +%Y-%m-%dT%H:%M:%SZ; }
+log(){ echo "$(ts) $*" | tee -a "${CELL:-$BASE}/harness.log"; }
+
+agent_up(){
+  local _t
+  for _t in 1 2 3; do
+    printf 'csp init\ncsp add can -c can0 -b 0 -d 16\nping -t 3000 5427\nsleep 2000\n' > /tmp/xfs_ping.csh
+    timeout 15 script -qec "$CSH -i /tmp/xfs_ping.csh" /dev/null </dev/null > /tmp/xfs_ping.out 2>&1 || true
+    grep -qa "Reply in" /tmp/xfs_ping.out && return 0
+    sleep 5
+  done
+  return 1
+}
+board_uptime(){  # integer /proc/uptime seconds; empty on failure
+  # Garble-proof: the console drops characters, and a canary alone does not
+  # protect the digits ("1102528" arrived as "8" on 2026-08-17 and faked a
+  # BOARD_RESET). The value must appear TWICE identically inside one framed
+  # token -- character loss cannot corrupt both copies the same way.
+  local out v _t
+  for _t in 1 2 3; do
+    out=$(DEV="$DEV" TO=20 bash "$REPO/scripts/board-cmd" 'u=$(cut -d. -f1 /proc/uptime); echo "UPT_${u}_${u}_TPU"' 2>/dev/null \
+      | grep -aoE 'UPT_[0-9]+_[0-9]+_TPU' | head -n1)
+    v=$(echo "$out" | awk -F_ '$2!=""&&$2==$3{print $2}')
+    [ -n "$v" ] && { echo "$v"; return; }
+    sleep 2
+  done
+}
+agent_count(){  # garble-proofed process count; empty on unreadable console
+  DEV="$DEV" TO=25 bash "$REPO/scripts/board-cmd" \
+    'c=$(ps w | grep [s]atdeploy-agent | grep -v grep | wc -l); echo "CNT_${c}_${c}_TNC"' 2>/dev/null \
+    | grep -aoE 'CNT_[0-9]+_[0-9]+_TNC' | head -n1 | awk -F_ '$2==$3{print $2}'
+}
+agent_refresh(){
+  # Preventive maintenance BETWEEN cells (never mid-cell): the agent's scan
+  # wedges on its own accumulated registry/backup entries (observed twice:
+  # 2026-08-14 nine-cell grid; 2026-08-17 after 16 cells, wedged agent at
+  # 3:09 CPU while deaf). Archive the registry, wipe session state, relaunch.
+  # Transfer mechanics are untouched; disclosed in RUNLOG.md.
+  log "preventive agent refresh after $CELLS_DONE measured cells"
+  local BIN="$AGENT_BIN" t cnt
+  DEV="$DEV" TO=25 bash "$REPO/scripts/board-cmd" 'for p in $(pidof satdeploy-agent-smart-bk satdeploy-agent-naive-bk satdeploy-agent-v1); do kill $p; done; sleep 2' >/dev/null 2>&1
+  for t in 1 2 3; do
+    DEV="$DEV" TO=25 bash "$REPO/scripts/board-cmd" "mv /opt/satdeploy /opt/satdeploy.acc-${ARM}-c${CELLS_DONE} 2>/dev/null; mkdir -p /opt/satdeploy; rm -rf /var/lib/satdeploy/state; mkdir -p /var/lib/satdeploy/state; echo REFRESH_WIPE_OK" 2>/dev/null | grep -qa REFRESH_WIPE_OK && break
+    sleep 3
+  done
+  # Check-then-launch: never blind-relaunch — two agents on one CSP addr jam
+  # it for real (CFP interleave). Count first, act on what is proven.
+  for t in 1 2 3 4 5; do
+    cnt=$(agent_count)
+    case "$cnt" in
+      1) break ;;
+      0) DEV="$DEV" TO=25 bash "$REPO/scripts/board-cmd" "cd /home/root && nohup $BIN -i CAN -p can0 -a 5427 >>/tmp/agent_${ARM}_xf.log 2>&1 & sleep 2; echo LAUNCHED" >/dev/null 2>&1 ;;
+      "") ;;  # garbled probe — re-probe
+      *) DEV="$DEV" TO=25 bash "$REPO/scripts/board-cmd" 'for p in $(pidof satdeploy-agent-smart-bk satdeploy-agent-naive-bk satdeploy-agent-v1); do kill $p; done; sleep 2' >/dev/null 2>&1 ;;
+    esac
+    sleep 3
+  done
+  agent_up || { echo ">>> agent did not come back after preventive refresh — investigate, then re-run (resumes) <<<"; exit 2; }
+  log "agent refresh done"
+}
+judge(){  # judge <label> <loss> <seed> <dest> <celldir> [invalid_reason]
+  local inv=""
+  [ -n "${6:-}" ] && inv="--invalid $6"
+  python3 "$VERDICT" judge --cell "$5" --dest "$4" --groundtruth "$BASE/groundtruth.json" \
+    --label "$1" --arm "$ARM" --loss "$2" --seed "$3" --csv "$VCSV" --dev "$DEV" $inv \
+    | tee -a "$5/harness.log" | awk -F'[= ]' '/^EXTVERDICT=/{print $2}'
+}
+record(){  # record <loss> <seed> <label> <passes> <inj> <drop> <claim> <wall> <cell>
+  local ratio; ratio=$(awk -v r="$5" -v t=$TOTAL 'BEGIN{if(t)printf "%.2f",r/t;else print "NA"}')
+  local air; air=$(awk -v r="$5" -v p=$PACE_US 'BEGIN{printf "%.1f", r*p/1000000}')
+  echo "$ARM,$1,$2,$3,$4,$5,$6,$ratio,$7,$8,$air,$RATE_BPS,$(ts)" >> "$TCSV"
+}
+
+# ---- sweep preflight -------------------------------------------------------
+[ -f "$BASE/RUNLOG.md" ]        || { echo "FAIL: $BASE/RUNLOG.md missing -- exclusion rule must be frozen before any run"; exit 1; }
+[ -f "$BASE/groundtruth.json" ] || { echo "FAIL: ground-truth digest not computed (external-verdict.py digest)"; exit 1; }
+[ -f "$PAY" ]                   || { echo "FAIL: pinned payload missing at $PAY"; exit 1; }
+if [ -n "${SATDEPLOY_PUSH_TIMEOUT_MS:-}" ]; then
+  # grep -q would SIGPIPE `strings` and, under pipefail, read as a failure --
+  # count instead (grep -c drains the stream).
+  _sym=$(strings "$APMSO" | grep -c SATDEPLOY_PUSH_TIMEOUT_MS || true)
+  [ "${_sym:-0}" -ge 1 ] \
+    || { echo "FAIL: window env set but client at $APMSO lacks the override symbol (released build?)"; exit 1; }
+fi
+stty -F "$DEV" >/dev/null 2>&1  || { echo "FAIL: serial console unreadable at $DEV (dialout? picocom?)"; exit 1; }
+ss -ltn 2>/dev/null | grep -q ':6000' || { echo "FAIL: broker (6000) down"; exit 1; }
+command -v candump >/dev/null   || { echo "FAIL: candump not installed"; exit 1; }
+if pgrep -x ci_inject_bridge >/dev/null 2>&1; then
+  echo "FAIL: stray ci_inject_bridge running:"; pgrep -ax ci_inject_bridge; exit 3
+fi
+agent_up || { echo "FAIL: agent 5427 not answering -- launch satdeploy-agent-$ARM"; exit 2; }
+[ -f "$TCSV" ] || echo "arm,loss,seed,label,passes,total_injected,total_dropped,overhead_ratio,agent_claim,wall_s,airtime_fwd_s,rate_bps,ts_utc" > "$TCSV"
+APMDIR=$(mktemp -d)/apm; mkdir -p "$APMDIR"; cp "$APMSO" "$APMDIR/"
+CDPID=""; INJPID=""; MAINPID=$BASHPID
+CELLS_DONE=0; REFRESH_EVERY="${REFRESH_EVERY:-8}"
+# Guard: a dying pipeline subshell inherits and RUNS this EXIT trap (that is
+# how the s97 validation cell lost its APM dir mid-sweep) -- only the main
+# shell may clean up.
+cleanup(){ [ "$BASHPID" != "$MAINPID" ] && return 0; [ -n "$CDPID" ] && kill "$CDPID" 2>/dev/null; [ -n "$INJPID" ] && kill "$INJPID" 2>/dev/null; rm -rf "$(dirname "$APMDIR")"; }
+trap cleanup EXIT
+echo "$(ts) sweep start arm=$ARM losses={$LOSSES} seeds={$SEEDS} rate=$RATE_BPS pace_us=$PACE_US ser_s=$SER_S push_to=$PUSH_TO mtu_push=$MTU_PUSH tag=$TAG max_passes=$MAX_PASSES push_timeout_ms=${SATDEPLOY_PUSH_TIMEOUT_MS:-released-360000} apm_sha=$(sha256sum "$APMSO" | cut -c1-12)" | tee -a "$BASE/sweep_${ARM}.log"
+
+# ---- cell loop -------------------------------------------------------------
+for loss in $LOSSES; do for seed in $SEEDS; do
+  label="${ARM}_L${loss}_s${seed}${LBL_SUFFIX:-}"
+  if awk -F, -v lb="$label" '$4==lb{f=1}END{exit !f}' "$TCSV"; then
+    echo "-- $label already recorded (INVALID cells are never re-rolled); skip"; continue
+  fi
+  CELL="$BASE/$label"; mkdir -p "$CELL"
+  DEST="/home/root/sd_${TAG}${label}.bin"
+  log "cell start $label dest=$DEST"
+
+  if pgrep -x ci_inject_bridge >/dev/null; then
+    log "stray bridge detected -- exclusion rule HARNESS"
+    record "$loss" "$seed" "$label" 0 0 0 ABORT NA "$CELL"
+    v=$(judge "$label" "$loss" "$seed" "$DEST" "$CELL" HARNESS)
+    echo "== CELL $label loss=$loss seed=$seed tool=ABORT external=${v:-INVALID}"
+    exit 3
+  fi
+  if ! agent_up; then
+    log "agent down before cell -- exclusion rule AGENT_DOWN"
+    record "$loss" "$seed" "$label" 0 0 0 AGENT_DOWN NA "$CELL"
+    v=$(judge "$label" "$loss" "$seed" "$DEST" "$CELL" AGENT_DOWN)
+    echo "== CELL $label loss=$loss seed=$seed tool=AGENT_DOWN external=${v:-INVALID}"
+    echo ">>> restart satdeploy-agent-$ARM on the board, then re-run (resumes at NEXT cell) <<<"
+    exit 2
+  fi
+  UP0=$(board_uptime); [ -n "$UP0" ] || log "warn: uptime unreadable at cell start (BOARD_RESET check disarmed)"
+  candump -L can0 > "$CELL/candump.log" 2>"$CELL/candump.err" & CDPID=$!
+  T0=$(date +%s)
+
+  total_inj=0; total_drop=0; result=INCOMPLETE; passes=0
+  setup_fails=0; SETUP_RETRIES="${SETUP_RETRIES:-4}"; attempt=0; invalid=""
+  while [ "$passes" -lt "$MAX_PASSES" ]; do
+    attempt=$((attempt+1)); pidx=$((passes+1))
+    pseed=$((seed*1000 + pidx*10 + setup_fails))
+    DL="$CELL/inject_p${pidx}_a${attempt}.csv"; rm -f "$DL"
+    log "pass $pidx attempt $attempt pseed=$pseed"
+    timeout "$INJ_TO" "$INJ" zmq:tcp://127.0.0.1:6000,tcp://127.0.0.1:7000,5427 can:can0 "$DPORT" 256 "$OVH" "$loss" 4 "$pseed" "$DL" 5425 "$PACE_US" \
+      > "$CELL/inject_p${pidx}_a${attempt}.out" 2>&1 &
+    INJPID=$!; sleep 3
+    INIT=$(mktemp --suffix=.csh)
+    printf 'csp init\ncsp add zmq -d 5425 127.0.0.1\napm load -p %s\nsatdeploy push -f %s -r %s -n 5427 -m %s\nsleep 1500\nexit\n' \
+      "$APMDIR" "$PAY" "$DEST" "$MTU_PUSH" > "$INIT"
+    timeout "$PUSH_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null > "$CELL/push_p${pidx}_a${attempt}.log" 2>&1 || true
+    rm -f "$INIT"; kill $INJPID 2>/dev/null; wait $INJPID 2>/dev/null || true; INJPID=""
+    raw=$(awk -F, '!/^#/{c++}END{print c+0}' "$DL"); drp=$(awk -F, '!/^#/&&$8==1{c++}END{print c+0}' "$DL")
+    deployed=0
+    strip < "$CELL/push_p${pidx}_a${attempt}.log" | grep -qaE "> Deployed|Already deployed" && deployed=1
+    if [ "$deployed" -eq 0 ] && [ "$raw" -eq 0 ]; then
+      if ! agent_up; then
+        log "agent down during cell -- exclusion rule AGENT_DOWN"
+        result=AGENT_DOWN; invalid=AGENT_DOWN; break
+      fi
+      setup_fails=$((setup_fails+1))
+      log "setup hard-error (0 injected, agent alive) retry $setup_fails/$SETUP_RETRIES"
+      if [ "$setup_fails" -ge "$SETUP_RETRIES" ]; then result=STUCK; invalid=SETUP_STUCK; break; fi
+      sleep 3; continue
+    fi
+    total_inj=$((total_inj+raw)); total_drop=$((total_drop+drp)); passes=$((passes+1))
+    setup_fails=0   # the frozen rule counts CONSECUTIVE setup hard-errors
+    log "pass $pidx done injected=$raw dropped=$drp deployed=$deployed"
+    if [ "$deployed" -eq 1 ]; then result=DEPLOYED; break; fi
+  done
+  T1=$(date +%s); WALL=$((T1-T0))
+
+  UP1=$(board_uptime)
+  if [ -n "$UP0" ] && [ -n "$UP1" ] && [ "$UP1" -lt "$UP0" ]; then
+    log "board uptime went backwards ($UP0 -> $UP1) -- exclusion rule BOARD_RESET"
+    invalid="${invalid:+$invalid+}BOARD_RESET"
+  fi
+  kill "$CDPID" 2>/dev/null; wait "$CDPID" 2>/dev/null || true; CDPID=""
+  gzip -f "$CELL/candump.log" 2>/dev/null || true
+
+  record "$loss" "$seed" "$label" "$passes" "$total_inj" "$total_drop" "$result" "$WALL" "$CELL"
+  v=$(judge "$label" "$loss" "$seed" "$DEST" "$CELL" "$invalid")
+  echo "== CELL $label loss=$loss seed=$seed tool=$result external=${v:-INVALID}"
+
+  case "$invalid" in
+    *AGENT_DOWN*|*BOARD_RESET*)
+      echo ">>> $invalid: fix the board/agent, then re-run (resumes at NEXT cell) <<<"; exit 2 ;;
+  esac
+  CELLS_DONE=$((CELLS_DONE+1))
+  [ $((CELLS_DONE % REFRESH_EVERY)) -eq 0 ] && agent_refresh
+  sleep 3
+done; done
+echo "$(ts) sweep done arm=$ARM -> $TCSV / $VCSV" | tee -a "$BASE/sweep_${ARM}.log"

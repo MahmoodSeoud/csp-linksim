@@ -1,0 +1,14 @@
+{
+  "label": "naive_L0_s2",
+  "arm": "naive",
+  "loss": "0",
+  "seed": "2",
+  "dest": "/home/root/sd_xf_naive_L0_s2.bin",
+  "verdict": "PASS",
+  "reason": null,
+  "ext_sha": "2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5",
+  "board_bytes": 262144,
+  "groundtruth_sha": "2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5",
+  "probes_used": 1,
+  "ts_utc": "2026-08-17T06:17:58Z"
+}

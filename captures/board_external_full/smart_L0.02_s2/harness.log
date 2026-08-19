@@ -1,0 +1,4 @@
+2026-08-17T03:27:14Z cell start smart_L0.02_s2 dest=/home/root/sd_xf_smart_L0.02_s2.bin
+2026-08-17T03:27:31Z pass 1 attempt 1 pseed=2010
+2026-08-17T03:31:41Z pass 1 done injected=1064 dropped=6 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=1

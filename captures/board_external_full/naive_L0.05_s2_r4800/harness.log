@@ -1,0 +1,20 @@
+2026-08-18T04:36:24Z cell start naive_L0.05_s2_r4800 dest=/home/root/sd_xf_naive_L0.05_s2_r4800.bin
+2026-08-18T04:36:42Z pass 1 attempt 1 pseed=2010
+2026-08-18T04:42:47Z pass 1 done injected=825 dropped=30 deployed=0
+2026-08-18T04:42:47Z pass 2 attempt 2 pseed=2020
+2026-08-18T04:48:53Z pass 2 done injected=826 dropped=53 deployed=0
+2026-08-18T04:48:53Z pass 3 attempt 3 pseed=2030
+2026-08-18T04:54:59Z pass 3 done injected=826 dropped=59 deployed=0
+2026-08-18T04:54:59Z pass 4 attempt 4 pseed=2040
+2026-08-18T05:01:04Z pass 4 done injected=825 dropped=21 deployed=0
+2026-08-18T05:01:04Z pass 5 attempt 5 pseed=2050
+2026-08-18T05:07:10Z pass 5 done injected=825 dropped=36 deployed=0
+2026-08-18T05:07:10Z pass 6 attempt 6 pseed=2060
+2026-08-18T05:13:15Z pass 6 done injected=825 dropped=29 deployed=0
+2026-08-18T05:13:15Z pass 7 attempt 7 pseed=2070
+2026-08-18T05:19:21Z pass 7 done injected=826 dropped=68 deployed=0
+2026-08-18T05:19:21Z pass 8 attempt 8 pseed=2080
+2026-08-18T05:25:27Z pass 8 done injected=825 dropped=37 deployed=0
+2026-08-18T05:25:27Z pass 9 attempt 9 pseed=2090
+2026-08-18T05:31:33Z pass 9 done injected=825 dropped=39 deployed=0
+2026-08-18T05:31:33Z pass 10 attempt 10 pseed=2100

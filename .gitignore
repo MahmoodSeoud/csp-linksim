@@ -55,6 +55,13 @@ captures/*
 # board reverse-channel grid (reverse frames counted at the bridge, same instrument
 # as the host arm). Evidence, cited in the evaluation's completion section.
 !captures/satdeploy_board_rev.csv
+# The externally judged full board campaign (2026-08): per-cell evidence,
+# frozen run log, and the sweep-level CSVs. The promiscuous candump captures
+# (~180 MB) stay disk-retained only.
+!captures/board_external_full/
+!captures/board_external_full/**
+captures/board_external_full/**/candump.log.gz
+captures/board_external_full/**/candump.err
 !captures/rev_*_oracleA.csv
 !captures/rev_*_inj.log
 # repro_*: demo output from scripts/reproduce. Regenerated on every run by design, so it

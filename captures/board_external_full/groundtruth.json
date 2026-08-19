@@ -1,0 +1,7 @@
+{
+  "artifact": "/home/mseo/thesis/csp-linksim/captures/payload_256k.bin",
+  "sha256": "2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5",
+  "size_bytes": 262144,
+  "computed_utc": "2026-08-16T20:33:40Z",
+  "by": "scripts/external-verdict.py digest (stdlib hashlib, no satdeploy code)"
+}

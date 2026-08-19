@@ -1,0 +1,4 @@
+# probe started 2026-08-17T19:56:54Z  board-cmd rc=0
+CANARY_SD_OK
+L0.30_s3.bin
+SD_NOFILE

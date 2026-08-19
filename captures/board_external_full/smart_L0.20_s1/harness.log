@@ -1,0 +1,13 @@
+2026-08-17T04:37:35Z cell start smart_L0.20_s1 dest=/home/root/sd_xf_smart_L0.20_s1.bin
+2026-08-17T04:37:59Z warn: uptime unreadable at cell start (BOARD_RESET check disarmed)
+2026-08-17T04:37:59Z pass 1 attempt 1 pseed=1010
+2026-08-17T04:42:46Z pass 1 done injected=1177 dropped=212 deployed=0
+2026-08-17T04:42:46Z pass 2 attempt 2 pseed=1020
+2026-08-17T04:48:52Z pass 2 done injected=1514 dropped=310 deployed=0
+2026-08-17T04:48:52Z pass 3 attempt 3 pseed=1030
+2026-08-17T04:49:28Z setup hard-error (0 injected, agent alive) retry 1/4
+2026-08-17T04:49:31Z pass 3 attempt 4 pseed=1031
+2026-08-17T04:50:08Z setup hard-error (0 injected, agent alive) retry 2/4
+2026-08-17T04:50:11Z pass 3 attempt 5 pseed=1032
+2026-08-17T04:50:34Z pass 3 done injected=17 dropped=3 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=1

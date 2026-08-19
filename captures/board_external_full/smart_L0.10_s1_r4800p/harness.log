@@ -1,0 +1,22 @@
+2026-08-18T08:32:26Z cell start smart_L0.10_s1_r4800p dest=/home/root/sd_xf_smart_L0.10_s1_r4800p.bin
+2026-08-18T08:32:44Z pass 1 attempt 1 pseed=1010
+2026-08-18T08:40:33Z pass 1 done injected=1058 dropped=111 deployed=0
+2026-08-18T08:40:33Z pass 2 attempt 2 pseed=1020
+2026-08-18T08:48:08Z pass 2 done injected=1008 dropped=95 deployed=0
+2026-08-18T08:48:08Z pass 3 attempt 3 pseed=1030
+2026-08-18T08:53:50Z pass 3 done injected=747 dropped=93 deployed=0
+2026-08-18T08:53:50Z pass 4 attempt 4 pseed=1040
+2026-08-18T08:58:49Z pass 4 done injected=647 dropped=69 deployed=0
+2026-08-18T08:58:49Z pass 5 attempt 5 pseed=1050
+2026-08-18T09:02:29Z pass 5 done injected=465 dropped=67 deployed=0
+2026-08-18T09:02:29Z pass 6 attempt 6 pseed=1060
+2026-08-18T09:05:26Z pass 6 done injected=365 dropped=56 deployed=0
+2026-08-18T09:05:26Z pass 7 attempt 7 pseed=1070
+2026-08-18T09:08:16Z pass 7 done injected=348 dropped=46 deployed=0
+2026-08-18T09:08:16Z pass 8 attempt 8 pseed=1080
+2026-08-18T09:10:58Z pass 8 done injected=331 dropped=34 deployed=0
+2026-08-18T09:10:58Z pass 9 attempt 9 pseed=1090
+2026-08-18T09:15:03Z pass 9 done injected=486 dropped=41 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=3
+2026-08-18T09:15:13Z preventive agent refresh after 16 measured cells
+2026-08-18T09:16:03Z agent refresh done

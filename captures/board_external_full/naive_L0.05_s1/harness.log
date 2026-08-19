@@ -1,0 +1,26 @@
+2026-08-17T08:50:01Z cell start naive_L0.05_s1 dest=/home/root/sd_xf_naive_L0.05_s1.bin
+2026-08-17T08:50:39Z pass 1 attempt 1 pseed=1010
+2026-08-17T08:54:42Z pass 1 done injected=1058 dropped=22 deployed=0
+2026-08-17T08:54:42Z pass 2 attempt 2 pseed=1020
+2026-08-17T08:58:45Z pass 2 done injected=1058 dropped=23 deployed=0
+2026-08-17T08:58:45Z pass 3 attempt 3 pseed=1030
+2026-08-17T09:02:48Z pass 3 done injected=1058 dropped=62 deployed=0
+2026-08-17T09:02:48Z pass 4 attempt 4 pseed=1040
+2026-08-17T09:06:51Z pass 4 done injected=1058 dropped=63 deployed=0
+2026-08-17T09:06:51Z pass 5 attempt 5 pseed=1050
+2026-08-17T09:10:39Z pass 5 done injected=986 dropped=69 deployed=0
+2026-08-17T09:10:39Z pass 6 attempt 6 pseed=1060
+2026-08-17T09:14:24Z pass 6 done injected=986 dropped=56 deployed=0
+2026-08-17T09:14:24Z pass 7 attempt 7 pseed=1070
+2026-08-17T09:18:27Z pass 7 done injected=1058 dropped=67 deployed=0
+2026-08-17T09:18:27Z pass 8 attempt 8 pseed=1080
+2026-08-17T09:22:30Z pass 8 done injected=1058 dropped=54 deployed=0
+2026-08-17T09:22:30Z pass 9 attempt 9 pseed=1090
+2026-08-17T09:26:33Z pass 9 done injected=1058 dropped=55 deployed=0
+2026-08-17T09:26:33Z pass 10 attempt 10 pseed=1100
+2026-08-17T09:30:37Z pass 10 done injected=1058 dropped=76 deployed=0
+2026-08-17T09:30:37Z pass 11 attempt 11 pseed=1110
+2026-08-17T09:34:40Z pass 11 done injected=1058 dropped=61 deployed=0
+2026-08-17T09:34:40Z pass 12 attempt 12 pseed=1120
+2026-08-17T09:38:43Z pass 12 done injected=1058 dropped=42 deployed=0
+EXTVERDICT=FAIL_ABSENT reason=- sha=- bytes=- probes=3

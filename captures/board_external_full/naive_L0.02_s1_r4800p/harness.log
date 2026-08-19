@@ -1,0 +1,4 @@
+2026-08-19T10:54:30Z cell start naive_L0.02_s1_r4800p dest=/home/root/sd_xf_naive_L0.02_s1_r4800p.bin
+2026-08-19T10:54:48Z pass 1 attempt 1 pseed=1010
+2026-08-19T11:02:41Z pass 1 done injected=1058 dropped=8 deployed=0
+2026-08-19T11:02:41Z pass 2 attempt 2 pseed=1020

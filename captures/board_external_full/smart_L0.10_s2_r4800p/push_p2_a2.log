@@ -1,0 +1,23 @@
+[33m
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+[32m  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Aug  6 2026 git: a7a27df
+
+[0m[34m  Init file: /tmp/tmp.feT3H7nooD.csh[0m
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+  ZMQ init ZMQ0: addr: 5425, pub(tx): [tcp://127.0.0.1:6000], sub(rx): [tcp://127.0.0.1:7000]
+[32mLoaded: /tmp/tmp.ODmizDLnpf/apm/libcsh_satdeploy_apm_patched.so[0m
+checking node 5427...
+/home/mseo/thesis/csp-linksim/captures/payload_256k.bin -> node 5427:/home/root/sd_xf_smart_L0.10_s2_r4800p.bin  (262144 bytes, 2c1fa79a)
+  waiting for the satellite to verify...
+svu-server: served a request from node 5427 (1 intervals, 0 bytes blasted)
+svu-server: served a request from node 5427 (5 intervals, 196608 bytes blasted)
+
+Session terminated, killing shell...

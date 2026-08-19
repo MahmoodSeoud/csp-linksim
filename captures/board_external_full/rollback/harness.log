@@ -1,0 +1,10 @@
+2026-08-18T05:39:57Z rollback cell start dest=/home/root/sd_rb_20260818.bin
+2026-08-18T05:39:57Z step 1: push A
+2026-08-18T05:40:12Z   tool=DEPLOYED
+2026-08-18T05:40:12Z   external=PASS
+2026-08-18T05:40:12Z step 2: push B
+2026-08-18T05:40:27Z   tool=DEPLOYED
+2026-08-18T05:40:27Z   external=PASS
+2026-08-18T05:40:27Z step 3: rollback
+2026-08-18T05:40:30Z   tool: > Rolled back sd_rb_20260818 to 2c1fa79a
+2026-08-18T05:40:31Z   external(vs A)=PASS

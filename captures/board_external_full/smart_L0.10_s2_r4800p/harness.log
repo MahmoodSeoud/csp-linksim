@@ -1,0 +1,6 @@
+2026-08-18T09:16:06Z cell start smart_L0.10_s2_r4800p dest=/home/root/sd_xf_smart_L0.10_s2_r4800p.bin
+2026-08-18T09:16:31Z warn: uptime unreadable at cell start (BOARD_RESET check disarmed)
+2026-08-18T09:16:31Z pass 1 attempt 1 pseed=2010
+2026-08-18T09:24:21Z pass 1 done injected=1058 dropped=65 deployed=0
+2026-08-18T09:24:21Z pass 2 attempt 2 pseed=2020
+2026-08-18T09:44:00Z HAND-RECORDED: sweep process killed by session teardown mid-pass-2; cell closed INVALID(HARNESS) per frozen rule, never re-rolled

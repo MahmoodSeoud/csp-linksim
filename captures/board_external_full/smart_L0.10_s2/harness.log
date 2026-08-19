@@ -1,0 +1,4 @@
+2026-08-17T04:16:31Z cell start smart_L0.10_s2 dest=/home/root/sd_xf_smart_L0.10_s2.bin
+2026-08-17T04:16:54Z pass 1 attempt 1 pseed=2010
+2026-08-17T04:18:19Z agent down during cell -- exclusion rule AGENT_DOWN
+EXTVERDICT=INVALID reason=AGENT_DOWN sha=- bytes=- probes=2

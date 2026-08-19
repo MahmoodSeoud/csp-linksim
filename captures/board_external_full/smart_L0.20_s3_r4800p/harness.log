@@ -1,0 +1,14 @@
+2026-08-18T13:15:07Z cell start smart_L0.20_s3_r4800p dest=/home/root/sd_xf_smart_L0.20_s3_r4800p.bin
+2026-08-18T13:15:45Z pass 1 attempt 1 pseed=3010
+2026-08-18T13:23:34Z pass 1 done injected=1058 dropped=178 deployed=0
+2026-08-18T13:23:34Z pass 2 attempt 2 pseed=3020
+2026-08-18T13:30:05Z pass 2 done injected=863 dropped=186 deployed=0
+2026-08-18T13:30:05Z pass 3 attempt 3 pseed=3030
+2026-08-18T13:35:40Z pass 3 done injected=730 dropped=114 deployed=0
+2026-08-18T13:35:40Z pass 4 attempt 4 pseed=3040
+2026-08-18T13:40:38Z pass 4 done injected=646 dropped=108 deployed=0
+2026-08-18T13:40:38Z pass 5 attempt 5 pseed=3050
+2026-08-18T13:44:39Z pass 5 done injected=513 dropped=95 deployed=0
+2026-08-18T13:44:39Z pass 6 attempt 6 pseed=3060
+2026-08-18T13:50:17Z pass 6 done injected=686 dropped=112 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=1

@@ -1,0 +1,5 @@
+# probe started 2026-08-18T05:40:27Z  board-cmd rc=0
+CANARY_SD_OK
+PATH_/home/root/sd_rb_20260818.bin
+ZE262144
+e7163f41d5ca0af82555a3dafd8e132e901a7f1626d7bf47fa084a6ec0422363

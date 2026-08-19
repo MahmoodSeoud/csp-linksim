@@ -1,0 +1,18 @@
+[33m
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+[32m  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Aug  6 2026 git: a7a27df
+
+[0m[34m  Init file: /tmp/tmp.TnwNlxphxD.csh[0m
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+INIT CAN0: device: [can0], bitrate: 0, promisc: 0
+[32mLoaded: /tmp/tmp.zd41POn3d2/apm/libcsh_satdeploy_apm.so[0m
+Rolling back sd_rb_20260818 on node 5427...
+[32m> Rolled back sd_rb_20260818 to 2c1fa79a[0m

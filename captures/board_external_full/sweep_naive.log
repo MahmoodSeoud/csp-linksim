@@ -1,0 +1,6 @@
+2026-08-17T06:08:17Z sweep start arm=naive losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3} rate=9600 pace_us=213333 ser_s=225 push_to=735 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=released-360000 apm_sha=72d4c4f02323
+2026-08-17T14:14:44Z sweep start arm=naive losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3} rate=9600 pace_us=213333 ser_s=225 push_to=735 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=released-360000 apm_sha=72d4c4f02323
+2026-08-17T19:57:11Z sweep done arm=naive -> /home/mseo/thesis/csp-linksim/captures/board_external_full/transfer.csv / /home/mseo/thesis/csp-linksim/captures/board_external_full/verdicts.csv
+2026-08-17T19:58:28Z sweep start arm=naive losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3} rate=4800 pace_us=426666 ser_s=451 push_to=1413 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=1200000 apm_sha=72d4c4f02323
+2026-08-19T10:31:53Z sweep start arm=naive losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3} rate=4800 pace_us=426666 ser_s=451 push_to=1413 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=1200000 apm_sha=e5a23dcc79bd
+2026-08-19T10:37:54Z sweep start arm=naive losses={0 0.02 0.05 0.10 0.20 0.30} seeds={1 2 3} rate=4800 pace_us=426666 ser_s=451 push_to=1413 mtu_push=256 tag=xf_ max_passes=12 push_timeout_ms=1200000 apm_sha=e5a23dcc79bd

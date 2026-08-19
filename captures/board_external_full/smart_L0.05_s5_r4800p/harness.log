@@ -1,0 +1,4 @@
+2026-08-18T08:23:12Z cell start smart_L0.05_s5_r4800p dest=/home/root/sd_xf_smart_L0.05_s5_r4800p.bin
+2026-08-18T08:23:31Z pass 1 attempt 1 pseed=5010
+2026-08-18T08:32:13Z pass 1 done injected=1104 dropped=44 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=3

@@ -1,0 +1,17 @@
+{
+  "label": "smart_L0_s97",
+  "arm": "smart",
+  "loss": "0",
+  "seed": "97",
+  "dest": "/home/root/sd_xf_smart_L0_s97.bin",
+  "verdict": "INVALID",
+  "reason": "SETUP_STUCK",
+  "ext_sha": null,
+  "board_bytes": null,
+  "groundtruth_sha": "2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5",
+  "probes_used": 2,
+  "ts_utc": "2026-08-17T02:52:40Z",
+  "aux_sha": null,
+  "aux_bytes": null,
+  "aux_verdict": "FAIL_ABSENT"
+}

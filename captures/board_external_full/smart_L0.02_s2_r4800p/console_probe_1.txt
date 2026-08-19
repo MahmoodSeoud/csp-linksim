@@ -1,0 +1,5 @@
+# probe started 2026-08-18T06:42:11Z  board-cmd rc=1
+
+# stderr:
+/home/mseo/thesis/csp-linksim/scripts/board-cmd: line 16: /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0: No such file or directory
+FAIL: cannot open /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0

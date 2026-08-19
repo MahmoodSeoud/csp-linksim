@@ -1,0 +1,8 @@
+2026-08-17T05:30:29Z cell start smart_L0.30_s2 dest=/home/root/sd_xf_smart_L0.30_s2.bin
+2026-08-17T05:30:47Z pass 1 attempt 1 pseed=2010
+2026-08-17T05:36:52Z pass 1 done injected=1521 dropped=415 deployed=0
+2026-08-17T05:36:52Z pass 2 attempt 2 pseed=2020
+2026-08-17T05:37:28Z setup hard-error (0 injected, agent alive) retry 1/4
+2026-08-17T05:37:31Z pass 2 attempt 3 pseed=2021
+2026-08-17T05:41:27Z pass 2 done injected=836 dropped=257 deployed=1
+EXTVERDICT=PASS reason=- sha=2c1fa79ab2799d2fd1f2a0ff35c6f369d8cd7625b8d636c9528044641a628ba5 bytes=262144 probes=1
