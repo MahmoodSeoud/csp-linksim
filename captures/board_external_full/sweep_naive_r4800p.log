@@ -12,3 +12,395 @@
 2026-08-19T10:54:48Z pass 1 attempt 1 pseed=1010
 2026-08-19T11:02:41Z pass 1 done injected=1058 dropped=8 deployed=0
 2026-08-19T11:02:41Z pass 2 attempt 2 pseed=1020
+2026-08-19T11:10:35Z pass 2 done injected=1058 dropped=9 deployed=0
+2026-08-19T11:10:35Z pass 3 attempt 3 pseed=1030
+2026-08-19T11:18:25Z pass 3 done injected=1058 dropped=22 deployed=0
+2026-08-19T11:18:25Z pass 4 attempt 4 pseed=1040
+2026-08-19T11:26:16Z pass 4 done injected=1058 dropped=20 deployed=0
+2026-08-19T11:26:16Z pass 5 attempt 5 pseed=1050
+2026-08-19T11:34:06Z pass 5 done injected=1058 dropped=33 deployed=0
+2026-08-19T11:34:06Z pass 6 attempt 6 pseed=1060
+2026-08-19T11:41:23Z pass 6 done injected=986 dropped=28 deployed=0
+2026-08-19T11:41:23Z pass 7 attempt 7 pseed=1070
+2026-08-19T11:49:17Z pass 7 done injected=1058 dropped=16 deployed=0
+2026-08-19T11:49:17Z pass 8 attempt 8 pseed=1080
+2026-08-19T11:57:07Z pass 8 done injected=1058 dropped=37 deployed=0
+2026-08-19T11:57:07Z pass 9 attempt 9 pseed=1090
+2026-08-19T12:04:56Z pass 9 done injected=1058 dropped=25 deployed=0
+2026-08-19T12:04:56Z pass 10 attempt 10 pseed=1100
+2026-08-19T12:12:48Z pass 10 done injected=1058 dropped=33 deployed=0
+2026-08-19T12:12:48Z pass 11 attempt 11 pseed=1110
+2026-08-19T12:20:10Z pass 11 done injected=986 dropped=26 deployed=0
+2026-08-19T12:20:10Z pass 12 attempt 12 pseed=1120
+2026-08-19T12:28:03Z pass 12 done injected=1058 dropped=17 deployed=0
+== CELL naive_L0.02_s1_r4800p loss=0.02 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T12:28:15Z cell start naive_L0.02_s2_r4800p dest=/home/root/sd_xf_naive_L0.02_s2_r4800p.bin
+2026-08-19T12:28:32Z pass 1 attempt 1 pseed=2010
+2026-08-19T12:36:26Z pass 1 done injected=1058 dropped=6 deployed=0
+2026-08-19T12:36:26Z pass 2 attempt 2 pseed=2020
+2026-08-19T12:44:20Z pass 2 done injected=1058 dropped=10 deployed=0
+2026-08-19T12:44:20Z pass 3 attempt 3 pseed=2030
+2026-08-19T12:51:41Z pass 3 done injected=986 dropped=22 deployed=0
+2026-08-19T12:51:41Z pass 4 attempt 4 pseed=2040
+2026-08-19T12:59:03Z pass 4 done injected=986 dropped=5 deployed=0
+2026-08-19T12:59:03Z pass 5 attempt 5 pseed=2050
+2026-08-19T13:06:55Z pass 5 done injected=1058 dropped=13 deployed=0
+2026-08-19T13:06:55Z pass 6 attempt 6 pseed=2060
+2026-08-19T13:14:49Z pass 6 done injected=1058 dropped=17 deployed=0
+2026-08-19T13:14:49Z pass 7 attempt 7 pseed=2070
+2026-08-19T13:22:38Z pass 7 done injected=1058 dropped=36 deployed=0
+2026-08-19T13:22:38Z pass 8 attempt 8 pseed=2080
+2026-08-19T13:30:00Z pass 8 done injected=986 dropped=27 deployed=0
+2026-08-19T13:30:00Z pass 9 attempt 9 pseed=2090
+2026-08-19T13:37:54Z pass 9 done injected=1058 dropped=11 deployed=0
+2026-08-19T13:37:54Z pass 10 attempt 10 pseed=2100
+2026-08-19T13:45:47Z pass 10 done injected=1058 dropped=8 deployed=0
+2026-08-19T13:45:47Z pass 11 attempt 11 pseed=2110
+2026-08-19T13:53:41Z pass 11 done injected=1058 dropped=6 deployed=0
+2026-08-19T13:53:41Z pass 12 attempt 12 pseed=2120
+2026-08-19T14:01:30Z pass 12 done injected=1058 dropped=26 deployed=0
+== CELL naive_L0.02_s2_r4800p loss=0.02 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T14:02:04Z cell start naive_L0.02_s3_r4800p dest=/home/root/sd_xf_naive_L0.02_s3_r4800p.bin
+2026-08-19T14:02:26Z pass 1 attempt 1 pseed=3010
+2026-08-19T14:10:20Z pass 1 done injected=1058 dropped=13 deployed=0
+2026-08-19T14:10:20Z pass 2 attempt 2 pseed=3020
+2026-08-19T14:17:41Z pass 2 done injected=986 dropped=3 deployed=0
+2026-08-19T14:17:41Z pass 3 attempt 3 pseed=3030
+2026-08-19T14:25:35Z pass 3 done injected=1058 dropped=15 deployed=0
+2026-08-19T14:25:35Z pass 4 attempt 4 pseed=3040
+2026-08-19T14:33:25Z pass 4 done injected=1058 dropped=29 deployed=0
+2026-08-19T14:33:25Z pass 5 attempt 5 pseed=3050
+2026-08-19T14:41:18Z pass 5 done injected=1058 dropped=9 deployed=0
+2026-08-19T14:41:18Z pass 6 attempt 6 pseed=3060
+2026-08-19T14:49:10Z pass 6 done injected=1058 dropped=20 deployed=0
+2026-08-19T14:49:10Z pass 7 attempt 7 pseed=3070
+2026-08-19T14:57:03Z pass 7 done injected=1058 dropped=7 deployed=0
+2026-08-19T14:57:03Z pass 8 attempt 8 pseed=3080
+2026-08-19T15:04:25Z pass 8 done injected=986 dropped=3 deployed=0
+2026-08-19T15:04:25Z pass 9 attempt 9 pseed=3090
+2026-08-19T15:12:17Z pass 9 done injected=1058 dropped=16 deployed=0
+2026-08-19T15:12:17Z pass 10 attempt 10 pseed=3100
+2026-08-19T15:20:10Z pass 10 done injected=1058 dropped=6 deployed=0
+2026-08-19T15:20:10Z pass 11 attempt 11 pseed=3110
+2026-08-19T15:27:32Z pass 11 done injected=986 dropped=20 deployed=0
+2026-08-19T15:27:32Z pass 12 attempt 12 pseed=3120
+2026-08-19T15:35:22Z pass 12 done injected=1058 dropped=32 deployed=0
+== CELL naive_L0.02_s3_r4800p loss=0.02 seed=3 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T15:35:35Z cell start naive_L0.05_s1_r4800p dest=/home/root/sd_xf_naive_L0.05_s1_r4800p.bin
+2026-08-19T15:35:52Z pass 1 attempt 1 pseed=1010
+2026-08-19T15:43:44Z pass 1 done injected=1058 dropped=22 deployed=0
+2026-08-19T15:43:44Z pass 2 attempt 2 pseed=1020
+2026-08-19T15:51:35Z pass 2 done injected=1058 dropped=23 deployed=0
+2026-08-19T15:51:35Z pass 3 attempt 3 pseed=1030
+2026-08-19T15:59:19Z pass 3 done injected=1048 dropped=62 deployed=0
+2026-08-19T15:59:19Z pass 4 attempt 4 pseed=1040
+2026-08-19T16:07:09Z pass 4 done injected=1058 dropped=63 deployed=0
+2026-08-19T16:07:09Z pass 5 attempt 5 pseed=1050
+2026-08-19T16:14:58Z pass 5 done injected=1058 dropped=69 deployed=0
+2026-08-19T16:14:58Z pass 6 attempt 6 pseed=1060
+2026-08-19T16:22:48Z pass 6 done injected=1058 dropped=61 deployed=0
+2026-08-19T16:22:48Z pass 7 attempt 7 pseed=1070
+2026-08-19T16:30:40Z pass 7 done injected=1058 dropped=67 deployed=0
+2026-08-19T16:30:40Z pass 8 attempt 8 pseed=1080
+2026-08-19T16:38:29Z pass 8 done injected=1058 dropped=54 deployed=0
+2026-08-19T16:38:29Z pass 9 attempt 9 pseed=1090
+2026-08-19T16:46:19Z pass 9 done injected=1058 dropped=55 deployed=0
+2026-08-19T16:46:19Z pass 10 attempt 10 pseed=1100
+2026-08-19T16:54:09Z pass 10 done injected=1058 dropped=76 deployed=0
+2026-08-19T16:54:09Z pass 11 attempt 11 pseed=1110
+2026-08-19T17:01:58Z pass 11 done injected=1058 dropped=61 deployed=0
+2026-08-19T17:01:58Z pass 12 attempt 12 pseed=1120
+2026-08-19T17:09:48Z pass 12 done injected=1058 dropped=42 deployed=0
+== CELL naive_L0.05_s1_r4800p loss=0.05 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T17:10:01Z cell start naive_L0.05_s2_r4800p dest=/home/root/sd_xf_naive_L0.05_s2_r4800p.bin
+2026-08-19T17:10:19Z pass 1 attempt 1 pseed=2010
+2026-08-19T17:18:09Z pass 1 done injected=1058 dropped=45 deployed=0
+2026-08-19T17:18:09Z pass 2 attempt 2 pseed=2020
+2026-08-19T17:25:58Z pass 2 done injected=1058 dropped=54 deployed=0
+2026-08-19T17:25:58Z pass 3 attempt 3 pseed=2030
+2026-08-19T17:33:48Z pass 3 done injected=1058 dropped=67 deployed=0
+2026-08-19T17:33:48Z pass 4 attempt 4 pseed=2040
+2026-08-19T17:41:39Z pass 4 done injected=1058 dropped=23 deployed=0
+2026-08-19T17:41:39Z pass 5 attempt 5 pseed=2050
+2026-08-19T17:49:29Z pass 5 done injected=1058 dropped=39 deployed=0
+2026-08-19T17:49:29Z pass 6 attempt 6 pseed=2060
+2026-08-19T17:57:11Z pass 6 done injected=1032 dropped=35 deployed=0
+2026-08-19T17:57:11Z pass 7 attempt 7 pseed=2070
+2026-08-19T18:05:00Z pass 7 done injected=1058 dropped=72 deployed=0
+2026-08-19T18:05:00Z pass 8 attempt 8 pseed=2080
+2026-08-19T18:12:52Z pass 8 done injected=1058 dropped=40 deployed=0
+2026-08-19T18:12:52Z pass 9 attempt 9 pseed=2090
+2026-08-19T18:20:42Z pass 9 done injected=1058 dropped=54 deployed=0
+2026-08-19T18:20:42Z pass 10 attempt 10 pseed=2100
+2026-08-19T18:28:31Z pass 10 done injected=1058 dropped=54 deployed=0
+2026-08-19T18:28:31Z pass 11 attempt 11 pseed=2110
+2026-08-19T18:36:21Z pass 11 done injected=1058 dropped=32 deployed=0
+2026-08-19T18:36:21Z pass 12 attempt 12 pseed=2120
+2026-08-19T18:44:11Z pass 12 done injected=1058 dropped=60 deployed=0
+== CELL naive_L0.05_s2_r4800p loss=0.05 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T18:44:41Z cell start naive_L0.05_s3_r4800p dest=/home/root/sd_xf_naive_L0.05_s3_r4800p.bin
+2026-08-19T18:45:01Z pass 1 attempt 1 pseed=3010
+2026-08-19T18:52:23Z pass 1 done injected=986 dropped=41 deployed=0
+2026-08-19T18:52:23Z pass 2 attempt 2 pseed=3020
+2026-08-19T19:00:14Z pass 2 done injected=1058 dropped=52 deployed=0
+2026-08-19T19:00:14Z pass 3 attempt 3 pseed=3030
+2026-08-19T19:08:06Z pass 3 done injected=1058 dropped=34 deployed=0
+2026-08-19T19:08:06Z pass 4 attempt 4 pseed=3040
+2026-08-19T19:15:56Z pass 4 done injected=1058 dropped=40 deployed=0
+2026-08-19T19:15:56Z pass 5 attempt 5 pseed=3050
+2026-08-19T19:23:47Z pass 5 done injected=1058 dropped=44 deployed=0
+2026-08-19T19:23:47Z pass 6 attempt 6 pseed=3060
+2026-08-19T19:31:05Z pass 6 done injected=986 dropped=34 deployed=0
+2026-08-19T19:31:05Z pass 7 attempt 7 pseed=3070
+2026-08-19T19:38:54Z pass 7 done injected=1058 dropped=39 deployed=0
+2026-08-19T19:38:54Z pass 8 attempt 8 pseed=3080
+2026-08-19T19:46:44Z pass 8 done injected=1058 dropped=49 deployed=0
+2026-08-19T19:46:44Z pass 9 attempt 9 pseed=3090
+2026-08-19T19:54:36Z pass 9 done injected=1058 dropped=45 deployed=0
+2026-08-19T19:54:36Z pass 10 attempt 10 pseed=3100
+2026-08-19T20:02:29Z pass 10 done injected=1058 dropped=17 deployed=0
+2026-08-19T20:02:29Z pass 11 attempt 11 pseed=3110
+2026-08-19T20:10:19Z pass 11 done injected=1058 dropped=64 deployed=0
+2026-08-19T20:10:19Z pass 12 attempt 12 pseed=3120
+2026-08-19T20:18:09Z pass 12 done injected=1058 dropped=56 deployed=0
+== CELL naive_L0.05_s3_r4800p loss=0.05 seed=3 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T20:18:19Z preventive agent refresh after 8 measured cells
+2026-08-19T20:18:46Z agent refresh done
+2026-08-19T20:18:49Z cell start naive_L0.10_s1_r4800p dest=/home/root/sd_xf_naive_L0.10_s1_r4800p.bin
+2026-08-19T20:19:09Z pass 1 attempt 1 pseed=1010
+2026-08-19T20:26:56Z pass 1 done injected=1058 dropped=111 deployed=0
+2026-08-19T20:26:56Z pass 2 attempt 2 pseed=1020
+2026-08-19T20:34:44Z pass 2 done injected=1058 dropped=98 deployed=0
+2026-08-19T20:34:44Z pass 3 attempt 3 pseed=1030
+2026-08-19T20:42:31Z pass 3 done injected=1058 dropped=133 deployed=0
+2026-08-19T20:42:31Z pass 4 attempt 4 pseed=1040
+2026-08-19T20:50:19Z pass 4 done injected=1058 dropped=114 deployed=0
+2026-08-19T20:50:19Z pass 5 attempt 5 pseed=1050
+2026-08-19T20:58:07Z pass 5 done injected=1058 dropped=103 deployed=0
+2026-08-19T20:58:07Z pass 6 attempt 6 pseed=1060
+2026-08-19T21:05:54Z pass 6 done injected=1058 dropped=149 deployed=0
+2026-08-19T21:05:54Z pass 7 attempt 7 pseed=1070
+2026-08-19T21:13:42Z pass 7 done injected=1058 dropped=131 deployed=0
+2026-08-19T21:13:42Z pass 8 attempt 8 pseed=1080
+2026-08-19T21:21:30Z pass 8 done injected=1058 dropped=105 deployed=0
+2026-08-19T21:21:30Z pass 9 attempt 9 pseed=1090
+2026-08-19T21:29:17Z pass 9 done injected=1058 dropped=99 deployed=0
+2026-08-19T21:29:17Z pass 10 attempt 10 pseed=1100
+2026-08-19T21:37:05Z pass 10 done injected=1058 dropped=117 deployed=0
+2026-08-19T21:37:05Z pass 11 attempt 11 pseed=1110
+2026-08-19T21:44:23Z pass 11 done injected=986 dropped=111 deployed=0
+2026-08-19T21:44:23Z pass 12 attempt 12 pseed=1120
+2026-08-19T21:52:10Z pass 12 done injected=1058 dropped=130 deployed=0
+== CELL naive_L0.10_s1_r4800p loss=0.10 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T21:52:19Z cell start naive_L0.10_s2_r4800p dest=/home/root/sd_xf_naive_L0.10_s2_r4800p.bin
+2026-08-19T21:52:37Z pass 1 attempt 1 pseed=2010
+2026-08-19T21:59:54Z pass 1 done injected=986 dropped=63 deployed=0
+2026-08-19T21:59:54Z pass 2 attempt 2 pseed=2020
+2026-08-19T22:07:42Z pass 2 done injected=1058 dropped=119 deployed=0
+2026-08-19T22:07:42Z pass 3 attempt 3 pseed=2030
+2026-08-19T22:15:30Z pass 3 done injected=1058 dropped=107 deployed=0
+2026-08-19T22:15:30Z pass 4 attempt 4 pseed=2040
+2026-08-19T22:23:21Z pass 4 done injected=1058 dropped=75 deployed=0
+2026-08-19T22:23:21Z pass 5 attempt 5 pseed=2050
+2026-08-19T22:30:57Z pass 5 done injected=1028 dropped=136 deployed=0
+2026-08-19T22:30:57Z pass 6 attempt 6 pseed=2060
+2026-08-19T22:38:45Z pass 6 done injected=1058 dropped=103 deployed=0
+2026-08-19T22:38:45Z pass 7 attempt 7 pseed=2070
+2026-08-19T22:46:32Z pass 7 done injected=1058 dropped=111 deployed=0
+2026-08-19T22:46:32Z pass 8 attempt 8 pseed=2080
+2026-08-19T22:54:24Z pass 8 done injected=1058 dropped=75 deployed=0
+2026-08-19T22:54:24Z pass 9 attempt 9 pseed=2090
+2026-08-19T23:02:14Z pass 9 done injected=1058 dropped=86 deployed=0
+2026-08-19T23:02:14Z pass 10 attempt 10 pseed=2100
+2026-08-19T23:10:01Z pass 10 done injected=1058 dropped=120 deployed=0
+2026-08-19T23:10:01Z pass 11 attempt 11 pseed=2110
+2026-08-19T23:17:49Z pass 11 done injected=1058 dropped=101 deployed=0
+2026-08-19T23:17:49Z pass 12 attempt 12 pseed=2120
+2026-08-19T23:25:36Z pass 12 done injected=1058 dropped=130 deployed=0
+== CELL naive_L0.10_s2_r4800p loss=0.10 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-19T23:25:48Z cell start naive_L0.10_s3_r4800p dest=/home/root/sd_xf_naive_L0.10_s3_r4800p.bin
+2026-08-19T23:26:05Z pass 1 attempt 1 pseed=3010
+2026-08-19T23:33:55Z pass 1 done injected=1058 dropped=73 deployed=0
+2026-08-19T23:33:55Z pass 2 attempt 2 pseed=3020
+2026-08-19T23:41:47Z pass 2 done injected=1058 dropped=113 deployed=0
+2026-08-19T23:41:47Z pass 3 attempt 3 pseed=3030
+2026-08-19T23:49:34Z pass 3 done injected=1058 dropped=98 deployed=0
+2026-08-19T23:49:34Z pass 4 attempt 4 pseed=3040
+2026-08-19T23:57:24Z pass 4 done injected=1058 dropped=78 deployed=0
+2026-08-19T23:57:24Z pass 5 attempt 5 pseed=3050
+2026-08-20T00:05:12Z pass 5 done injected=1058 dropped=118 deployed=0
+2026-08-20T00:05:12Z pass 6 attempt 6 pseed=3060
+2026-08-20T00:13:01Z pass 6 done injected=1058 dropped=77 deployed=0
+2026-08-20T00:13:01Z pass 7 attempt 7 pseed=3070
+2026-08-20T00:20:51Z pass 7 done injected=1058 dropped=62 deployed=0
+2026-08-20T00:20:51Z pass 8 attempt 8 pseed=3080
+2026-08-20T00:28:39Z pass 8 done injected=1058 dropped=109 deployed=0
+2026-08-20T00:28:39Z pass 9 attempt 9 pseed=3090
+2026-08-20T00:35:56Z pass 9 done injected=986 dropped=129 deployed=0
+2026-08-20T00:35:56Z pass 10 attempt 10 pseed=3100
+2026-08-20T00:43:46Z pass 10 done injected=1058 dropped=71 deployed=0
+2026-08-20T00:43:46Z pass 11 attempt 11 pseed=3110
+2026-08-20T00:51:33Z pass 11 done injected=1058 dropped=130 deployed=0
+2026-08-20T00:51:33Z pass 12 attempt 12 pseed=3120
+2026-08-20T00:59:21Z pass 12 done injected=1058 dropped=155 deployed=0
+== CELL naive_L0.10_s3_r4800p loss=0.10 seed=3 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T00:59:30Z cell start naive_L0.20_s1_r4800p dest=/home/root/sd_xf_naive_L0.20_s1_r4800p.bin
+2026-08-20T00:59:50Z pass 1 attempt 1 pseed=1010
+2026-08-20T01:07:38Z pass 1 done injected=1058 dropped=180 deployed=0
+2026-08-20T01:07:38Z pass 2 attempt 2 pseed=1020
+2026-08-20T01:15:25Z pass 2 done injected=1058 dropped=216 deployed=0
+2026-08-20T01:15:25Z pass 3 attempt 3 pseed=1030
+2026-08-20T01:23:13Z pass 3 done injected=1058 dropped=201 deployed=0
+2026-08-20T01:23:13Z pass 4 attempt 4 pseed=1040
+2026-08-20T01:31:01Z pass 4 done injected=1058 dropped=234 deployed=0
+2026-08-20T01:31:01Z pass 5 attempt 5 pseed=1050
+2026-08-20T01:38:46Z pass 5 done injected=1052 dropped=198 deployed=0
+2026-08-20T01:38:46Z pass 6 attempt 6 pseed=1060
+2026-08-20T01:46:34Z pass 6 done injected=1058 dropped=230 deployed=0
+2026-08-20T01:46:34Z pass 7 attempt 7 pseed=1070
+2026-08-20T01:54:22Z pass 7 done injected=1058 dropped=253 deployed=0
+2026-08-20T01:54:22Z pass 8 attempt 8 pseed=1080
+2026-08-20T02:02:09Z pass 8 done injected=1058 dropped=200 deployed=0
+2026-08-20T02:02:09Z pass 9 attempt 9 pseed=1090
+2026-08-20T02:09:57Z pass 9 done injected=1058 dropped=212 deployed=0
+2026-08-20T02:09:57Z pass 10 attempt 10 pseed=1100
+2026-08-20T02:17:14Z pass 10 done injected=986 dropped=210 deployed=0
+2026-08-20T02:17:14Z pass 11 attempt 11 pseed=1110
+2026-08-20T02:25:02Z pass 11 done injected=1058 dropped=182 deployed=0
+2026-08-20T02:25:02Z pass 12 attempt 12 pseed=1120
+2026-08-20T02:32:50Z pass 12 done injected=1058 dropped=281 deployed=0
+== CELL naive_L0.20_s1_r4800p loss=0.20 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T02:33:03Z cell start naive_L0.20_s2_r4800p dest=/home/root/sd_xf_naive_L0.20_s2_r4800p.bin
+2026-08-20T02:33:21Z pass 1 attempt 1 pseed=2010
+2026-08-20T02:41:08Z pass 1 done injected=1058 dropped=217 deployed=0
+2026-08-20T02:41:08Z pass 2 attempt 2 pseed=2020
+2026-08-20T02:48:56Z pass 2 done injected=1058 dropped=273 deployed=0
+2026-08-20T02:48:56Z pass 3 attempt 3 pseed=2030
+2026-08-20T02:56:44Z pass 3 done injected=1058 dropped=211 deployed=0
+2026-08-20T02:56:44Z pass 4 attempt 4 pseed=2040
+2026-08-20T03:04:31Z pass 4 done injected=1058 dropped=200 deployed=0
+2026-08-20T03:04:31Z pass 5 attempt 5 pseed=2050
+2026-08-20T03:12:19Z pass 5 done injected=1058 dropped=218 deployed=0
+2026-08-20T03:12:19Z pass 6 attempt 6 pseed=2060
+2026-08-20T03:20:07Z pass 6 done injected=1058 dropped=185 deployed=0
+2026-08-20T03:20:07Z pass 7 attempt 7 pseed=2070
+2026-08-20T03:27:54Z pass 7 done injected=1058 dropped=230 deployed=0
+2026-08-20T03:27:54Z pass 8 attempt 8 pseed=2080
+2026-08-20T03:35:42Z pass 8 done injected=1058 dropped=220 deployed=0
+2026-08-20T03:35:42Z pass 9 attempt 9 pseed=2090
+2026-08-20T03:43:30Z pass 9 done injected=1058 dropped=200 deployed=0
+2026-08-20T03:43:30Z pass 10 attempt 10 pseed=2100
+2026-08-20T03:51:17Z pass 10 done injected=1058 dropped=204 deployed=0
+2026-08-20T03:51:17Z pass 11 attempt 11 pseed=2110
+2026-08-20T03:59:05Z pass 11 done injected=1058 dropped=235 deployed=0
+2026-08-20T03:59:05Z pass 12 attempt 12 pseed=2120
+2026-08-20T04:06:53Z pass 12 done injected=1058 dropped=216 deployed=0
+== CELL naive_L0.20_s2_r4800p loss=0.20 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T04:07:06Z cell start naive_L0.20_s3_r4800p dest=/home/root/sd_xf_naive_L0.20_s3_r4800p.bin
+2026-08-20T04:07:23Z pass 1 attempt 1 pseed=3010
+2026-08-20T04:15:11Z pass 1 done injected=1058 dropped=178 deployed=0
+2026-08-20T04:15:11Z pass 2 attempt 2 pseed=3020
+2026-08-20T04:22:59Z pass 2 done injected=1058 dropped=210 deployed=0
+2026-08-20T04:22:59Z pass 3 attempt 3 pseed=3030
+2026-08-20T04:30:16Z pass 3 done injected=986 dropped=180 deployed=0
+2026-08-20T04:30:16Z pass 4 attempt 4 pseed=3040
+2026-08-20T04:38:04Z pass 4 done injected=1058 dropped=192 deployed=0
+2026-08-20T04:38:04Z pass 5 attempt 5 pseed=3050
+2026-08-20T04:45:52Z pass 5 done injected=1058 dropped=191 deployed=0
+2026-08-20T04:45:52Z pass 6 attempt 6 pseed=3060
+2026-08-20T04:53:39Z pass 6 done injected=1058 dropped=172 deployed=0
+2026-08-20T04:53:39Z pass 7 attempt 7 pseed=3070
+2026-08-20T05:01:27Z pass 7 done injected=1058 dropped=151 deployed=0
+2026-08-20T05:01:27Z pass 8 attempt 8 pseed=3080
+2026-08-20T05:09:15Z pass 8 done injected=1058 dropped=197 deployed=0
+2026-08-20T05:09:15Z pass 9 attempt 9 pseed=3090
+2026-08-20T05:17:02Z pass 9 done injected=1058 dropped=248 deployed=0
+2026-08-20T05:17:02Z pass 10 attempt 10 pseed=3100
+2026-08-20T05:24:50Z pass 10 done injected=1058 dropped=168 deployed=0
+2026-08-20T05:24:50Z pass 11 attempt 11 pseed=3110
+2026-08-20T05:32:38Z pass 11 done injected=1058 dropped=232 deployed=0
+2026-08-20T05:32:38Z pass 12 attempt 12 pseed=3120
+2026-08-20T05:40:25Z pass 12 done injected=1058 dropped=210 deployed=0
+== CELL naive_L0.20_s3_r4800p loss=0.20 seed=3 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T05:40:46Z cell start naive_L0.30_s1_r4800p dest=/home/root/sd_xf_naive_L0.30_s1_r4800p.bin
+2026-08-20T05:41:03Z pass 1 attempt 1 pseed=1010
+2026-08-20T05:48:51Z pass 1 done injected=1058 dropped=301 deployed=0
+2026-08-20T05:48:51Z pass 2 attempt 2 pseed=1020
+2026-08-20T05:56:38Z pass 2 done injected=1058 dropped=308 deployed=0
+2026-08-20T05:56:38Z pass 3 attempt 3 pseed=1030
+2026-08-20T06:04:26Z pass 3 done injected=1058 dropped=267 deployed=0
+2026-08-20T06:04:26Z pass 4 attempt 4 pseed=1040
+2026-08-20T06:12:13Z pass 4 done injected=1058 dropped=307 deployed=0
+2026-08-20T06:12:13Z pass 5 attempt 5 pseed=1050
+2026-08-20T06:20:01Z pass 5 done injected=1058 dropped=255 deployed=0
+2026-08-20T06:20:01Z pass 6 attempt 6 pseed=1060
+2026-08-20T06:27:49Z pass 6 done injected=1058 dropped=332 deployed=0
+2026-08-20T06:27:49Z pass 7 attempt 7 pseed=1070
+2026-08-20T06:35:36Z pass 7 done injected=1058 dropped=335 deployed=0
+2026-08-20T06:35:36Z pass 8 attempt 8 pseed=1080
+2026-08-20T06:43:24Z pass 8 done injected=1058 dropped=291 deployed=0
+2026-08-20T06:43:24Z pass 9 attempt 9 pseed=1090
+2026-08-20T06:51:12Z pass 9 done injected=1058 dropped=345 deployed=0
+2026-08-20T06:51:12Z pass 10 attempt 10 pseed=1100
+2026-08-20T06:58:59Z pass 10 done injected=1058 dropped=354 deployed=0
+2026-08-20T06:58:59Z pass 11 attempt 11 pseed=1110
+2026-08-20T07:06:47Z pass 11 done injected=1058 dropped=335 deployed=0
+2026-08-20T07:06:47Z pass 12 attempt 12 pseed=1120
+2026-08-20T07:14:35Z pass 12 done injected=1058 dropped=345 deployed=0
+== CELL naive_L0.30_s1_r4800p loss=0.30 seed=1 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T07:15:04Z cell start naive_L0.30_s2_r4800p dest=/home/root/sd_xf_naive_L0.30_s2_r4800p.bin
+2026-08-20T07:15:28Z warn: uptime unreadable at cell start (BOARD_RESET check disarmed)
+2026-08-20T07:15:28Z pass 1 attempt 1 pseed=2010
+2026-08-20T07:23:16Z pass 1 done injected=1058 dropped=324 deployed=0
+2026-08-20T07:23:16Z pass 2 attempt 2 pseed=2020
+2026-08-20T07:31:04Z pass 2 done injected=1058 dropped=348 deployed=0
+2026-08-20T07:31:04Z pass 3 attempt 3 pseed=2030
+2026-08-20T07:38:51Z pass 3 done injected=1058 dropped=290 deployed=0
+2026-08-20T07:38:51Z pass 4 attempt 4 pseed=2040
+2026-08-20T07:46:39Z pass 4 done injected=1058 dropped=321 deployed=0
+2026-08-20T07:46:39Z pass 5 attempt 5 pseed=2050
+2026-08-20T07:54:27Z pass 5 done injected=1058 dropped=327 deployed=0
+2026-08-20T07:54:27Z pass 6 attempt 6 pseed=2060
+2026-08-20T08:02:14Z pass 6 done injected=1058 dropped=318 deployed=0
+2026-08-20T08:02:14Z pass 7 attempt 7 pseed=2070
+2026-08-20T08:10:02Z pass 7 done injected=1058 dropped=323 deployed=0
+2026-08-20T08:10:02Z pass 8 attempt 8 pseed=2080
+2026-08-20T08:17:49Z pass 8 done injected=1058 dropped=295 deployed=0
+2026-08-20T08:17:49Z pass 9 attempt 9 pseed=2090
+2026-08-20T08:25:37Z pass 9 done injected=1058 dropped=294 deployed=0
+2026-08-20T08:25:37Z pass 10 attempt 10 pseed=2100
+2026-08-20T08:33:25Z pass 10 done injected=1058 dropped=309 deployed=0
+2026-08-20T08:33:25Z pass 11 attempt 11 pseed=2110
+2026-08-20T08:41:12Z pass 11 done injected=1058 dropped=345 deployed=0
+2026-08-20T08:41:12Z pass 12 attempt 12 pseed=2120
+2026-08-20T08:49:00Z pass 12 done injected=1058 dropped=333 deployed=0
+== CELL naive_L0.30_s2_r4800p loss=0.30 seed=2 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T08:49:37Z preventive agent refresh after 16 measured cells
+2026-08-20T08:50:03Z agent refresh done
+2026-08-20T08:50:06Z cell start naive_L0.30_s3_r4800p dest=/home/root/sd_xf_naive_L0.30_s3_r4800p.bin
+2026-08-20T08:50:24Z pass 1 attempt 1 pseed=3010
+2026-08-20T08:58:12Z pass 1 done injected=1058 dropped=343 deployed=0
+2026-08-20T08:58:12Z pass 2 attempt 2 pseed=3020
+2026-08-20T09:05:59Z pass 2 done injected=1058 dropped=309 deployed=0
+2026-08-20T09:05:59Z pass 3 attempt 3 pseed=3030
+2026-08-20T09:13:47Z pass 3 done injected=1058 dropped=321 deployed=0
+2026-08-20T09:13:47Z pass 4 attempt 4 pseed=3040
+2026-08-20T09:21:35Z pass 4 done injected=1058 dropped=290 deployed=0
+2026-08-20T09:21:35Z pass 5 attempt 5 pseed=3050
+2026-08-20T09:29:22Z pass 5 done injected=1058 dropped=280 deployed=0
+2026-08-20T09:29:22Z pass 6 attempt 6 pseed=3060
+2026-08-20T09:36:38Z pass 6 done injected=986 dropped=275 deployed=0
+2026-08-20T09:36:38Z pass 7 attempt 7 pseed=3070
+2026-08-20T09:44:25Z pass 7 done injected=1058 dropped=278 deployed=0
+2026-08-20T09:44:25Z pass 8 attempt 8 pseed=3080
+2026-08-20T09:52:13Z pass 8 done injected=1058 dropped=319 deployed=0
+2026-08-20T09:52:13Z pass 9 attempt 9 pseed=3090
+2026-08-20T10:00:01Z pass 9 done injected=1058 dropped=333 deployed=0
+2026-08-20T10:00:01Z pass 10 attempt 10 pseed=3100
+2026-08-20T10:07:48Z pass 10 done injected=1058 dropped=318 deployed=0
+2026-08-20T10:07:48Z pass 11 attempt 11 pseed=3110
+2026-08-20T10:15:04Z pass 11 done injected=986 dropped=327 deployed=0
+2026-08-20T10:15:04Z pass 12 attempt 12 pseed=3120
+2026-08-20T10:22:24Z pass 12 done injected=995 dropped=274 deployed=0
+== CELL naive_L0.30_s3_r4800p loss=0.30 seed=3 tool=INCOMPLETE external=FAIL_ABSENT
+2026-08-20T10:22:56Z sweep done arm=naive -> /home/mseo/thesis/csp-linksim/captures/board_external_full/transfer.csv / /home/mseo/thesis/csp-linksim/captures/board_external_full/verdicts.csv

@@ -1,0 +1,4 @@
+# probe started 2026-08-19T20:18:10Z  board-cmd rc=0
+CANARY_SD_OK
+t/sd_xf_naive_L0.05_s3_r4800p.bin
+SD_NOFILE

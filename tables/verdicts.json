@@ -1,13 +1,13 @@
 [
   {
-    "claim_vs_reality": "claims success and delivers nothing at flight pacing (client status 0, artifact absent); corrupt file at 9600/host",
-    "clean_controls": "3/3 (board-4800), 5/5 (host-4800), 5/5 (board-9600)",
+    "claim_vs_reality": "claims success and delivers nothing at flight pacing (client status 0, artifact absent); corrupt file at 9600",
+    "clean_controls": "3/3 (board-4800), 5/5 (board-9600)",
     "invalid_excluded": 0,
     "lossy_cells": 6,
     "mechanism": "Deployed uploader (DTP)",
     "modal_verdict": "SILENT_FALSE_SUCCESS_ABSENT",
-    "regime": "board 4800 (flight); host-4800 + board-9600 committed",
-    "silent_corruptions": "6/6 absent board-4800, 25/25 host-4800, 25/25 board-9600"
+    "regime": "board 4800 (flight); board 9600 committed",
+    "silent_corruptions": "6/6 absent board-4800, 25/25 board-9600"
   },
   {
     "claim_vs_reality": "honest here: aborts loudly; truncates silently only where the connection outlives the send loop (host transport, 9/53)",

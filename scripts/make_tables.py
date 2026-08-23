@@ -72,8 +72,8 @@ def verdict_rdp():
         "lossy_cells": len(lossy),
         "invalid_excluded": 0,
         "modal_verdict": modal[0][0] if modal else "n/a",
-        "silent_corruptions": f"{len(corrupt)}/{len(lossy)} board (9/53 host transport)",
-        "claim_vs_reality": "honest here: aborts loudly; truncates silently only where the connection outlives the send loop (host transport, 9/53)",
+        "silent_corruptions": f"{len(corrupt)}/{len(lossy)} board",
+        "claim_vs_reality": "honest here: aborts loudly; its completion is still decided sender-side, a mitigation of the slow link rather than a check",
     }
 
 
@@ -124,24 +124,20 @@ def verdict_dtp():
     fl_corrupt = [r for r in fl_lossy if r["sha"] == "MISMATCH"]
     from collections import Counter
     modal = Counter(r["sha"] for r in fl_lossy).most_common(1)
-    zmq = rows("dtp_zmq_sweep.csv")
-    zmq_lossy = [r for r in zmq if is_lossy(r["loss"])]
-    zmq_corrupt = [r for r in zmq_lossy if r["client_verdict"] == "REPORTED_OK" and r["sha"] != "MATCH"]
     rq3 = rows("rq3_corruption.csv")
     rq3_lossy = [r for r in rq3 if is_lossy(r["loss"])]
     rq3_corrupt = [r for r in rq3_lossy if r["corrupt_but_accepted"] == "yes"]
     return {
         "mechanism": "Deployed uploader (DTP)",
-        "regime": "board 4800 (flight); host-4800 + board-9600 committed",
-        "clean_controls": f"{len(fl_clean_ok)}/{len(fl_clean)} (board-4800), 5/5 (host-4800), 5/5 (board-9600)",
+        "regime": "board 4800 (flight); board 9600 committed",
+        "clean_controls": f"{len(fl_clean_ok)}/{len(fl_clean)} (board-4800), 5/5 (board-9600)",
         "lossy_cells": len(fl_lossy),
         "invalid_excluded": 0,
         "modal_verdict": "SILENT_FALSE_SUCCESS_ABSENT" if modal and modal[0][0] == "ABSENT" else (modal[0][0] if modal else "n/a"),
         "silent_corruptions": (f"{len(fl_absent)}/{len(fl_lossy)} absent board-4800, "
-                               f"{len(zmq_corrupt)}/{len(zmq_lossy)} host-4800, "
                                f"{len(rq3_corrupt)}/{len(rq3_lossy)} board-9600"),
         "claim_vs_reality": ("claims success and delivers nothing at flight pacing "
-                             "(client status 0, artifact absent); corrupt file at 9600/host"),
+                             "(client status 0, artifact absent); corrupt file at 9600"),
     }
 
 

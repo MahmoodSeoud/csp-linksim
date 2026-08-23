@@ -1,0 +1,29 @@
+2026-08-20T07:15:04Z cell start naive_L0.30_s2_r4800p dest=/home/root/sd_xf_naive_L0.30_s2_r4800p.bin
+2026-08-20T07:15:28Z warn: uptime unreadable at cell start (BOARD_RESET check disarmed)
+2026-08-20T07:15:28Z pass 1 attempt 1 pseed=2010
+2026-08-20T07:23:16Z pass 1 done injected=1058 dropped=324 deployed=0
+2026-08-20T07:23:16Z pass 2 attempt 2 pseed=2020
+2026-08-20T07:31:04Z pass 2 done injected=1058 dropped=348 deployed=0
+2026-08-20T07:31:04Z pass 3 attempt 3 pseed=2030
+2026-08-20T07:38:51Z pass 3 done injected=1058 dropped=290 deployed=0
+2026-08-20T07:38:51Z pass 4 attempt 4 pseed=2040
+2026-08-20T07:46:39Z pass 4 done injected=1058 dropped=321 deployed=0
+2026-08-20T07:46:39Z pass 5 attempt 5 pseed=2050
+2026-08-20T07:54:27Z pass 5 done injected=1058 dropped=327 deployed=0
+2026-08-20T07:54:27Z pass 6 attempt 6 pseed=2060
+2026-08-20T08:02:14Z pass 6 done injected=1058 dropped=318 deployed=0
+2026-08-20T08:02:14Z pass 7 attempt 7 pseed=2070
+2026-08-20T08:10:02Z pass 7 done injected=1058 dropped=323 deployed=0
+2026-08-20T08:10:02Z pass 8 attempt 8 pseed=2080
+2026-08-20T08:17:49Z pass 8 done injected=1058 dropped=295 deployed=0
+2026-08-20T08:17:49Z pass 9 attempt 9 pseed=2090
+2026-08-20T08:25:37Z pass 9 done injected=1058 dropped=294 deployed=0
+2026-08-20T08:25:37Z pass 10 attempt 10 pseed=2100
+2026-08-20T08:33:25Z pass 10 done injected=1058 dropped=309 deployed=0
+2026-08-20T08:33:25Z pass 11 attempt 11 pseed=2110
+2026-08-20T08:41:12Z pass 11 done injected=1058 dropped=345 deployed=0
+2026-08-20T08:41:12Z pass 12 attempt 12 pseed=2120
+2026-08-20T08:49:00Z pass 12 done injected=1058 dropped=333 deployed=0
+EXTVERDICT=FAIL_ABSENT reason=- sha=- bytes=- probes=4
+2026-08-20T08:49:37Z preventive agent refresh after 16 measured cells
+2026-08-20T08:50:03Z agent refresh done

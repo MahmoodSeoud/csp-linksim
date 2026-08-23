@@ -1,45 +1,27 @@
 #!/usr/bin/env bash
 #
-# reproduce - run everything in this thesis that can be reproduced on a laptop, live.
+# reproduce - build the instrument and run the regression suite that guards it.
 #
 # Requires only Docker. No CAN bus, no flatsat, no payload board, no vendor binaries.
 # Everything runs inside a container; nothing touches the host's build tree.
 #
-#   scripts/reproduce            same as 'quick'
-#   scripts/reproduce quick      test suite + 2 loss levels x 1 seed per arm  (~5 min)
-#   scripts/reproduce full       test suite + 6 loss levels x 3 seeds per arm (~1 h)
-#   scripts/reproduce test       the regression suite only                    (~40 s)
+#   scripts/reproduce            build + regression suite (~1 min)
+#   scripts/reproduce test       same
 #
-# WHAT THIS COVERS, AND WHAT IT DOES NOT
-# Four transfer mechanisms appear in the evaluation. Three are reproducible from source:
+# WHAT THIS COVERS
+# The instrument and its regression suite are reproducible on any machine. The suite
+# guards the instrument itself: the two-oracle agreement tests (injector drop-log vs
+# live monitor), proxy determinism (same seed -> identical drop vector), and the
+# half-duplex airtime model.
 #
-#   SVU  (self-verifying uploader)   -> scripts/satdeploy-core-host-sweep   captures/svu_sweep.csv
-#   RDP  (reliable vmem reference)   -> scripts/rdp-host-sweep   captures/rdp_zmq_sweep.csv
-#   Deployed uploader (DTP)          -> scripts/dtp-host-sweep   captures/dtp_zmq_sweep.csv
-#
-# The deployed arm needs one thing this repository cannot ship: DISCO's upload_gs-server
-# and upload_sat-client sources, which are mission code. Given a checkout of that tree it
-# builds and runs here with no bus and no board -- csh and the uploader APM are replaced by
-# tests/e2e/dtp_trigger, which reproduces the single packet `upload_file` puts on the wire.
-# Set DISCO_SRC (default ~/DISCOSAT); this step is skipped when the tree is absent.
-#
-# One is genuinely out of reach:
-#
-#   satdeploy                needs the payload board (aarch64) reachable over CAN; its
-#                            results live in captures/satdeploy_sweep.csv.
-#
-# So this script reproduces the instrument, the regression suite, and every arm whose
-# evidence a reader can re-derive from source. satdeploy is reported from committed data.
-# That distinction is deliberate and is stated in the thesis rather than blurred.
-#
-# WHAT TO LOOK FOR WHILE IT RUNS
-# Each cell prints claimed= (what the mechanism said) and sha= (what actually arrived,
-# checked outside the mechanism). The failure this thesis is about is the disagreement:
-#   claimed=VERIFIED/DELIVERED with sha=MISMATCH  ==  silent corruption.
-# SVU should never show it. RDP should show it at 20-30% loss, in the artifact's tail.
+# WHAT IT DOES NOT
+# Every transfer-mechanism measurement in this thesis was taken on the FlatSat's payload
+# board over CAN and cannot be reproduced without the hardware. Those results are reported
+# from committed data (see captures/ and the artifact appendix). The host-loopback arms
+# that once ran here were scoped out with the board-only decision (docs/scope-board-only.md).
 set -uo pipefail
 
-MODE="${1:-quick}"
+MODE="${1:-test}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO" || exit 1
 
@@ -50,24 +32,20 @@ command -v docker >/dev/null 2>&1 || { echo "FAIL: docker not found. Install Doc
 docker info >/dev/null 2>&1 || { echo "FAIL: docker is installed but not running. Start Docker Desktop."; exit 1; }
 
 case "$MODE" in
-  # 0.30 seed 1 is a cell where the RDP reference path reports success over a truncated
-  # tail, so quick mode actually exhibits the finding rather than only the clean control.
-  quick) LOSSES="0 0.30"; NSEEDS=1 ;;
-  full)  LOSSES="0 0.02 0.05 0.10 0.20 0.30"; NSEEDS=3 ;;
-  test)  LOSSES=""; NSEEDS=0 ;;
-  *) echo "usage: $0 [quick|full|test]"; exit 2 ;;
+  test|quick|full) : ;;  # quick/full accepted for compatibility; the arms are board-only now
+  *) echo "usage: $0 [test]"; exit 2 ;;
 esac
 
-rule; bold "csp-linksim :: reproduce ($MODE)"; rule
+rule; bold "csp-linksim :: reproduce (instrument + regression suite)"; rule
 echo "Everything below runs in a container. Host build tree untouched."
 echo
 
-bold "[1/4] Building the instrument and both arms"
+bold "[1/2] Building the instrument"
 scripts/bench build || { echo "FAIL: build failed"; exit 1; }
 echo "  ok"
 echo
 
-bold "[2/4] Regression suite"
+bold "[2/2] Regression suite"
 echo "  Includes the two-oracle agreement tests (injector drop-log vs live monitor),"
 echo "  proxy determinism (same seed -> identical drop vector), and the half-duplex"
 echo "  airtime model. These guard the instrument itself."
@@ -75,70 +53,10 @@ echo
 scripts/bench test || { echo "FAIL: regression suite failed"; exit 1; }
 echo
 
-if [ "$MODE" = "test" ]; then
-    rule; bold "Suite only. Re-run with 'quick' or 'full' to measure the arms."; rule
-    exit 0
-fi
-
-bold "[3/4] SVU arm  (contributed design; per-block manifest + selective resume)"
-echo "  Expect: every cell VERIFIED with sha=MATCH. Rounds grow with loss."
-echo "  A VERIFIED cell with sha=MISMATCH would falsify the mechanism's core claim."
-echo
-LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_svu_sweep.csv \
-    scripts/bench satdeploy-core-host-sweep
-echo
-
-bold "[4/4] RDP arm  (reliable vmem reference path, CSP_O_RDP | CSP_O_CRC32)"
-echo "  Expect: clean at low loss. At 20-30% expect DELIVERED with sha=MISMATCH --"
-echo "  the reference path reporting success over a truncated tail. That is the"
-echo "  finding; vmem_upload counts bytes queued, not bytes acknowledged."
-echo
-LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_rdp_zmq_sweep.csv \
-    scripts/bench rdp-host-sweep
-echo
-
-DISCO_HOST="${DISCO_SRC:-$HOME/DISCOSAT}"
-if [ -d "$DISCO_HOST/upload_gs-server" ]; then
-    bold "[5/5] Deployed uploader arm  (DISCO upload_gs-server -> upload_client over DTP)"
-    echo "  Built from the mission sources at $DISCO_HOST; fired by tests/e2e/dtp_trigger"
-    echo "  instead of csh. Expect: clean at 0% loss. Under loss expect a full-size file"
-    echo "  whose sha does NOT match, with no error raised -- the headline finding."
-    echo
-    LOSSES="$LOSSES" NSEEDS="$NSEEDS" CSV=/src/captures/repro_dtp_zmq_sweep.csv \
-        scripts/bench dtp-host-sweep
-    echo
-else
-    bold "[5/5] Deployed uploader arm  -- SKIPPED"
-    echo "  No DISCO source tree at $DISCO_HOST. This arm builds DISCO's upload_gs-server"
-    echo "  and upload_sat-client, which are mission code and are not vendored here."
-    echo "  Set DISCO_SRC to a checkout to include it. Reported from committed data below."
-    echo
-fi
-
-rule; bold "Summary"; rule
-sum() {  # $1=label $2=csv $3=claim-token $4=claimed-col $5=sha-col
-    local f="$REPO/captures/$2"
-    [ -f "$f" ] || { printf '  %-28s (no data)\n' "$1"; return; }
-    awk -F, -v lbl="$1" -v tok="$3" -v cc="$4" -v sc="$5" '
-        NR>1 { n++; if ($cc==tok) { c++; if ($sc=="MISMATCH") silent++ } }
-        END { printf "  %-28s %2d cells, %2d claimed success, %d SILENT CORRUPTION\n",
-                     lbl, n+0, c+0, silent+0 }' "$f"
-}
-sum "SVU (reproduced here)"  repro_svu_sweep.csv     VERIFIED  5 8
-sum "RDP (reproduced here)"  repro_rdp_zmq_sweep.csv DELIVERED 5 6
-# The deployed arm's own columns differ: client_verdict is col 5, sha col 7. A lossy cell
-# normally prints no verdict at all, because the client's idle timeout is unreachable
-# (see the header of scripts/dtp-host-sweep), so "claimed success" is not the right test --
-# "delivered bytes and never reported an error" is.
-awk -F, 'NR>1{n++; if($5!="REPORTED_ERR"){c++; if($7=="MISMATCH" && $8>0) silent++}}
-    END{printf "  %-28s %2d cells, %2d without a loud failure, %d SILENT CORRUPTION\n",
-        "DTP deployed (reproduced here)", n+0, c+0, silent+0}' \
-    "$REPO/captures/repro_dtp_zmq_sweep.csv" 2>/dev/null
-echo
-echo "  Reported from committed data:"
-awk -F, 'NR>1{n++; if($8=="yes") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rq3_corruption.csv)\n","DTP deployed, payload board",n+0,s+0}' "$REPO/captures/rq3_corruption.csv" 2>/dev/null
-awk -F, 'NR>1{n++; if($10=="MISMATCH") s++} END{printf "  %-28s %2d cells, %d silent corruption (captures/rawdtp_sweep.csv)\n","Raw DTP",n+0,s+0}' "$REPO/captures/rawdtp_sweep.csv" 2>/dev/null
-awk -F, 'NR>1{n++} END{printf "  %-28s %2d cells, payload board over CAN (captures/satdeploy_sweep.csv)\n","satdeploy + naive",n+0}' "$REPO/captures/satdeploy_sweep.csv" 2>/dev/null
-echo
-echo "  Per-cell drop logs (oracle A) written to captures/*_oracleA.csv"
+rule
+bold "Suite complete."
+echo "  The transfer-mechanism measurements are board-only (FlatSat payload board over"
+echo "  CAN) and are reported from committed data:"
+awk -F, 'NR>1{n++; if($8=="yes") s++} END{printf "  %-30s %2d lossy cells, %d silent corruption (captures/rq3_corruption.csv)\n","DTP deployed, payload board",n+0,s+0}' "$REPO/captures/rq3_corruption.csv" 2>/dev/null
+[ -d "$REPO/captures/board_external_full" ] && echo "  satdeploy + naive, payload board          captures/board_external_full/ (externally judged)"
 rule

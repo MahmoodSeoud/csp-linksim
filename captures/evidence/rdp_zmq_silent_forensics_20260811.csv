@@ -1,7 +1,0 @@
-# RDP host-transport silent-corruption forensics, 2026-08-11
-# reference = a sha-verified clean delivery; MTU 200, per-packet payload 192 B
-cell,first_bad_byte,pct_arrived,boundary_multiple,boundary_remainder,bytes_wrong,region_start,region_end,region_is_prefill_zeros
-L0.20_s2,261697,99.83%,1363,0,444,261696,262143,True
-L0.20_s3,261889,99.90%,1364,0,252,261888,262143,True
-L0.30_s1,261697,99.83%,1363,0,444,261696,262143,True
-L0.30_s2,261889,99.90%,1364,0,252,261888,262143,True
