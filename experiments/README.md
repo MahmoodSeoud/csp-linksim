@@ -5,7 +5,7 @@ that csh runs top to bottom. What is committed is exactly what ran. Shell prep a
 external verdict run inside csh via the `sh` command (csp_shell APM).
 
 ```
-~/thesis/csh/builddir/csh -i experiments/<cell>.csh
+~/thesis/csh/builddir/csh -i experiments/<file>.csh
 ```
 
 Use the **patched csh** at `~/thesis/csh/builddir/csh`, not the one on `PATH`. The
