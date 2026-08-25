@@ -1,4 +1,5 @@
-# bringup-upload-client.csh - turn ON the Upload-Client (5426) before dtp-baseline.csh.
+# bringup-upload-client.csh - turn ON the Upload-Client (5426). dtp-2-cell.csh does this
+# inline; this file is for bringing the client up by hand from an existing session.
 # 5426 is spawned by the A53 app-sys-manager on node 5421 (param mng_util). It also exits
 # after each transfer, so run this before every push. Run from your csh session:
 #   run /home/mseo/thesis/csp-linksim/experiments/bringup-upload-client.csh

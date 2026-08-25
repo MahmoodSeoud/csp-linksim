@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# csh-loss-cell - one deployed-uploader loss cell, driven entirely through csh.
+#
+#   scripts/csh-loss-cell <loss> <seed> <label>      e.g.  csh-loss-cell 0.30 1 demo
+#   scripts/csh-loss-cell 0 1 ctrl                   the clean control
+#
+# Runs the whole cell so no second terminal is needed: arms the csh bridge + csp_loss
+# injector, restarts the on-board client, fires the real `upload_file`, waits out the
+# paced transfer, and reads the external md5 back over the serial console.
+#
+# The injector is a csh with `bridge ZMQ0 CAN0 <server>` active. While a bridge is
+# active that shell forwards every frame instead of delivering to its own sockets, so
+# it cannot also issue the trigger -- the trigger runs in its own short-lived csh.
+#
+# Env: RATE_BPS (default 9600, flight is 4800), MTU_PACE, DEV (serial console).
+set -uo pipefail
+LOSS="${1:?loss, e.g. 0.30 or 0}"; SEED="${2:?seed}"; LABEL="${3:?label}"
+REPO=/home/mseo/thesis/csp-linksim
+CSH=/home/mseo/thesis/csh/builddir/csh
+APM="$REPO/build/apm"
+SRC="$REPO/captures/payload_256k.bin"
+DEST="/home/root/csp_${LABEL}.bin"
+RATE_BPS="${RATE_BPS:-9600}"
+CLIENT=5426; SERVER=5424
+export DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
+
+# A paced 1041-fragment transfer takes ~1041 * 264 * 8 / RATE_BPS seconds. Hashing
+# before it finishes reports a full-size file with a wrong digest, because the client
+# pre-allocates the destination -- which looks exactly like the silent corruption the
+# cell is meant to detect. Wait the whole window, then a margin.
+DRAIN_S=$(( 1041 * 264 * 8 / RATE_BPS ))
+WAIT_S=$(( DRAIN_S + 60 ))
+
+[ -x "$CSH" ] || { echo "FAIL: $CSH not built (ninja -C ~/thesis/csh/builddir csh)"; exit 1; }
+[ -f "$SRC" ] || { echo "FAIL: payload $SRC missing"; exit 1; }
+[ "$(strings "$CSH" | grep -c 'source-based split-horizon')" -gt 0 ] \
+  || { echo "FAIL: this csh has no split-horizon 'bridge' command -- apply docs/csh-bridge-injector/*.patch and rebuild"; exit 1; }
+
+# pgrep -f matches any command line *mentioning* a name, so a wrapper shell counts as
+# a ground server. Match argv[0]'s basename instead, and read the real argv to see how
+# the server was attached.
+gs_pids_with() {   # $1: "-c" or "-z"; prints matching pids
+  local want="$1" pid argv0
+  for pid in $(pgrep -f upload_gs-server 2>/dev/null); do
+    [ -r "/proc/$pid/cmdline" ] || continue
+    argv0=$(tr '\0' '\n' < "/proc/$pid/cmdline" | head -1)
+    [ "$(basename "$argv0")" = "upload_gs-server" ] || continue
+    if tr '\0' '\n' < "/proc/$pid/cmdline" | grep -qx -- "$want"; then
+      echo "$pid"
+    fi
+  done
+}
+
+# --- prerequisites the injector cannot see from the network -----------------------
+[ "$(ss -ltn 2>/dev/null | grep -c ':6000')" -gt 0 ] || { echo "FAIL: zmq broker (6000) down -- run: zmqproxy &"; exit 1; }
+[ -n "$(gs_pids_with -z)" ] \
+  || { echo "FAIL: no ZMQ ground server. Run, from its builddir:"; \
+       echo "      cd ~/thesis/disco/src/upload_gs-server && ./builddir/upload_gs-server -z 127.0.0.1 -a $SERVER &"; exit 1; }
+rogue=$(gs_pids_with -c)
+if [ -n "$rogue" ]; then
+  echo "FAIL: a ground server is attached to the bus (-c). It answers the client directly,"
+  echo "      so this cell would measure nothing. Kill it and re-run:"
+  for pid in $rogue; do echo "      pid $pid: $(tr '\0' ' ' < /proc/$pid/cmdline)"; done
+  exit 1
+fi
+if pgrep -x ci_inject_bridge >/dev/null; then
+  echo "FAIL: ci_inject_bridge is running; two injectors duplicate every frame."; exit 1
+fi
+if pgrep -f "csh -i /tmp/cell_${LABEL}" >/dev/null; then
+  echo "FAIL: a cell with label '$LABEL' is already running."; exit 1
+fi
+
+BR_INIT=$(mktemp --suffix=.csh); TG_INIT=$(mktemp --suffix=.csh)
+BR_LOG="/tmp/cell_${LABEL}_bridge.log"; TG_LOG="/tmp/cell_${LABEL}_trigger.log"
+cleanup() {
+  for p in $(pgrep -f "csh -i $BR_INIT" 2>/dev/null) $(pgrep -f "csh -i $TG_INIT" 2>/dev/null); do
+    kill -9 "$p" 2>/dev/null
+  done
+  rm -f "$BR_INIT" "$TG_INIT"
+}
+trap cleanup EXIT
+
+# --- 1. arm the injector ----------------------------------------------------------
+# Order matters: the APM must be loaded and csp_loss armed before the ZMQ interface
+# starts admitting traffic, otherwise the inflow starves the REPL before it gets there.
+if [ "$LOSS" = "0" ] || [ "$LOSS" = "0.0" ]; then
+  LOSS_CMD="csp_loss start -i CAN0 -L 0.0 -R $RATE_BPS"
+else
+  # -M 8 keys drops to the DTP data port, leaving the RDP metadata handshake on port 7
+  # intact, so a failure is attributable to loss on the file body.
+  LOSS_CMD="csp_loss start -i CAN0 -L $LOSS -S $SEED -R $RATE_BPS -M 8"
+fi
+{
+  echo "csp init"
+  echo "csp add can -p -c can0 5391"
+  echo "apm load -p $APM"
+  echo "$LOSS_CMD"
+  echo "csp add zmq -m 14 $CLIENT 127.0.0.1"
+  echo "bridge ZMQ0 CAN0 $SERVER"
+  # print counters shortly before the harness reads this log, so the verdict can
+  # report what the shim actually saw rather than nothing.
+  echo "sleep $(( (WAIT_S - 20) * 1000 ))"
+  echo "csp_loss status"
+  echo "sleep 120000"
+} > "$BR_INIT"
+setsid nohup script -qec "$CSH -i $BR_INIT" /dev/null </dev/null >"$BR_LOG" 2>&1 &
+sleep 6
+[ "$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$BR_LOG" | grep -ac 'split-horizon on source')" -gt 0 ] \
+  || { echo "FAIL: bridge did not come up; see $BR_LOG"; exit 1; }
+echo "[$LABEL] injector armed:"
+sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$BR_LOG" | grep -aE 'bus check|WARNING|loss on|pacing|split-horizon' | sed 's/^/    /'
+
+# --- 2. on-board client (exits after every transfer, so always restart) -----------
+bash "$REPO/scripts/restart-upload-client" "$CLIENT" "$SERVER" >/dev/null 2>&1 \
+  || { echo "FAIL: upload_client $CLIENT did not come up"; exit 1; }
+echo "[$LABEL] on-board client up"
+
+# --- 3. fire the real operator command --------------------------------------------
+{
+  echo "csp init"
+  echo "csp add can -c can0 5395"
+  echo "apm load"
+  echo "upload_file -f $SRC -d $DEST -n $CLIENT -s $SERVER"
+  echo "sleep 5000"
+} > "$TG_INIT"
+setsid nohup script -qec "$CSH -i $TG_INIT" /dev/null </dev/null >"$TG_LOG" 2>&1 &
+sleep 8
+[ "$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$TG_LOG" | grep -ac 'File uploaded')" -gt 0 ] \
+  || { echo "FAIL: trigger did not dispatch; see $TG_LOG"; exit 1; }
+echo "[$LABEL] transfer triggered, draining at ${RATE_BPS} bit/s (~${DRAIN_S}s); waiting ${WAIT_S}s"
+
+# --- 4. wait out the paced transfer -----------------------------------------------
+slept=0
+while [ "$slept" -lt "$WAIT_S" ]; do
+  sleep 15; slept=$(( slept + 15 ))
+  [ $(( slept % 60 )) -eq 0 ] && echo "    t+${slept}s / ${WAIT_S}s"
+done
+
+# --- 5. external verdict over the serial console ----------------------------------
+WANT=$(md5sum "$SRC" | cut -d' ' -f1)
+probe=$(TO=40 bash "$REPO/scripts/board-cmd" "echo SZ=\$(stat -c%s $DEST 2>/dev/null); md5sum $DEST 2>/dev/null" 2>&1)
+size=$(echo "$probe" | grep -aoE 'SZ=[0-9]+' | head -1 | cut -d= -f2)
+got=$(echo "$probe" | grep -aoE '[0-9a-f]{32}' | head -1)
+
+echo "[$LABEL] ---------------- verdict ----------------"
+echo "    injected loss : $LOSS (seed $SEED), paced $RATE_BPS bit/s"
+sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$BR_LOG" | grep -aE 'offered' | tail -1 | sed 's/^/    /'
+echo "    bridge dedup  : $(grep -ac 'duplicate' "$BR_LOG") frame(s) dropped as duplicates"
+echo "    source md5    : $WANT"
+echo "    board md5     : ${got:-<no answer from console>}"
+echo "    board bytes   : ${size:-?} (want $(stat -c%s "$SRC"))"
+if [ -z "$got" ]; then
+  echo "    VERDICT       : UNVERIFIED (console did not answer; cell is void, re-run)"
+elif [ "$got" = "$WANT" ]; then
+  echo "    VERDICT       : MATCH -- delivered intact"
+else
+  echo "    VERDICT       : MISMATCH -- size-correct, contents wrong, no error raised"
+fi

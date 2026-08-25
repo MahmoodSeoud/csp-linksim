@@ -1,19 +1,29 @@
-# satdeploy-baseline.csh - the SVU arm: scp-like upload to a node, block-verified. Runnable + reproducible.
+# satdeploy-baseline.csh - the satdeploy FULL TOOL, clean link. Does the arm work at all?
 #
-# Pushes the pinned 256 KiB payload to the payload board (which runs svu_daemon) and the
-# daemon reports VERIFIED (landed intact) or FAILED (never a false success). `svu` is the
-# APM command libcsh_svu.so; `-p` preserves the source mode. We set the board as the
-# default node once (`node 5426`), so the push reads like `cp` -- no node in the command.
+#     ~/thesis/csh/builddir/csh -i experiments/satdeploy-baseline.csh
 #
-#   run /home/mseo/thesis/csp-linksim/experiments/satdeploy-baseline.csh
+# `satdeploy push` copies a file to the board and the on-board agent verifies it
+# against a whole-artifact digest before reporting the install complete. On a
+# clean link this must report success AND the board's md5 must match. Run this
+# before trusting any satdeploy-cell.csh result.
 #
-# PREREQ: svu_daemon running on the destination board (aarch64 build):
-#   build-arm/svu/svu_daemon -c can0 -a 5426     (on the payload board)
-# Optional monitor: SVU bulk data rides port 9.
+# PREREQ: satdeploy-agent running on the payload board at 5427, e.g.
+#   /home/root/satdeploy-agent-smart-bk -c can0 -a 5427     (on the board)
 csp init
-csp add can -d 20
+csp add can -c can0 -b 0 -d 20
 apm load
-node 5426
-csp_monitor start -d 9 -m 256 -o svu_monitor.csv
-svu -p /home/mseo/thesis/csp-linksim/captures/payload_256k.bin /home/root/svu_uploaded.bin
+apm load -p /home/mseo/thesis/csp-linksim/build/apm
+# Both paths are needed: `satdeploy push` lives in the installed APM
+# (~/.local/lib/csh/libcsh_satdeploy_apm.so) while csp_loss is built here.
+
+ping -n 5427 -t 5000
+
+# SVU bulk data rides port 9; recording it makes the fragment grid visible.
+csp_monitor start -d 9 -m 256 -O 8 -o /tmp/satdeploy_baseline_monitor.csv
+satdeploy push -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -r /home/root/satdeploy_baseline.bin -n 5427 -m 256
+sleep 2000
 csp_monitor stop
+
+# VERDICT, on the board over the console:
+#   md5sum /home/root/satdeploy_baseline.bin
+# against  md5sum captures/payload_256k.bin  on the ground. Must match.

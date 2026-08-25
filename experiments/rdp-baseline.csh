@@ -9,7 +9,7 @@
 #
 # PREREQ: the rdprx node up ->  scripts/bringup-vmem-node   (serves bigmem at fixed 0x10000000)
 # For the controlled LOSS SWEEP (injector, stock vs tuned RDP, crc + sha checks), from a shell:
-#   scripts/rdp-board-sweep   (board, csp_loss)  or  experiments/rdp-silent-try  (host)
+#   experiments/rdp-cell.csh  (this arm under seeded loss)  or  scripts/rdp-board-sweep
 csp init
 csp add can -d 20
 node add -n 5431 rdprx

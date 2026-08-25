@@ -1,0 +1,35 @@
+# dtp-2-cell.csh - TERMINAL 2 of the deployed-DTP arm: restart the client, push.
+#
+#     ~/thesis/csh/builddir/csh -i experiments/dtp-2-cell.csh
+#
+# Run dtp-1-injector.csh in TERMINAL 1 first. Two shells are unavoidable: while a
+# bridge is active, csp_bridge_work forwards every frame instead of delivering it
+# locally, so the bridging shell cannot also complete the trigger's connection.
+#
+# The mission init below is what makes `set -n 5421 mng_util` resolve by name: it
+# loads the param definitions (list_load.csh) as well as the APMs.
+run /home/mseo/thesis/disco/config/init/can.csh
+
+# -- the on-board client exits after every transfer; toggle THROUGH 0 to respawn
+set -n 5421 mng_util_server 5424
+set -n 5421 mng_util_interface 0
+set -n 5421 mng_util 0
+sleep 4000
+set -n 5421 mng_util 5426
+sleep 6000
+ping 5426
+
+# -- the real operator command (the FRR verification item), unchanged.
+#    -f is trigger metadata only: the server hardcodes file.bin (vmem_dtp_server.c),
+#    so what actually ships is whatever file.bin sits in the server's builddir.
+upload_file -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -d /home/root/dtp_cell.bin -n 5426 -s 5424
+
+# -- VERDICT, on the board over the serial console, AFTER the paced transfer:
+#      md5sum /home/root/dtp_cell.bin
+#    against the ground's  md5sum <the server's file.bin>
+#    A paced 256 KiB transfer takes ~230 s at 9600 bit/s and the client
+#    pre-allocates the destination at full size, so hashing early reports a
+#    full-size wrong digest that looks exactly like the finding but is not.
+#    In TERMINAL 1, `csp_loss status` must show offered = the server's packet
+#    count; anything less means frames vanished before the injector and the cell
+#    is void whatever the md5 says.
