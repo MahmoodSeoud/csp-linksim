@@ -1,6 +1,6 @@
-# satdeploy-cell.csh - the satdeploy FULL TOOL under seeded loss. ONE terminal.
+# satdeploy-upload.csh - satdeploy, recovery build, under seeded loss. ONE terminal.
 #
-#     ~/thesis/csh/builddir/csh -i experiments/satdeploy-cell.csh
+#     ~/thesis/csh/builddir/csh -i experiments/satdeploy-upload.csh
 #
 # No bridge needed: `satdeploy upload` sends from this shell, so csp_loss drops the
 # frames out of this node's own transmit path.

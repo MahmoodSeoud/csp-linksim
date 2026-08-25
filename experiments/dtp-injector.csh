@@ -3,7 +3,7 @@
 #     ~/thesis/csh/builddir/csh -i experiments/dtp-injector.csh
 #
 # Leave this shell running; it is the bridge. Then drive the transfer from
-# TERMINAL 2 with dtp-2-cell.csh.
+# TERMINAL 2 with dtp-upload.csh.
 #
 # WHY THIS ARM NEEDS A BRIDGE AT ALL. csp_loss drops packets a node TRANSMITS.
 # The deployed upload is a PULL: csh only sends the trigger, while the 1041 data

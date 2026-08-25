@@ -2,7 +2,7 @@
 #
 #     ~/thesis/csh/builddir/csh -i experiments/dtp-upload.csh
 #
-# Run dtp-1-injector.csh in TERMINAL 1 first. Two shells are unavoidable: while a
+# Run dtp-injector.csh in TERMINAL 1 first. Two shells are unavoidable: while a
 # bridge is active, csp_bridge_work forwards every frame instead of delivering it
 # locally, so the bridging shell cannot also complete the trigger's connection.
 #

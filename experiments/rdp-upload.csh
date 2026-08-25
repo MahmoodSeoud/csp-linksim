@@ -1,8 +1,8 @@
-# rdp-cell.csh - the RELIABLE-PATH arm under seeded loss. ONE terminal.
+# rdp-upload.csh - the reliable path (csh `upload`) under seeded loss. ONE terminal.
 #
-#     ~/thesis/csh/builddir/csh -i experiments/rdp-cell.csh
+#     ~/thesis/csh/builddir/csh -i experiments/rdp-upload.csh
 #
-# No bridge needed here, unlike the DTP arm: csh's own `upload` sends the bytes,
+# No bridge needed here, unlike the deployed uploader: csh's own `upload` sends the bytes,
 # so csp_loss drops them straight out of this node's transmit path.
 #
 # PREREQ: vmem_node up at 5431 ->  scripts/bringup-vmem-node
@@ -45,7 +45,7 @@ sleep 2000
 csp_loss status
 csp_loss stop
 
-# -- 2. verdict over the clean link. Expect on this arm: the upload aborts
+# -- 2. verdict over the clean link. Expect here: the upload aborts
 #       LOUDLY ("didn't complete", with a resume offset) rather than claiming
 #       success, and crc32 disagrees. That honesty is a property of the slow
 #       link expiring the connection, not of a check on what arrived.
