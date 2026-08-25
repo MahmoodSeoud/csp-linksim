@@ -33,7 +33,7 @@ apm load -p /home/mseo/thesis/csp-linksim/build/apm
 # shell environment, so `LOSS=0.3 csh -i ...` will NOT work. Two ways to set them:
 #   a) edit the `var set` lines below, or
 #   b) delete them, start csh, `var set LOSS 0.10` etc., then `run <this file>`
-#      -- values already set survive, so the same file runs every cell.
+#      -- values already set survive, so the same file runs every experiment.
 var set LOSS 0.30
 var set SEED 1
 var set RATE 9600

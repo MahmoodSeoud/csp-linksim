@@ -44,7 +44,7 @@ var set RATE 9600
 csh has its own variable store with `$(NAME)` expansion; it does **not** read the shell
 environment, so `LOSS=0.3 csh -i ...` silently expands to nothing. Either edit those
 lines, or delete them and set the values interactively before `run`-ing the file, which
-lets one file drive every cell. Setting `LOSS` to `0.0` turns a cell into its own clean
+lets one file drive every experiment. Setting `LOSS` to `0.0` turns an experiment into its own clean
 control, and **the control must pass before a lossy result means anything.**
 
 ### Where the loss is injected differs by system
@@ -78,7 +78,7 @@ csp_loss status
 ```
 
 `offered` must equal the number of packets the sender reported. If it is lower, frames
-went missing before the injector and the cell is void whatever the md5 says. Two causes
+went missing before the injector and the experiment is void whatever the md5 says. Two causes
 seen on this bench: a ground server started with `-c can0` (it answers the board
 directly and bypasses the injector entirely — `csp_loss` warns about this when it arms),
 and ZeroMQ's default 1000-message high-water mark silently discarding the tail of a

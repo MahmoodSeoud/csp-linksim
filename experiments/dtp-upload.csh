@@ -31,5 +31,5 @@ upload_file -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -d /home/
 #    pre-allocates the destination at full size, so hashing early reports a
 #    full-size wrong digest that looks exactly like the finding but is not.
 #    In TERMINAL 1, `csp_loss status` must show offered = the server's packet
-#    count; anything less means frames vanished before the injector and the cell
+#    count; anything less means frames vanished before the injector and the experiment
 #    is void whatever the md5 says.
