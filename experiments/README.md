@@ -85,7 +85,7 @@ the finding looks like, but wrong.
 ```
 zmqproxy &                                    # defaults to 6000/7000
 cd ~/thesis/disco/src/upload_gs-server/builddir
-./upload_gs-server -z 127.0.0.1 -a 5424 &
+./upload_gs-server -z 127.0.0.1 -a 5426 &
 ```
 
 The DTP server **hardcodes `file.bin`** (`vmem_dtp_server.c`) and ignores `upload_file
@@ -100,7 +100,9 @@ directly on the bus and no injector can see the transfer.
 
 - RDP: `vmem_node` at 5431 (`bigmem`, 1 MiB byte-faithful RAM) — `scripts/bringup-vmem-node`.
   DIPP's `stora` is too small and wedges; do not use it for this.
-- DTP: the on-board `upload_client` at 5426, spawned by the app-sys manager at 5421. It
+- DTP: the on-board `upload_client` at 5424, spawned by the app-sys manager at 5421 via
+  `mng_util` (which sets the client's own address; `mng_util_server` is the ground server
+  it pulls from, 5426). It
   exits after every transfer, so `dtp-push.csh` toggles `mng_util` through 0 to
   respawn it each run.
 - satdeploy: `satdeploy-agent` on the board at 5427.

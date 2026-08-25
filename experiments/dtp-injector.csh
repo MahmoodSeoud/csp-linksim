@@ -14,7 +14,7 @@
 # PREREQ, from a normal shell:
 #   zmqproxy &                                        (defaults to 6000/7000)
 #   cd ~/thesis/disco/src/upload_gs-server/builddir
-#   ./upload_gs-server -z 127.0.0.1 -a 5424 &
+#   ./upload_gs-server -z 127.0.0.1 -a 5426 &
 # The server MUST be on -z (ZMQ). Started with -c can0 it answers the board
 # directly on the bus, the data never crosses this injector, and the run reads
 # as lossless. csp_loss warns about exactly that when it arms.
@@ -40,8 +40,8 @@ var set RATE 9600
 # ----------------------------------------------------------------------------
 csp_loss start -i CAN0 -L $(LOSS) -S $(SEED) -R $(RATE) -M 8
 
-csp add zmq -m 14 5426 127.0.0.1
-bridge ZMQ0 CAN0 5424
-# Split-horizon on 5424 is load-bearing: the ZMQ broker reflects every frame the
+csp add zmq -m 14 5424 127.0.0.1
+bridge ZMQ0 CAN0 5426
+# Split-horizon on 5426 (the ground server) is load-bearing: the ZMQ broker reflects every frame the
 # bridge publishes, and a blindly forwarding bridge laps zmq->can->zmq until the
 # RDP handshake gives up (client re-sending its SYN every 5 s, no data phase).

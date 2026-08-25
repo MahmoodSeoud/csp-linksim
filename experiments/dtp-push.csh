@@ -11,18 +11,18 @@
 run /home/mseo/thesis/disco/config/init/can.csh
 
 # -- the on-board client exits after every transfer; toggle THROUGH 0 to respawn
-set -n 5421 mng_util_server 5424
+set -n 5421 mng_util_server 5426
 set -n 5421 mng_util_interface 0
 set -n 5421 mng_util 0
 sleep 4000
-set -n 5421 mng_util 5426
+set -n 5421 mng_util 5424
 sleep 6000
-ping 5426
+ping 5424
 
 # -- the real operator command (the FRR verification item), unchanged.
 #    -f is trigger metadata only: the server hardcodes file.bin (vmem_dtp_server.c),
 #    so what actually ships is whatever file.bin sits in the server's builddir.
-upload_file -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -d /home/root/dtp_cell.bin -n 5426 -s 5424
+upload_file -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -d /home/root/dtp_cell.bin -n 5424 -s 5426
 
 # -- VERDICT, on the board over the serial console, AFTER the paced transfer:
 #      md5sum /home/root/dtp_cell.bin
