@@ -12,20 +12,22 @@ Use the **patched csh** at `~/thesis/csh/builddir/csh`, not the one on `PATH`. T
 `bridge` command and `csp_loss -R` pacing exist only there; see
 `../docs/csh-bridge-injector/` for the patches and why each is needed.
 
-## The three mechanisms
+## The three systems
 
-| Mechanism | Files | Terminals | Why |
+| System | Files | Terminals | Why |
 |---|---|---|---|
 | Deployed uploader (DTP) | `dtp-injector.csh` + `dtp-upload.csh` | 2 | the data flows server→board and never crosses the operator's shell, so a shell has to be put on the path as a bridge |
 | Reliable path (RDP) | `rdp-upload.csh` | 1 | csh's own `upload` sends the bytes |
 | satdeploy, recovery build | `satdeploy-upload.csh` | 1 | `satdeploy upload` sends from the shell |
 
 Each file is named for the command it runs: `dtp-upload.csh` runs `upload_file`,
-`rdp-upload.csh` runs `upload`, `satdeploy-upload.csh` runs `satdeploy upload`. One run of
-one of these files, at one loss level and one seed, is one **run** in the thesis's sense; a
-**configuration** is one build across every level and seed, which is a set of runs rather
-than a file. `dtp-injector.csh` is the exception: it is the instrument, the only file that
-measures nothing on its own.
+`rdp-upload.csh` runs `upload`, `satdeploy-upload.csh` runs `satdeploy upload`.
+
+Two terms, matching the thesis. A **system** is one transfer mechanism as built: the
+deployed uploader, the reliable path, satdeploy's recovery build, satdeploy's naive build.
+An **experiment** is one run of one system at one loss level and one seed, which is what
+running one of these files produces. `dtp-injector.csh` is the exception: it is the
+instrument, the only file that measures nothing on its own.
 
 There are no separate baseline files. `var set LOSS 0.0` turns any file into its own clean
 control, run through the identical path, which is a stronger control than a
@@ -45,7 +47,7 @@ lines, or delete them and set the values interactively before `run`-ing the file
 lets one file drive every cell. Setting `LOSS` to `0.0` turns a cell into its own clean
 control, and **the control must pass before a lossy result means anything.**
 
-### Where the loss is injected differs by mechanism
+### Where the loss is injected differs by system
 
 For RDP and satdeploy, csh is the sender, so `csp_loss` drops packets out of this node's
 own transmit path: one terminal, but the drops are **sender-side** and only affect the
