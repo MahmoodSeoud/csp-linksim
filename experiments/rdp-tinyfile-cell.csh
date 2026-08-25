@@ -36,7 +36,7 @@ apm load
 ping -n 5431 -t 5000
 
 # -- prep: a 12-byte payload, and a 4 KiB 0xAA sentinel for the target region
-sh /home/mseo/thesis/csp-linksim/experiments/mk-sentinel 4096 /tmp/sentinel_4k.bin
+sh /home/mseo/thesis/csp-linksim/scripts/mk-sentinel 4096 /tmp/sentinel_4k.bin
 sh head -c 12 /home/mseo/thesis/csp-linksim/captures/payload_256k.bin > /tmp/tiny12.bin
 sh rm -f /tmp/pre4k.bin /tmp/got4k.bin
 
@@ -63,5 +63,5 @@ download -n 5431 -v 2 -t 10000 0x10000000 4096 /tmp/got4k.bin
 sleep 1000
 
 # -- 4. verdict: are the first 12 bytes the file, or still the sentinel?
-sh /home/mseo/thesis/csp-linksim/experiments/rdp-tinyfile-verdict
+sh /home/mseo/thesis/csp-linksim/scripts/rdp-tinyfile-verdict
 exit
