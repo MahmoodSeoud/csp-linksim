@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# csh-loss-cell - one deployed-uploader loss cell, driven entirely through csh.
+# dtp-experiment - one deployed-uploader experiment, driven entirely through csh.
 #
-#   scripts/csh-loss-cell <loss> <seed> <label>      e.g.  csh-loss-cell 0.30 1 demo
-#   scripts/csh-loss-cell 0 1 ctrl                   the clean control
+#   scripts/dtp-experiment <loss> <seed> <label>      e.g.  dtp-experiment 0.30 1 demo
+#   scripts/dtp-experiment 0 1 ctrl                   the clean control
 #
-# Runs the whole cell so no second terminal is needed: arms the csh bridge + csp_loss
+# Runs the whole experiment so no second terminal is needed: arms the csh bridge + csp_loss
 # injector, restarts the on-board client, fires the real `upload_file`, waits out the
 # paced transfer, and reads the external md5 back over the serial console.
 #
@@ -66,7 +66,7 @@ gs_pids_with() {   # $1: "-c" or "-z"; prints matching pids
 rogue=$(gs_pids_with -c)
 if [ -n "$rogue" ]; then
   echo "FAIL: a ground server is attached to the bus (-c). It answers the client directly,"
-  echo "      so this cell would measure nothing. Kill it and re-run:"
+  echo "      so this experiment would measure nothing. Kill it and re-run:"
   for pid in $rogue; do echo "      pid $pid: $(tr '\0' ' ' < /proc/$pid/cmdline)"; done
   exit 1
 fi
@@ -74,7 +74,7 @@ if pgrep -x ci_inject_bridge >/dev/null; then
   echo "FAIL: ci_inject_bridge is running; two injectors duplicate every frame."; exit 1
 fi
 if pgrep -f "csh -i /tmp/cell_${LABEL}" >/dev/null; then
-  echo "FAIL: a cell with label '$LABEL' is already running."; exit 1
+  echo "FAIL: a experiment with label '$LABEL' is already running."; exit 1
 fi
 
 BR_INIT=$(mktemp --suffix=.csh); TG_INIT=$(mktemp --suffix=.csh)
@@ -157,7 +157,7 @@ echo "    source md5    : $WANT"
 echo "    board md5     : ${got:-<no answer from console>}"
 echo "    board bytes   : ${size:-?} (want $SERVED_BYTES)"
 if [ -z "$got" ]; then
-  echo "    VERDICT       : UNVERIFIED (console did not answer; cell is void, re-run)"
+  echo "    VERDICT       : UNVERIFIED (console did not answer; experiment is void, re-run)"
 elif [ "$got" = "$WANT" ]; then
   echo "    VERDICT       : MATCH -- delivered intact"
 else

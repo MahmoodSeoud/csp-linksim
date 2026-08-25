@@ -129,4 +129,4 @@ directly on the bus and no injector can see the transfer.
   until the path is restored and `mng_dipp` cycled.
 
 Loss sweeps that need the bash injector live in `../scripts/` (`rdp-board-sweep`,
-`satdeploy-board-sweep`, `dtp-board-point`, `csh-loss-cell`).
+`satdeploy-board-sweep`, `dtp-board-point`, `dtp-experiment`).
