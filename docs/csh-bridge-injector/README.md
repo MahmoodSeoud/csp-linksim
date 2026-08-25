@@ -37,6 +37,22 @@ become the forwarding hop. Three things were missing, and all three are required
    Patch 03 adds `-R <bit/s>` to `csp_loss`, holding each frame for its airtime (dropped frames
    are charged too, as on a real link).
 
+### Bus-conflict check (built into `csp_loss`)
+
+Arming the injector now scans `/proc` and reports what would silently invalidate the cell,
+because none of it is detectable from the network:
+
+- a ground server started with `-c <dev>`, i.e. attached to the bus the board is on. It answers
+  the on-board client directly, so the transfer never crosses the injector and the run reads as
+  lossless. This is the single most expensive mistake on this bench.
+- more than one `upload_gs-server`, where whichever replies first wins.
+- a competing `ci_inject_bridge`, which duplicates every frame.
+
+Matching is on the executable's basename and on real `argv` entries, so a wrapper shell that
+merely mentions the name is not counted. The check reports and never refuses: an operator
+exploring a link is a legitimate caller. `csp_loss status` repeats it on demand. A clean bus
+prints `bus check clean (1 ground server, no competing injector)`.
+
 Build config also matters (`meson configure builddir`): `buffer_count=8000`, `qfifo_len=4000`.
 The server dumps all 1041 frames into the bridge in ~0.25 s while the bridge drains them at
 ~4.7 frames/s, so the default 1000-deep queue overflows and silently drops ~41 frames.

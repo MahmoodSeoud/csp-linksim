@@ -1,16 +1,18 @@
 diff --git a/apm/csp_loss_apm.c b/apm/csp_loss_apm.c
-index 52c8250..bd2cf56 100644
+index 52c8250..ba611e4 100644
 --- a/apm/csp_loss_apm.c
 +++ b/apm/csp_loss_apm.c
-@@ -34,6 +34,7 @@
+@@ -34,6 +34,9 @@
  #include <string.h>
  #include <stdint.h>
  #include <stdlib.h>
 +#include <unistd.h>
++#include <dirent.h>
++#include <ctype.h>
  
  #include <apm/apm.h>
  #include <slash/slash.h>
-@@ -56,6 +57,7 @@ static nexthop_t    loss_real_nexthop = NULL;
+@@ -56,6 +59,7 @@ static nexthop_t    loss_real_nexthop = NULL;
  
  static ci_drop_rule_t loss_rule;
  static double   loss_prob = 0.0;
@@ -18,7 +20,132 @@ index 52c8250..bd2cf56 100644
  static int      loss_match_dport = -1;      /* -1 = independent-loss mode */
  /* -B mode: Gilbert-Elliott burst channel advanced per TRANSMISSION (a re-sent
   * packet gets a fresh draw, so recovery converges -- the physically-correct
-@@ -130,6 +132,14 @@ static int loss_nexthop(csp_iface_t *iface, uint16_t via,
+@@ -95,6 +99,124 @@ static uint64_t loss_flow_index(const csp_packet_t *packet, const ci_frame_t *f)
+     return frag;
+ }
+ 
++/*
++ * Harness health: scan /proc for processes that silently invalidate a cell.
++ *
++ * The expensive failure this catches is specific. An upload_gs-server attached to
++ * the CAN bus (-c can0) answers the on-board client directly on the shared bus, so
++ * the transfer never crosses this injector: the drop counters stay at zero, the
++ * delivered file looks however the unpaced bus left it, and the run reads as
++ * lossless. Nothing in CSP can detect that from the network, so it is checked here,
++ * at the moment the injector is armed. A second injector (ci_inject_bridge, or
++ * another bridging csh) is the same class of fault: both forward, every frame is
++ * duplicated, and the imposed loss is no longer the loss that reached the board.
++ *
++ * Reports, never refuses: an operator exploring a link is a legitimate caller, and
++ * a warning they can read beats a policy that blocks them. `csp_loss status` repeats
++ * the scan so a session can be re-checked without re-arming.
++ */
++static size_t loss_read_cmdline(const char *pid, char *buf, size_t buflen)
++{
++    char path[64];
++    snprintf(path, sizeof(path), "/proc/%s/cmdline", pid);
++    FILE *f = fopen(path, "r");
++    if (f == NULL) {
++        return 0;
++    }
++    size_t n = fread(buf, 1, buflen - 1, f);
++    fclose(f);
++    if (n == 0) {
++        return 0;
++    }
++    buf[n] = '\0';
++    return n;   /* left NUL-separated: argv[0] must be matched on its own */
++}
++
++/* Match on the executable's basename, not on a substring of the whole command
++ * line: a wrapper shell whose arguments merely mention "upload_gs-server" is not
++ * a ground server, and counting it would make the warning cry wolf. */
++static int loss_argv0_is(const char *cmd, const char *want)
++{
++    const char *slash = strrchr(cmd, '/');
++    const char *base = slash ? slash + 1 : cmd;
++    return strcmp(base, want) == 0;
++}
++
++/* Does any argument after argv[0] equal "-c"? (bus-attached ground server) */
++static int loss_has_arg(const char *buf, size_t n, const char *want)
++{
++    size_t i = strlen(buf) + 1;   /* skip argv[0] */
++    while (i < n) {
++        if (strcmp(buf + i, want) == 0) {
++            return 1;
++        }
++        i += strlen(buf + i) + 1;
++    }
++    return 0;
++}
++
++static void loss_scan_conflicts(void)
++{
++    DIR *proc = opendir("/proc");
++    if (proc == NULL) {
++        return;
++    }
++
++    int gs_can = 0, gs_total = 0, other_injectors = 0;
++    char gs_can_cmd[256] = {0};
++    pid_t self = getpid();
++    struct dirent *e;
++
++    while ((e = readdir(proc)) != NULL) {
++        if (!isdigit((unsigned char)e->d_name[0])) {
++            continue;
++        }
++        if ((pid_t)atoi(e->d_name) == self) {
++            continue;
++        }
++        char cmd[512];
++        size_t n = loss_read_cmdline(e->d_name, cmd, sizeof(cmd));
++        if (n == 0) {
++            continue;
++        }
++        if (loss_argv0_is(cmd, "upload_gs-server")) {
++            gs_total++;
++            if (loss_has_arg(cmd, n, "-c")) {
++                gs_can++;
++                if (gs_can_cmd[0] == '\0') {
++                    /* cmd is NUL-separated, so this prints argv[0] only, which
++                     * is what the operator needs to identify the process. */
++                    snprintf(gs_can_cmd, sizeof(gs_can_cmd), "pid %.10s: %.200s",
++                             e->d_name, cmd);
++                }
++            }
++        }
++        if (loss_argv0_is(cmd, "ci_inject_bridge")) {
++            other_injectors++;
++        }
++    }
++    closedir(proc);
++
++    if (gs_can > 0) {
++        printf("csp_loss: WARNING a ground server is attached to the bus and will bypass this injector:\n");
++        printf("csp_loss:   %s\n", gs_can_cmd);
++        printf("csp_loss:   it answers the on-board client directly, so this cell measures nothing.\n");
++        printf("csp_loss:   run the server on ZMQ instead (-z 127.0.0.1) and re-arm.\n");
++    }
++    if (gs_total > 1) {
++        printf("csp_loss: WARNING %d upload_gs-server processes are running; the client will be\n", gs_total);
++        printf("csp_loss:   answered by whichever replies first. Leave exactly one.\n");
++    }
++    if (other_injectors > 0) {
++        printf("csp_loss: WARNING %d ci_inject_bridge process(es) running; two injectors on one\n", other_injectors);
++        printf("csp_loss:   path duplicate every frame. Stop one.\n");
++    }
++    if (gs_can == 0 && gs_total <= 1 && other_injectors == 0) {
++        printf("csp_loss: bus check clean (%d ground server%s, no competing injector)\n",
++               gs_total, gs_total == 1 ? "" : "s");
++    }
++}
++
+ /*
+  * The shim. Runs on the caller's TX path, so it must be cheap and must honour
+  * libcsp's ownership contract: nexthop always consumes the packet. A dropped
+@@ -130,6 +252,14 @@ static int loss_nexthop(csp_iface_t *iface, uint16_t via,
      }
  
      loss_sent++;
@@ -33,7 +160,7 @@ index 52c8250..bd2cf56 100644
      if (drop) {
          loss_dropped++;
          iface->drop++;
-@@ -148,6 +158,7 @@ static int csp_loss_start_cmd(struct slash *slash)
+@@ -148,6 +278,7 @@ static int csp_loss_start_cmd(struct slash *slash)
      int dport = -1;
      int seed = 0;
      unsigned mtu = 1024;
@@ -41,7 +168,7 @@ index 52c8250..bd2cf56 100644
      unsigned overhead = CI_DTP_OVERHEAD_SATDEPLOY;
  
      optparse_t *p = optparse_new("csp_loss start", "");
-@@ -171,6 +182,8 @@ static int csp_loss_start_cmd(struct slash *slash)
+@@ -171,6 +302,8 @@ static int csp_loss_start_cmd(struct slash *slash)
                            "data-header overhead for -M indexing: 4=dipp, 8=satDeploy/SVU");
      optparse_add_string(p, 'o', "out", "FILE", &logpath,
                          "write the drop-decision log (-M mode only)");
@@ -50,7 +177,7 @@ index 52c8250..bd2cf56 100644
      int argi = optparse_parse(p, slash->argc - 1, (const char **)slash->argv + 1);
      if (argi < 0) {
          optparse_del(p);
-@@ -240,6 +253,7 @@ static int csp_loss_start_cmd(struct slash *slash)
+@@ -240,6 +373,7 @@ static int csp_loss_start_cmd(struct slash *slash)
      loss_rule.replay_len       = 0;
  
      loss_prob        = prob;
@@ -58,8 +185,11 @@ index 52c8250..bd2cf56 100644
      loss_match_dport = dport;
      loss_mtu         = (uint16_t)mtu;
      loss_overhead    = (uint16_t)overhead;
-@@ -263,6 +277,9 @@ static int csp_loss_start_cmd(struct slash *slash)
+@@ -261,8 +395,12 @@ static int csp_loss_start_cmd(struct slash *slash)
+     iface->nexthop = loss_nexthop;
+     loss_iface = iface;
  
++    loss_scan_conflicts();
      printf("csp_loss: %.1f%% loss on %s (TX from this node)\n",
             prob * 100.0, iface->name);
 +    if (rate > 0) {
@@ -68,3 +198,11 @@ index 52c8250..bd2cf56 100644
      if (burst > 0.0) {
          printf("csp_loss: BURSTY channel (Gilbert-Elliott), mean burst %.1f, seed %d%s\n",
                 burst, seed, seed ? " (replayable)" : " (time-seeded)");
+@@ -293,6 +431,7 @@ static int csp_loss_status_cmd(struct slash *slash)
+            loss_iface->name, loss_prob * 100.0,
+            loss_burst > 0.0 ? "bursty GE (-B)" :
+            loss_match_dport >= 0 ? "replayable (-M)" : "independent");
++    loss_scan_conflicts();
+     printf("csp_loss: offered %llu, dropped %llu, delivered %llu (%.2f%% actual)\n",
+            loss_sent, loss_dropped, kept,
+            loss_sent ? (100.0 * (double)loss_dropped / (double)loss_sent) : 0.0);
