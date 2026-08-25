@@ -16,13 +16,36 @@ Use the **patched csh** at `~/thesis/csh/builddir/csh`, not the one on `PATH`. T
 
 | Arm | Files | Terminals | Why |
 |---|---|---|---|
-| Deployed uploader (DTP) | `dtp-1-injector.csh` + `dtp-2-cell.csh` | 2 | the data flows server→board and never crosses the operator's shell, so a shell has to be put on the path as a bridge |
-| Reliable path (RDP) | `rdp-baseline.csh`, `rdp-cell.csh` | 1 | csh's own `upload` sends the bytes |
-| satdeploy (full tool) | `satdeploy-baseline.csh`, `satdeploy-cell.csh` | 1 | `satdeploy push` sends from the shell |
+| Deployed uploader (DTP) | `dtp-injector.csh` + `dtp-push.csh` | 2 | the data flows server→board and never crosses the operator's shell, so a shell has to be put on the path as a bridge |
+| Reliable path (RDP) | `rdp-baseline.csh`, `rdp-loss.csh` | 1 | csh's own `upload` sends the bytes |
+| satdeploy (full tool) | `satdeploy-baseline.csh`, `satdeploy-loss.csh` | 1 | `satdeploy push` sends from the shell |
 
-Each `*-cell.csh` has a single marked line to edit for loss, seed, burst and rate.
-Setting `-L 0.0` turns any cell into its own clean control, and **the control must pass
-before a lossy result means anything.**
+Naming: `<arm>-baseline.csh` runs the arm on a clean link, `<arm>-loss.csh` runs it under
+seeded loss, and the DTP arm splits into `dtp-injector.csh` (terminal 1) and
+`dtp-push.csh` (terminal 2).
+
+Parameters live in csh variables at the top of each `*-loss.csh`:
+
+```
+var set LOSS 0.30
+var set SEED 1
+var set RATE 9600
+```
+
+csh has its own variable store with `$(NAME)` expansion; it does **not** read the shell
+environment, so `LOSS=0.3 csh -i ...` silently expands to nothing. Either edit those
+lines, or delete them and set the values interactively before `run`-ing the file, which
+lets one file drive every cell. Setting `LOSS` to `0.0` turns a cell into its own clean
+control, and **the control must pass before a lossy result means anything.**
+
+### Where the loss is injected differs by arm
+
+For RDP and satdeploy, csh is the sender, so `csp_loss` drops packets out of this node's
+own transmit path: one terminal, but the drops are **sender-side** and only affect the
+forward direction, and the drop log is the injecting module's own count with no
+independent monitor. For DTP the loss is imposed **mid-path** at the bridge, where the
+promiscuous monitor can corroborate it. That difference is a real methodological
+distinction, not a convenience: see `sec:eval-threats` in the thesis.
 
 ## Choosing the drop mode: `-M` or not
 
@@ -78,13 +101,13 @@ directly on the bus and no injector can see the transfer.
 - RDP: `vmem_node` at 5431 (`bigmem`, 1 MiB byte-faithful RAM) — `scripts/bringup-vmem-node`.
   DIPP's `stora` is too small and wedges; do not use it for this.
 - DTP: the on-board `upload_client` at 5426, spawned by the app-sys manager at 5421. It
-  exits after every transfer, so `dtp-2-cell.csh` toggles `mng_util` through 0 to
+  exits after every transfer, so `dtp-push.csh` toggles `mng_util` through 0 to
   respawn it each run.
 - satdeploy: `satdeploy-agent` on the board at 5427.
 
 ## Other files
 
-- `rdp-tinyfile.csh`, `rdp-tinyfile-sweep.csh`, `rdp-tinyfile-verdict`, `mk-sentinel` —
+- `rdp-tinyfile-loss.csh`, `rdp-tinyfile-sweep-loss.csh`, `rdp-tinyfile-verdict`, `mk-sentinel` —
   the one-packet-transfer regime the on-orbit logs revealed, with a 0xAA sentinel
   control so "the bytes never arrived" is proven rather than inferred. Result on
   record: can0 stays honest even here.

@@ -22,15 +22,23 @@ csp init
 csp add can -p -c can0 5391
 apm load -p /home/mseo/thesis/csp-linksim/build/apm
 
-# ---- THE ONE LINE TO EDIT -------------------------------------------------
 # -L loss fraction   -S seed (replayable)   -R pacing bit/s (flight = 4800)
 # -M 8 keys drops to the DTP data port, so the RDP metadata handshake on port 7
 #      survives and a failure is attributable to loss on the file body.
 #      Identity-keyed drops are correct here because the deployed path is
 #      fire-and-forget: it never retransmits, so there is nothing to converge.
 # Clean control: csp_loss start -i CAN0 -L 0.0 -R 9600
-csp_loss start -i CAN0 -L 0.30 -S 1 -R 9600 -M 8
-# ---------------------------------------------------------------------------
+# ---- PARAMETERS ------------------------------------------------------------
+# csh has its own variable store (`var set` / `$(NAME)`); it does NOT read the
+# shell environment, so `LOSS=0.3 csh -i ...` will NOT work. Two ways to set them:
+#   a) edit the `var set` lines below, or
+#   b) delete them, start csh, `var set LOSS 0.10` etc., then `run <this file>`
+#      -- values already set survive, so the same file runs every cell.
+var set LOSS 0.30
+var set SEED 1
+var set RATE 9600
+# ----------------------------------------------------------------------------
+csp_loss start -i CAN0 -L $(LOSS) -S $(SEED) -R $(RATE) -M 8
 
 csp add zmq -m 14 5426 127.0.0.1
 bridge ZMQ0 CAN0 5424

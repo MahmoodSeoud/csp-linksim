@@ -17,12 +17,22 @@ apm load -p /home/mseo/thesis/csp-linksim/build/apm
 
 ping -n 5427 -t 5000
 
-# ---- THE ONE LINE TO EDIT -------------------------------------------------
 # As with RDP, do NOT use -M: satdeploy recovers by re-requesting missing blocks,
 # and identity-keyed drops would re-drop the same block every round, so recovery
 # could never converge. -B 4 is the burst shape the campaign used.
 # Clean control: csp_loss start -L 0.0 -R 9600
-csp_loss start -L 0.30 -B 4 -S 1 -R 9600
+# ---- PARAMETERS ------------------------------------------------------------
+# csh has its own variable store (`var set` / `$(NAME)`); it does NOT read the
+# shell environment, so `LOSS=0.3 csh -i ...` will NOT work. Two ways to set them:
+#   a) edit the `var set` lines below, or
+#   b) delete them, start csh, `var set LOSS 0.10` etc., then `run <this file>`
+#      -- values already set survive, so the same file runs every cell.
+var set LOSS 0.30
+var set SEED 1
+var set BURST 4
+var set RATE 9600
+# ----------------------------------------------------------------------------
+csp_loss start -L $(LOSS) -B $(BURST) -S $(SEED) -R $(RATE)
 # ---------------------------------------------------------------------------
 
 # -m 256 pins the fragment grid (1058 fragments for the 256 KiB artifact); the

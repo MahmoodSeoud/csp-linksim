@@ -21,15 +21,24 @@ sleep 2000
 # must print Failure: zeros are not the payload. Success here = stale region.
 crc32 -n 5431 -v 2 -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin 0x10000000
 
-# ---- THE ONE LINE TO EDIT -------------------------------------------------
 # -L loss fraction  -S seed  -B mean burst (Gilbert-Elliott)  -R pacing bit/s
 # Do NOT use -M here. RDP retransmits, and -M keys drops to a packet identity so
 # the same fragment is dropped on every resend -- a retrying protocol can never
 # converge against it. Per-transmission loss (plain -L, or -B) is the honest
 # channel for a reliable transport.
 # Clean control: csp_loss start -L 0.0 -R 9600
-csp_loss start -L 0.30 -B 4 -S 1 -R 9600
-# ---------------------------------------------------------------------------
+# ---- PARAMETERS ------------------------------------------------------------
+# csh has its own variable store (`var set` / `$(NAME)`); it does NOT read the
+# shell environment, so `LOSS=0.3 csh -i ...` will NOT work. Two ways to set them:
+#   a) edit the `var set` lines below, or
+#   b) delete them, start csh, `var set LOSS 0.10` etc., then `run <this file>`
+#      -- values already set survive, so the same file runs every cell.
+var set LOSS 0.30
+var set SEED 1
+var set BURST 4
+var set RATE 9600
+# ----------------------------------------------------------------------------
+csp_loss start -L $(LOSS) -B $(BURST) -S $(SEED) -R $(RATE)
 
 upload -n 5431 -v 2 -t 10000 /home/mseo/thesis/csp-linksim/captures/payload_256k.bin 0x10000000
 sleep 2000
