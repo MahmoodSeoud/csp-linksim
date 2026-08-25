@@ -16,7 +16,7 @@ Use the **patched csh** at `~/thesis/csh/builddir/csh`, not the one on `PATH`. T
 
 | Arm | Files | Terminals | Why |
 |---|---|---|---|
-| Deployed uploader (DTP) | `dtp-injector.csh` + `dtp-cell.csh` | 2 | the data flows server→board and never crosses the operator's shell, so a shell has to be put on the path as a bridge |
+| Deployed uploader (DTP) | `dtp-injector.csh` + `dtp-upload.csh` | 2 | the data flows server→board and never crosses the operator's shell, so a shell has to be put on the path as a bridge |
 | Reliable path (RDP) | `rdp-baseline.csh`, `rdp-loss.csh` | 1 | csh's own `upload` sends the bytes |
 | satdeploy (full tool) | `satdeploy-baseline.csh`, `satdeploy-loss.csh` | 1 | `satdeploy push` sends from the shell |
 
@@ -24,7 +24,7 @@ Naming: `<arm>-baseline.csh` runs the arm on a clean link, `<arm>-loss.csh` runs
 seeded loss, and the DTP arm splits into `dtp-injector.csh` (terminal 1) and
 `dtp-push.csh` (terminal 2).
 
-Parameters live in csh variables at the top of each `*-cell.csh`:
+Parameters live in csh variables at the top of each transfer file:
 
 ```
 var set LOSS 0.30
@@ -103,7 +103,7 @@ directly on the bus and no injector can see the transfer.
 - DTP: the on-board `upload_client` at 5424, spawned by the app-sys manager at 5421 via
   `mng_util` (which sets the client's own address; `mng_util_server` is the ground server
   it pulls from, 5426). It
-  exits after every transfer, so `dtp-cell.csh` toggles `mng_util` through 0 to
+  exits after every transfer, so `dtp-upload.csh` toggles `mng_util` through 0 to
   respawn it each run.
 - satdeploy: `satdeploy-agent` on the board at 5427.
 
