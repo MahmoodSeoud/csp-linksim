@@ -1,0 +1,71 @@
+diff --git a/src/main.c b/src/main.c
+index efb285b..634cccd 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -213,7 +213,11 @@ static char *csh_environ_slash_process_cmd_line_hook(const char *line) {
+ 
+ static void * router_task(void * param) {
+ 	while(1) {
+-		csp_route_work();
++		if (csp_bridge_is_active()) {
++			csp_bridge_work();
++		} else {
++			csp_route_work();
++		}
+ 	}
+ 	return NULL;
+ }
+diff --git a/src/slash_csp.c b/src/slash_csp.c
+index e8977cc..57da1cd 100644
+--- a/src/slash_csp.c
++++ b/src/slash_csp.c
+@@ -32,6 +32,8 @@
+ #include <slash/optparse.h>
+ #include <apm/csh_api.h>
+ #include "base16.h"
++#include <string.h>
++#include <csp/csp_iflist.h>
+ 
+ 
+ slash_command_group(csp, "Cubesat Space Protocol");
+@@ -50,6 +52,40 @@ static int slash_csp_info(struct slash *slash)
+ 
+ slash_command(info, slash_csp_info, NULL, "Show CSP info");
+ 
++static int slash_csp_bridge(struct slash *slash)
++{
++	if (slash->argc >= 2 && strcmp(slash->argv[1], "off") == 0) {
++		csp_bridge_set_interfaces(NULL, NULL);
++		printf("bridge: disabled; router resumed\n");
++		return SLASH_SUCCESS;
++	}
++	if (slash->argc < 3) {
++		printf("usage: bridge <ifA> <ifB>   (or: bridge off)\n");
++		return SLASH_EUSAGE;
++	}
++	csp_iface_t * a = csp_iflist_get_by_name(slash->argv[1]);
++	csp_iface_t * b = csp_iflist_get_by_name(slash->argv[2]);
++	if (a == NULL || b == NULL) {
++		printf("bridge: interface not found (run `info` for names)\n");
++		return SLASH_EINVAL;
++	}
++	uint16_t src = 0;
++	if (slash->argc >= 4) {
++		src = (uint16_t)strtoul(slash->argv[3], NULL, 10);
++	}
++	csp_bridge_set_src(src);
++	csp_bridge_set_interfaces(a, b);
++	if (src) {
++		printf("bridge: %s(ingress) <-> %s(egress) active; split-horizon on source %u.\n", a->name, b->name, src);
++	} else {
++		printf("bridge: %s <-> %s active; blind forward (no split-horizon).\n", a->name, b->name);
++	}
++	printf("        loss/monitor APMs hooking either iface nexthop apply to forwarded frames.\n");
++	return SLASH_SUCCESS;
++}
++
++slash_command(bridge, slash_csp_bridge, "<ingress_if> <egress_if> [src_addr] | off", "Bridge two interfaces with source-based split-horizon");
++
+ static int slash_csp_ping(struct slash *slash)
+ {
+ 

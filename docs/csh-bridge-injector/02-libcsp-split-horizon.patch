@@ -1,0 +1,80 @@
+diff --git a/include/csp/csp.h b/include/csp/csp.h
+index fe20d292..2ec0d038 100644
+--- a/include/csp/csp.h
++++ b/include/csp/csp.h
+@@ -334,6 +334,16 @@ void csp_bridge_set_interfaces(csp_iface_t * if_a, csp_iface_t * if_b);
+  */
+ void csp_bridge_work(void);
+ 
++/**
++ * Returns non-zero when csp_bridge_set_interfaces() has both interfaces set.
++ */
++int csp_bridge_is_active(void);
++
++/**
++ * Set the ingress source address for split-horizon bridging (0 = blind forward).
++ */
++void csp_bridge_set_src(uint16_t src);
++
+ /**
+  * Handle CSP service request.
+  * If the given packet is a service-request (the destination port matches one of CSP service ports #csp_service_port_t),
+diff --git a/src/csp_bridge.c b/src/csp_bridge.c
+index 72d0be93..013e6f5d 100644
+--- a/src/csp_bridge.c
++++ b/src/csp_bridge.c
+@@ -1,5 +1,6 @@
+ #include "csp_macro.h"
+ 
++#include <stdint.h>
+ #include "csp_qfifo.h"
+ #include "csp_io.h"
+ #include "csp_promisc.h"
+@@ -8,6 +9,7 @@
+ 
+ static csp_iface_t * bif_a;
+ static csp_iface_t * bif_b;
++static uint16_t bif_src = 0;   /* ingress source addr for split-horizon; 0 = blind forward */
+ 
+ void csp_bridge_set_interfaces(csp_iface_t * if_a, csp_iface_t * if_b) {
+ 
+@@ -15,6 +17,14 @@ void csp_bridge_set_interfaces(csp_iface_t * if_a, csp_iface_t * if_b) {
+ 	bif_b = if_b;
+ }
+ 
++int csp_bridge_is_active(void) {
++	return (bif_a != NULL) && (bif_b != NULL);
++}
++
++void csp_bridge_set_src(uint16_t src) {
++	bif_src = src;
++}
++
+ __weak void csp_input_hook(csp_iface_t * iface, csp_packet_t * packet) {
+ 	csp_print_packet("INP: S %u, D %u, Dp %u, Sp %u, Pr %u, Fl 0x%02X, Sz %" PRIu16 " VIA: %s, Tms %u\n",
+ 				   packet->id.src, packet->id.dst, packet->id.dport,
+@@ -54,11 +64,23 @@ void csp_bridge_work(void) {
+ 	csp_promisc_add(packet);
+ #endif
+ 
+-	/* Find the opposing interface */
++	/* Find the opposing interface, with source-based split-horizon.
++	 * On a broadcast transport (zmq XSUB/XPUB) the bridge hears its own
++	 * publications echoed back, which laps zmq<->can indefinitely. bif_a is the
++	 * INGRESS (data source side): forward ingress frames only if they are FROM
++	 * the source, and egress frames only if they are NOT from the source. */
+ 	csp_iface_t * destif;
+ 	if (input.iface == bif_a) {
++		if (bif_src != 0 && packet->id.src != bif_src) {
++			csp_buffer_free(packet);   /* broker echo of our own can->zmq TX */
++			return;
++		}
+ 		destif = bif_b;
+ 	} else {
++		if (bif_src != 0 && packet->id.src == bif_src) {
++			csp_buffer_free(packet);   /* our own egress TX seen again */
++			return;
++		}
+ 		destif = bif_a;
+ 	}
+ 

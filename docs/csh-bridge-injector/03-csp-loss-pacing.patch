@@ -1,0 +1,70 @@
+diff --git a/apm/csp_loss_apm.c b/apm/csp_loss_apm.c
+index 52c8250..bd2cf56 100644
+--- a/apm/csp_loss_apm.c
++++ b/apm/csp_loss_apm.c
+@@ -34,6 +34,7 @@
+ #include <string.h>
+ #include <stdint.h>
+ #include <stdlib.h>
++#include <unistd.h>
+ 
+ #include <apm/apm.h>
+ #include <slash/slash.h>
+@@ -56,6 +57,7 @@ static nexthop_t    loss_real_nexthop = NULL;
+ 
+ static ci_drop_rule_t loss_rule;
+ static double   loss_prob = 0.0;
++static unsigned loss_pace_bps = 0;   /* 0 = no pacing; else hold each frame for its airtime */
+ static int      loss_match_dport = -1;      /* -1 = independent-loss mode */
+ /* -B mode: Gilbert-Elliott burst channel advanced per TRANSMISSION (a re-sent
+  * packet gets a fresh draw, so recovery converges -- the physically-correct
+@@ -130,6 +132,14 @@ static int loss_nexthop(csp_iface_t *iface, uint16_t via,
+     }
+ 
+     loss_sent++;
++    /* Rate pacing: hold the caller for this frame's airtime so an unpaced fast
++     * bus behaves like the slow uplink. A dropped frame is charged too -- on a
++     * real link a lost packet still consumed its transmission slot. */
++    if (loss_pace_bps > 0) {
++        unsigned _bytes = (unsigned)packet->length + loss_overhead;
++        useconds_t _us = (useconds_t)(((uint64_t)_bytes * 8ULL * 1000000ULL) / loss_pace_bps);
++        if (_us) usleep(_us);
++    }
+     if (drop) {
+         loss_dropped++;
+         iface->drop++;
+@@ -148,6 +158,7 @@ static int csp_loss_start_cmd(struct slash *slash)
+     int dport = -1;
+     int seed = 0;
+     unsigned mtu = 1024;
++    unsigned rate = 0;
+     unsigned overhead = CI_DTP_OVERHEAD_SATDEPLOY;
+ 
+     optparse_t *p = optparse_new("csp_loss start", "");
+@@ -171,6 +182,8 @@ static int csp_loss_start_cmd(struct slash *slash)
+                           "data-header overhead for -M indexing: 4=dipp, 8=satDeploy/SVU");
+     optparse_add_string(p, 'o', "out", "FILE", &logpath,
+                         "write the drop-decision log (-M mode only)");
++    optparse_add_unsigned(p, 'R', "rate", "BPS", 10, &rate,
++                        "pace egress at this bit rate, e.g. 9600 (0=off); holds each frame for its airtime");
+     int argi = optparse_parse(p, slash->argc - 1, (const char **)slash->argv + 1);
+     if (argi < 0) {
+         optparse_del(p);
+@@ -240,6 +253,7 @@ static int csp_loss_start_cmd(struct slash *slash)
+     loss_rule.replay_len       = 0;
+ 
+     loss_prob        = prob;
++    loss_pace_bps    = rate;
+     loss_match_dport = dport;
+     loss_mtu         = (uint16_t)mtu;
+     loss_overhead    = (uint16_t)overhead;
+@@ -263,6 +277,9 @@ static int csp_loss_start_cmd(struct slash *slash)
+ 
+     printf("csp_loss: %.1f%% loss on %s (TX from this node)\n",
+            prob * 100.0, iface->name);
++    if (rate > 0) {
++        printf("csp_loss: pacing egress at %u bit/s (frames held for airtime)\n", rate);
++    }
+     if (burst > 0.0) {
+         printf("csp_loss: BURSTY channel (Gilbert-Elliott), mean burst %.1f, seed %d%s\n",
+                burst, seed, seed ? " (replayable)" : " (time-seeded)");
