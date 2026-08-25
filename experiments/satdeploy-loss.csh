@@ -37,10 +37,14 @@ csp_loss start -L $(LOSS) -B $(BURST) -S $(SEED) -R $(RATE)
 
 # -m 256 pins the fragment grid (1058 fragments for the 256 KiB artifact); the
 # compiled-in default drifted to 1024 once and silently changed the grid.
+# SVU bulk data rides port 9; recording it makes the fragment grid visible and is
+# what the deleted baseline file used to provide.
+csp_monitor start -d 9 -m 256 -O 8 -o /tmp/satdeploy_monitor.csv
 satdeploy push -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -r /home/root/satdeploy_cell.bin -n 5427 -m 256
 sleep 2000
 csp_loss status
 csp_loss stop
+csp_monitor stop
 
 # -- VERDICT. satdeploy decides completion at the RECEIVER, so its own report is
 #    the claim under test: it either reports a verified install or reports the
