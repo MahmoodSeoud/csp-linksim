@@ -1,6 +1,6 @@
-# dtp-1-injector.csh - TERMINAL 1 of the deployed-DTP arm: the loss injector.
+# dtp-injector.csh - TERMINAL 1 for the deployed uploader: the loss injector.
 #
-#     ~/thesis/csh/builddir/csh -i experiments/dtp-1-injector.csh
+#     ~/thesis/csh/builddir/csh -i experiments/dtp-injector.csh
 #
 # Leave this shell running; it is the bridge. Then drive the transfer from
 # TERMINAL 2 with dtp-2-cell.csh.

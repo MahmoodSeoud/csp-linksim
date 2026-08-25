@@ -45,7 +45,7 @@ lines, or delete them and set the values interactively before `run`-ing the file
 lets one file drive every cell. Setting `LOSS` to `0.0` turns a cell into its own clean
 control, and **the control must pass before a lossy result means anything.**
 
-### Where the loss is injected differs by arm
+### Where the loss is injected differs by mechanism
 
 For RDP and satdeploy, csh is the sender, so `csp_loss` drops packets out of this node's
 own transmit path: one terminal, but the drops are **sender-side** and only affect the

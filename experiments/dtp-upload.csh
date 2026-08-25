@@ -1,6 +1,6 @@
-# dtp-2-cell.csh - TERMINAL 2 of the deployed-DTP arm: restart the client, push.
+# dtp-upload.csh - TERMINAL 2 for the deployed uploader: restart the client, upload.
 #
-#     ~/thesis/csh/builddir/csh -i experiments/dtp-2-cell.csh
+#     ~/thesis/csh/builddir/csh -i experiments/dtp-upload.csh
 #
 # Run dtp-1-injector.csh in TERMINAL 1 first. Two shells are unavoidable: while a
 # bridge is active, csp_bridge_work forwards every frame instead of delivering it
