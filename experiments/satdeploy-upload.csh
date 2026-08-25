@@ -2,7 +2,7 @@
 #
 #     ~/thesis/csh/builddir/csh -i experiments/satdeploy-cell.csh
 #
-# No bridge needed: `satdeploy push` sends from this shell, so csp_loss drops the
+# No bridge needed: `satdeploy upload` sends from this shell, so csp_loss drops the
 # frames out of this node's own transmit path.
 #
 # PREREQ: satdeploy-agent running on the payload board, e.g.
@@ -12,7 +12,7 @@ csp init
 csp add can -c can0 -b 0 -d 20
 apm load
 apm load -p /home/mseo/thesis/csp-linksim/build/apm
-# Both paths are needed: `satdeploy push` lives in the installed APM
+# Both paths are needed: `satdeploy upload` lives in the installed APM
 # (~/.local/lib/csh/libcsh_satdeploy_apm.so) while csp_loss is built here.
 
 ping -n 5427 -t 5000
@@ -40,7 +40,7 @@ csp_loss start -L $(LOSS) -B $(BURST) -S $(SEED) -R $(RATE)
 # SVU bulk data rides port 9; recording it makes the fragment grid visible and is
 # what the deleted baseline file used to provide.
 csp_monitor start -d 9 -m 256 -O 8 -o /tmp/satdeploy_monitor.csv
-satdeploy push -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -r /home/root/satdeploy_cell.bin -n 5427 -m 256
+satdeploy upload -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -r /home/root/satdeploy_cell.bin -n 5427 -m 256
 sleep 2000
 csp_loss status
 csp_loss stop

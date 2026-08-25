@@ -12,17 +12,24 @@ Use the **patched csh** at `~/thesis/csh/builddir/csh`, not the one on `PATH`. T
 `bridge` command and `csp_loss -R` pacing exist only there; see
 `../docs/csh-bridge-injector/` for the patches and why each is needed.
 
-## The three arms
+## The three mechanisms
 
-| Arm | Files | Terminals | Why |
+| Mechanism | Files | Terminals | Why |
 |---|---|---|---|
 | Deployed uploader (DTP) | `dtp-injector.csh` + `dtp-upload.csh` | 2 | the data flows server→board and never crosses the operator's shell, so a shell has to be put on the path as a bridge |
-| Reliable path (RDP) | `rdp-baseline.csh`, `rdp-loss.csh` | 1 | csh's own `upload` sends the bytes |
-| satdeploy (full tool) | `satdeploy-baseline.csh`, `satdeploy-loss.csh` | 1 | `satdeploy push` sends from the shell |
+| Reliable path (RDP) | `rdp-upload.csh` | 1 | csh's own `upload` sends the bytes |
+| satdeploy, recovery build | `satdeploy-upload.csh` | 1 | `satdeploy upload` sends from the shell |
 
-Naming: `<arm>-baseline.csh` runs the arm on a clean link, `<arm>-loss.csh` runs it under
-seeded loss, and the DTP arm splits into `dtp-injector.csh` (terminal 1) and
-`dtp-push.csh` (terminal 2).
+Each file is named for the command it runs: `dtp-upload.csh` runs `upload_file`,
+`rdp-upload.csh` runs `upload`, `satdeploy-upload.csh` runs `satdeploy upload`. One run of
+one of these files, at one loss level and one seed, is one **run** in the thesis's sense; a
+**configuration** is one build across every level and seed, which is a set of runs rather
+than a file. `dtp-injector.csh` is the exception: it is the instrument, the only file that
+measures nothing on its own.
+
+There are no separate baseline files. `var set LOSS 0.0` turns any file into its own clean
+control, run through the identical path, which is a stronger control than a
+differently-written file.
 
 Parameters live in csh variables at the top of each transfer file:
 
