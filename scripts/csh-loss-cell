@@ -21,14 +21,21 @@ APM="$REPO/build/apm"
 SRC="$REPO/captures/payload_256k.bin"
 DEST="/home/root/csp_${LABEL}.bin"
 RATE_BPS="${RATE_BPS:-9600}"
-CLIENT=5426; SERVER=5424
+CLIENT=5424; SERVER=5426   # mng_util sets the client's own address; the server is what it pulls from
 export DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
 
-# A paced 1041-fragment transfer takes ~1041 * 264 * 8 / RATE_BPS seconds. Hashing
-# before it finishes reports a full-size file with a wrong digest, because the client
-# pre-allocates the destination -- which looks exactly like the silent corruption the
-# cell is meant to detect. Wait the whole window, then a margin.
-DRAIN_S=$(( 1041 * 264 * 8 / RATE_BPS ))
+# Wait for the whole paced transfer. Hashing early reports a full-size file with a
+# wrong digest, because the client pre-allocates the destination -- which looks exactly
+# like the silent corruption this is meant to detect.
+#
+# The size comes from the SERVER's file.bin, not from any -f argument: the DTP server
+# hardcodes that filename (vmem_dtp_server.c), so it is what actually ships whatever the
+# operator passes.
+SERVED="${SERVED:-/home/mseo/thesis/disco/src/upload_gs-server/builddir/file.bin}"
+[ -f "$SERVED" ] || { echo "FAIL: served artifact $SERVED not found (set SERVED=)"; exit 1; }
+SERVED_BYTES=$(stat -c%s "$SERVED")
+FRAGS=$(( (SERVED_BYTES + 251) / 252 ))
+DRAIN_S=$(( FRAGS * 264 * 8 / RATE_BPS ))
 WAIT_S=$(( DRAIN_S + 60 ))
 
 [ -x "$CSH" ] || { echo "FAIL: $CSH not built (ninja -C ~/thesis/csh/builddir csh)"; exit 1; }
@@ -137,7 +144,7 @@ while [ "$slept" -lt "$WAIT_S" ]; do
 done
 
 # --- 5. external verdict over the serial console ----------------------------------
-WANT=$(md5sum "$SRC" | cut -d' ' -f1)
+WANT=$(md5sum "$SERVED" | cut -d' ' -f1)
 probe=$(TO=40 bash "$REPO/scripts/board-cmd" "echo SZ=\$(stat -c%s $DEST 2>/dev/null); md5sum $DEST 2>/dev/null" 2>&1)
 size=$(echo "$probe" | grep -aoE 'SZ=[0-9]+' | head -1 | cut -d= -f2)
 got=$(echo "$probe" | grep -aoE '[0-9a-f]{32}' | head -1)
@@ -148,7 +155,7 @@ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$BR_LOG" | grep -aE 'offered' | tail -1 | sed
 echo "    bridge dedup  : $(grep -ac 'duplicate' "$BR_LOG") frame(s) dropped as duplicates"
 echo "    source md5    : $WANT"
 echo "    board md5     : ${got:-<no answer from console>}"
-echo "    board bytes   : ${size:-?} (want $(stat -c%s "$SRC"))"
+echo "    board bytes   : ${size:-?} (want $SERVED_BYTES)"
 if [ -z "$got" ]; then
   echo "    VERDICT       : UNVERIFIED (console did not answer; cell is void, re-run)"
 elif [ "$got" = "$WANT" ]; then

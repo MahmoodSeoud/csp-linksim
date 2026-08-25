@@ -20,13 +20,14 @@ sleep 6000
 ping 5424
 
 # -- the real operator command (the FRR verification item), unchanged.
-#    -f is trigger metadata only: the server hardcodes file.bin (vmem_dtp_server.c),
-#    so what actually ships is whatever file.bin sits in the server's builddir.
-upload_file -f /home/mseo/thesis/csp-linksim/captures/payload_256k.bin -d /home/root/dtp_cell.bin -n 5424 -s 5426
+#    -f is trigger metadata only: the server hardcodes file.bin (vmem_dtp_server.c), so
+#    what ships is whatever file.bin sits in its builddir. -f is pointed at that same
+#    file here so the command on screen matches what actually crosses the link.
+upload_file -f /home/mseo/thesis/disco/src/upload_gs-server/builddir/file.bin -d /home/root/dtp_upload.bin -n 5424 -s 5426
 
 # -- VERDICT, on the board over the serial console, AFTER the paced transfer:
-#      md5sum /home/root/dtp_cell.bin
-#    against the ground's  md5sum <the server's file.bin>
+#      md5sum /home/root/dtp_upload.bin
+#    against the ground's  md5sum of that same file.bin
 #    A paced 256 KiB transfer takes ~230 s at 9600 bit/s and the client
 #    pre-allocates the destination at full size, so hashing early reports a
 #    full-size wrong digest that looks exactly like the finding but is not.
