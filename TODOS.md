@@ -53,3 +53,43 @@ before submission is pure risk.
 
 **Depends on / blocked by:** nothing technical. Blocked by the submission date. Stated as
 a threat to validity in the meantime.
+
+## zmqproxy-lossy aborts under -M with loss (P0)
+
+**Priority:** P0
+
+**What:** `proxy/zmqproxy-lossy` core-dumps intermittently when started with an
+identity-keyed drop filter and a nonzero loss rate.
+
+**Repro:** `meson test -C build --print-errorlogs`, test 10 of 14
+(`tests/e2e/determinism.sh`). Observed 2026-08-26:
+
+```
+zmqproxy-lossy -s tcp://127.0.0.1:<front> -p tcp://127.0.0.1:<back> \
+  -M 13 -L 0.3 -S 1 -o log1.csv
+-> line 16: Aborted (core dumped)
+stdout: 500 / 353 / log1 rows: 0 / log2 rows: 500
+```
+
+Run 1 aborted with zero rows written; run 2 of the same invocation completed with
+500 rows. Intermittent, so a startup race is more likely than a logic error. The
+test's own header already notes the ZMQ slow-joiner drops early frames, so the
+startup window is known-fragile.
+
+**Why it matters:** this is `ci_inject_bridge`'s sibling and the injector behind
+the committed `board_external_full` campaign, which also ran with `-M`. A crash is
+loud, so it cannot have produced wrong data silently, but a reproducibility gate
+that crashes is undocumented in the instrument chapter and an examiner running the
+suite will hit it.
+
+**Pros:** removes a red test from the suite; closes a crash in a cited instrument.
+**Cons:** an afternoon on a code path the 2026-08-26 experiments never used, close
+to submission.
+
+**Context:** found by `/ship` on 2026-08-26 on branch
+`experiments/2026-08-rebaseline`. The branch changed no C, build or test files, so
+the failure is pre-existing. The build already sets ASAN/UBSAN options in the meson
+test environment, so a sanitiser rebuild should localise it quickly.
+
+**Depends on / blocked by:** nothing. Not on the path to the T1-T11 tasks from the
+eng review.
