@@ -1,0 +1,11 @@
+mode,loss,seed,burst,claimed,crc,sha,loss_drops,verdict,ts,rate_bps,artifact,artifact_bytes
+stock,0,1,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:28:28Z,4800,payload_libjpegxl.bin,67256
+stock,0,2,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:29:05Z,4800,payload_libjpegxl.bin,67256
+stock,0,3,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:29:37Z,4800,payload_libjpegxl.bin,67256
+stock,0.10,1,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:30:09Z,4800,payload_libjpegxl.bin,67256
+stock,0.10,2,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:30:41Z,4800,payload_libjpegxl.bin,67256
+stock,0.10,3,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:31:14Z,4800,payload_libjpegxl.bin,67256
+stock,0.30,1,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:31:51Z,4800,payload_libjpegxl.bin,67256
+stock,0.30,2,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:32:23Z,4800,payload_libjpegxl.bin,67256
+stock,0.30,3,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:32:55Z,4800,payload_libjpegxl.bin,67256
+tuned,0.30,1,0,DELIVERED,SUCCESS,MATCH,0,OK,2026-08-26T10:33:28Z,4800,payload_libjpegxl.bin,67256

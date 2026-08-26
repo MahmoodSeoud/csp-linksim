@@ -1,0 +1,47 @@
+
+  ***********************
+  **     CSP   Shell   **
+  ***********************
+
+  Copyright (c) 2016-2025 Space Inventor A/S <info@space-inventor.com>
+  Compiled: Aug 25 2026 git: de74e16
+
+  Init file: /tmp/sd_6Txx.csh
+  Version 2
+  Hostname: disco-dev-w540
+  Model: #180-Ubuntu SMP Fri Jan 9 16:10:31 UTC 2026
+  Revision: 5.15.0-170-generic
+  Deduplication: 3
+INIT CAN0: device: [can0], bitrate: 0, promisc: 0
+Loaded: /home/mseo/thesis/csp-linksim/build/apm/libcsh_csp_monitor.so
+Loaded: /home/mseo/thesis/csp-linksim/build/apm/libcsh_csp_shell.so
+Loaded: /home/mseo/thesis/csp-linksim/build/apm/libcsh_csp_loss.so
+Loaded: /home/mseo/thesis/csp-linksim/build/apm/libcsh_csp_link.so
+Skipping libcsh_csp_monitor.so already loaded
+Skipping libcsh_csp_shell.so already loaded
+Skipping libcsh_csp_loss.so already loaded
+Skipping libcsh_csp_link.so already loaded
+Loaded: /home/mseo/.local/lib/csh/libcsh_obc.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_ippc.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_uploader.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_dtp_client.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_svu.so
+Loaded: /home/mseo/.local/lib/csh/libcsh_satdeploy_apm.so
+Ping node 5427 size 0 timeout 5000: Reply in 4 [ms]
+csp_loss: bus check clean (1 ground server, no competing injector)
+csp_loss: 0.0% loss on CAN0 (TX from this node)
+csp_loss: pacing egress at 4800 bit/s (frames held for airtime)
+csp_loss: independent per-transmission loss
+csp_monitor: promisc queue depth = 1000 (build-time CSP_CONN_RXQUEUE_LEN)
+csp_monitor: started -> /tmp/recovery_L0_s1_mon.csv (dport=9 [SVU bulk data (satdeploy v2 transfer)], window=1000ms, mtu=256, dtp_overhead=8 satDeploy)
+csp_monitor: port map -> 8=DTP data, 9=SVU data, 10=param, 13=DIPP/RDP meta, 14=vmem upload; -d -1 = any
+checking node 5427...
+/home/mseo/thesis/csp-linksim/captures/payload_libjpegxl.bin -> node 5427:/home/root/sd_recovery_L0_s1.bin  (67256 bytes, 31b50250)
+  waiting for the satellite to verify...
+svu-server: served a request from node 5427 (0 intervals, 67256 bytes blasted)
+> Deployed sd_recovery_L0_s1 (31b50250) over SVU
+csp_loss: active on CAN0 -- target 0.0%, mode independent
+csp_loss: bus check clean (1 ground server, no competing injector)
+csp_loss: offered 278, dropped 0, delivered 278 (0.00% actual)
+csp_loss: stopped on CAN0 -- offered 278, dropped 0 (0.00%)
+csp_monitor: stopped -> /tmp/recovery_L0_s1_mon.csv

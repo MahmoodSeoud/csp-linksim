@@ -1,0 +1,20 @@
+[dtp_L0.30_s2] injector armed:
+    csp_loss: bus check clean (1 ground server, no competing injector)
+    csp_loss: 30.0% loss on CAN0 (TX from this node)
+    csp_loss: pacing egress at 4800 bit/s (frames held for airtime)
+    bridge: ZMQ0(ingress) <-> CAN0(egress) active; split-horizon on source 5426.
+[dtp_L0.30_s2] on-board client up
+[dtp_L0.30_s2] transfer triggered, draining at 4800 bit/s (~117s); waiting 177s
+    t+60s / 177s
+    t+120s / 177s
+    t+180s / 177s
+[dtp_L0.30_s2] ---------------- verdict ----------------
+    injected loss : 0.30 (seed 2), paced 4800 bit/s
+    csp_loss: offered 277, dropped 71, delivered 206 (25.63% actual)
+    bridge dedup  : 0 frame(s) dropped as duplicates
+    source md5    : a2414c4e3ad4a586304c838e2b743bd1
+    board md5     : 05f92f7eda3461eb9ee556c02412bdee
+    board bytes   : 67256 (want 67256)
+    VERDICT       : MISMATCH -- size-correct, contents wrong, no error raised
+/home/mseo/thesis/csp-linksim/scripts/dtp-experiment: line 82: 3767320 Killed                  setsid nohup script -qec "$CSH -i $BR_INIT" /dev/null < /dev/null > "$BR_LOG" 2>&1
+/home/mseo/thesis/csp-linksim/scripts/dtp-experiment: line 82: 3767375 Killed                  setsid nohup script -qec "$CSH -i $TG_INIT" /dev/null < /dev/null > "$TG_LOG" 2>&1

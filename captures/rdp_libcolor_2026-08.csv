@@ -1,0 +1,4 @@
+mode,loss,seed,burst,claimed,crc,sha,loss_drops,verdict,ts,rate_bps,artifact,artifact_bytes
+stock,0,1,0,FAILED,MISMATCH,MISMATCH,0,LOUD_ABORT,2026-08-26T12:49:34Z,4800,payload_libcolor.bin,365688
+stock,0.30,1,0,DELIVERED,SUCCESS,MATCH,1181,OK,2026-08-26T13:46:31Z,4800,payload_libcolor.bin,365688
+tuned,0.30,1,0,FAILED,MISMATCH,MISMATCH,2173,LOUD_ABORT,2026-08-26T14:17:55Z,4800,payload_libcolor.bin,365688

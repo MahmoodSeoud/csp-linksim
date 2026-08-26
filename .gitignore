@@ -93,3 +93,22 @@ __pycache__/
 
 # default csp_monitor output filename (stray runs at repo root)
 /csp-intercept.csv
+# The 2026-08 rebaseline against real DISCO-2 flight modules: three per-system result
+# tables plus the median-module runs. Same survive-a-disk-loss class as the sweep tables
+# above — five hours of flatsat time and they are what the results chapter cites. Named
+# *_experiment_* rather than *_sweep* because the vocabulary changed; the negation above
+# only covers the old name.
+!captures/dtp_experiment_2026-08.csv
+!captures/rdp_experiment_2026-08.csv
+!captures/satdeploy_experiment_2026-08.csv
+!captures/rdp_libcolor_2026-08.csv
+# The discarded and void sets. Kept deliberately: the frozen exclusion rule says an
+# invalid run is reported and never dropped, so the runs that a wrong injector MTU, a
+# stale APM and a content-addressed no-op produced are part of the record, not scratch.
+!captures/dtp_experiment_2026-08_DISCARDED-prefix-instrument.csv
+!captures/rdp_experiment_2026-08_VOID-no-injector.csv
+!captures/satdeploy_experiment_2026-08_VOID-already-deployed.csv
+!captures/satdeploy_experiment_2026-08_VOID-not-paced.csv
+# payload_*.bin stay untracked, matching payload_256k.bin: they are byte-copies of the
+# flight modules in disco-ii-flight-checkout and regenerate from there. Their sha256 is
+# recorded in docs/experiment-matrix.md, which is the provenance anchor.
