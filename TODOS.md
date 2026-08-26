@@ -93,3 +93,64 @@ test environment, so a sanitiser rebuild should localise it quickly.
 
 **Depends on / blocked by:** nothing. Not on the path to the T1-T11 tasks from the
 eng review.
+
+## Deferred from the August 2026 experiment matrix
+
+Deferred from `docs/experiment-matrix.md` by `/ship` on 2026-08-26. The core matrix
+(three systems, three loss levels, three seeds, 25 valid runs of 28) is complete and
+landed; these are the edges.
+
+### Median-module runs never attempted (P1)
+
+**Priority:** P1
+
+**What:** run DTP and satdeploy against `libcolor.so` (365 688 B, the median flight
+module) at iid 0.30, seed 1. The plan's Spot runs section lists all three systems;
+only the reliable path was attempted.
+
+**Why:** tuned RDP fits inside one 8.9-minute contact at the 67 KB artifact
+(365.6 s against 534 s), so R4 and R5 do not bite at the small artifact. The median
+module is where the contact boundary is actually crossed, which makes these runs
+load-bearing for two requirements rather than the "optional" the plan calls them.
+
+**Depends on / blocked by:** the satdeploy run is blocked by T5 from the eng review
+(determine whether the `-m 256` pin, against satdeploy's own default of 1024, is
+what caused the three 0.30 failures). Running it at the wrong MTU would repeat the
+same confound at a larger size. DTP is unblocked, ~12 min of bench.
+
+### RDP median-module control failed (P0)
+
+**Priority:** P0
+
+**What:** the zero-loss control for the `libcolor.so` runs came back FAILED with a
+loud abort, and the 0.30 run beneath it was still recorded OK.
+
+**Why:** `docs/experiment-matrix.md` line 97 says a control must pass before any
+lossy run in that experiment counts. Keeping both the rule and the row is worse than
+keeping either alone.
+
+**Context:** root-caused during the eng review. `scripts/rdp-board-sweep` hardcodes
+`-t 10000` on the pre-fill and the read-back download while `UP_TO` scales with
+artifact size, so at 365 688 B the pre-fill timed out at 190464 bytes, left a
+half-open RDP connection, and the payload upload then died at 18048 bytes at zero
+loss. One-line fix, tracked as T1.
+
+**Depends on / blocked by:** T1. After the fix, re-run control + stock + tuned,
+about 90 min of bench.
+
+### Gilbert-Elliott runs not started (P1)
+
+**Priority:** P1
+
+**What:** two burst-channel runs at seed 1, for the reliable path and satdeploy,
+replaying the measured link shape (`-B 7.8`).
+
+**Why:** R6 (recovery must work under correlated loss, not only isolated drops) has
+no evidence at all without them, and they are what ties the Link Characterisation
+chapter to the loss-injection chapter.
+
+**Depends on / blocked by:** the uplink one-way loss marginal from Link
+Characterisation, which does not exist yet and is marked `[VERIFY]` in the plan. The
+round-trip figure (~47%) is the wrong number for a forward-only injector. Also note
+the eng review's finding that a lossless reverse channel makes R6 unevaluable
+regardless until the reverse-channel item above is addressed.
