@@ -17,7 +17,7 @@ tail -n +2 "$CSV" | while IFS= read -r line; do
   log="$EVID/${label}.log"
   # grep -c already prints 0 when there are no matches AND exits 1, so a `|| echo 0`
   # fallback appends a SECOND value and embeds a newline in the CSV field.
-  z=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$log" 2>/dev/null | grep -ac "0 bytes blasted"); z=${z:-0}
+  z=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$log" 2>/dev/null | grep -acE '(^|[^0-9])0 bytes blasted'); z=${z:-0}
   if [ "$vd" = "UNVERIFIED" ]; then
     if grep -qa "No response from agent" "$log" 2>/dev/null; then vd=INVALID_AGENT_DOWN
     elif grep -qa "did not verify" "$log" 2>/dev/null; then vd=INCOMPLETE_REPORTED

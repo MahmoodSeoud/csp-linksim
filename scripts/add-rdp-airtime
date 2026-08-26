@@ -11,6 +11,8 @@ CSV="${1:-/home/mseo/thesis/csp-linksim/captures/rdp_experiment_2026-08.csv}"
 CONTACT_S=534                                  # 8.9-minute mean contact, Section 2.1
 OUT="$CSV.tmp"
 {
+  # The stock zero-loss control at this artifact, used as the fallback denominator.
+  stock_ctl=$(awk -F, 'NR>1 && $1=="stock" && $2=="0" && $9=="OK"{print $14; exit}' "$CSV")
   IFS= read -r hdr
   echo "$hdr,elapsed_s,theoretical_s,control_s,airtime_ratio,ratio_basis,fits_contact"
   while IFS= read -r line; do
@@ -22,8 +24,14 @@ OUT="$CSV.tmp"
     _pay=$(echo "$line" | cut -d, -f12); _pay="${_pay%.bin}"
     log="/tmp/rdpcl_${mode}_${_pay}_L${loss}_b${burst}_s${seed}_session.log"
     [ -f "$log" ] || log="/tmp/rdpcl_${mode}_L${loss}_b${burst}_s${seed}_session.log"
-    el=$(grep -a "Uploaded ${bytes} bytes in" "$log" 2>/dev/null | tail -1 \
+    # The PAYLOAD upload is the SECOND "Uploaded" line; the first is the unpaced
+    # zero-fill prefill (~2 s). tail -1 silently returns the prefill when the payload
+    # aborted, which reads as a 2-second transfer that fits the contact.
+    el=$(grep -a "Uploaded ${bytes} bytes in" "$log" 2>/dev/null | sed -n '2p' \
          | sed -E 's/.*in ([0-9.]+) s.*/\1/')
+    # And a row that did not complete has no airtime to report at all.
+    _vd=$(echo "$line" | cut -d, -f9)
+    case "$_vd" in OK) ;; *) el="" ;; esac
     if [ -n "$el" ] && [ -n "$rate" ] && [ "$rate" -gt 0 ] 2>/dev/null; then
       # Two denominators. theoretical_s is bytes*8/rate, the wire minimum. control_s is
       # the MEASURED loss-free transfer at the same mode and seed, which also carries RDP
@@ -33,13 +41,20 @@ OUT="$CSV.tmp"
       theo=$(awk -v b="$bytes" -v r="$rate" 'BEGIN{printf "%.1f", b*8/r}')
       clog="/tmp/rdpcl_${mode}_${_pay}_L0_b${burst}_s${seed}_session.log"
       [ -f "$clog" ] || clog="/tmp/rdpcl_${mode}_L0_b${burst}_s${seed}_session.log"
-      ctl=$(grep -a "Uploaded ${bytes} bytes in" "$clog" 2>/dev/null | tail -1 \
+      ctl=$(grep -a "Uploaded ${bytes} bytes in" "$clog" 2>/dev/null | sed -n '2p' \
             | sed -E 's/.*in ([0-9.]+) s.*/\1/')
       # Which denominator was used is part of the number. Falling back from measured to
       # theoretical without saying so put 3.26 in the committed tuned row where
       # measured-against-measured is 2.94 -- an 11% error in the column the cost
       # argument cites. Record the basis so the two can never be compared silently.
-      if [ -n "$ctl" ]; then base="$ctl"; basis=measured; else base="$theo"; basis=theoretical; fi
+      # Denominator precedence: this row's own measured control, else the STOCK measured
+      # control at the same artifact (tuned has no zero-loss run of its own, and borrowing
+      # across modes is right -- measured against measured -- but must be labelled), else
+      # the theoretical wire minimum. The basis column records which, so the three can
+      # never be silently compared. A hand-edited ratio is not reproducible; this is.
+      if [ -n "$ctl" ]; then base="$ctl"; basis=measured
+      elif [ -n "$stock_ctl" ]; then base="$stock_ctl"; basis=measured_stock_control
+      else base="$theo"; basis=theoretical; fi
       ratio=$(awk -v e="$el" -v c="$base" 'BEGIN{printf "%.2f", e/c}')
       fits=$(awk -v e="$el" -v k="$CONTACT_S" 'BEGIN{print (e<=k)?"yes":"no"}')
       echo "$line,$el,$theo,${ctl:-},$ratio,$basis,$fits"

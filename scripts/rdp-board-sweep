@@ -55,6 +55,7 @@ strip_ansi(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'; }
 
 modes="$MODE"; [ "$MODE" = both ] && modes="stock tuned"
 for mode in $modes; do
+  CONTROL_OK=unset; CONTROL_VD=ABSENT
   opt=""; [ "$mode" = tuned ] && opt="-w 5 -c 120000 -p 1000 -k 250"
   for loss in $LOSSES; do
     for s in $(seq 1 "$NSEEDS"); do
@@ -63,7 +64,7 @@ for mode in $modes; do
       # the libcolor runs destroyed the libjpegxl session log backing a committed row.
       label="rdpcl_${mode}_$(basename "$PAY" .bin)_L${loss}_b${BURST:-0}_s${s}"
       if awk -F, -v m="$mode" -v l="$loss" -v sd="$s" -v b="${BURST:-0}" \
-           'NR>1&&$1==m&&$2==l&&$3==sd&&$4==b{f=1}END{exit !f}' "$CSV"; then
+           'NR>1&&$1==m&&$2==l&&$3==sd&&$4==b&&$9=="OK"{f=1}END{exit !f}' "$CSV"; then
         echo "-- $label done, skip"; continue; fi
 
       GOT="/tmp/${label}_got.bin"; rm -f "$GOT"
@@ -138,6 +139,16 @@ for mode in $modes; do
       sha=MISMATCH; [ "$got_sha" = "$ORIG_SHA" ] && sha=MATCH
       [ "$sha" = MATCH ] && rm -f "$GOT" || mv -f "$GOT" "/tmp/${label}_got_keep.bin" 2>/dev/null
 
+      # Injector guard FIRST. The nine runs in rdp_experiment_2026-08_VOID-no-injector.csv
+      # all read loss=0.30, drops=0, OK, because a stale csp_loss without -R was rejected
+      # and nothing checked. A verdict ladder keyed only on claimed/sha cannot see this.
+      if ! printf '%s' "$out" | grep -qa "pacing egress at ${RATE_BPS} bit/s"; then
+        vd=VOID_NOT_PACED
+      elif [ "$loss" != 0 ] && ! printf '%s' "$out" | grep -qaE "csp_loss: .*loss on"; then
+        vd=VOID_NO_LOSS_ARMED
+      elif [ "$loss" != 0 ] && [ "${drops:-0}" -eq 0 ] 2>/dev/null; then
+        vd=VOID_ZERO_DROPS_AT_LOSS
+      else
       # Fail closed. Enumerate what is understood; everything else is void, not OK.
       case "$claimed/$sha" in
         DELIVERED/MATCH)    vd=OK ;;
@@ -150,9 +161,13 @@ for mode in $modes; do
       # A control that did not pass voids every lossy run in the same experiment. The
       # libcolor set shipped a LOUD_ABORT control beside an OK 0.30 row because this
       # was prose in the plan and nothing in the harness.
+      fi
+      # F3: CONTROL_VD is per (mode, artifact). It used to live outside the mode loop, so a
+      # passing stock control gated every tuned row and only the last control seed counted.
       if [ "$loss" = 0 ]; then
+        [ "$vd" = OK ] && CONTROL_OK=1 || CONTROL_OK=0
         CONTROL_VD="$vd"
-      elif [ "${CONTROL_VD:-unset}" != "OK" ]; then
+      elif [ "${CONTROL_OK:-unset}" != "1" ]; then
         vd="VOID_CONTROL_${CONTROL_VD:-ABSENT}"
       fi
       ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)

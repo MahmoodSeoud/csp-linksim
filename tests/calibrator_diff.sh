@@ -33,7 +33,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 # 8235 exercises the range where the index is well past any 16-bit boundary.
 SIZES="267 1452 8235"
 PROBS="0.05 0.10 0.30 0.50"
-SEEDS="1 2 3 4 5"
+SEEDS="1 2 3 4 5 6 7 8"
 
 fail=0; checked=0
 
@@ -67,6 +67,8 @@ done
 
 # Pin the two figures the evaluation actually cites, so a change that keeps the two
 # implementations consistent with each other but moves the numbers still fails here.
+# Seed 1 only, deliberately: the counts are NOT seed-invariant at n=267 (seeds 4-6 give
+# 72 at p=0.30, seed 8 gives 70), so pinning them across seeds would encode a false claim.
 c10=$("$HOST" 0.10 1 267 | wc -l | tr -d ' ')
 c30=$("$HOST" 0.30 1 267 | wc -l | tr -d ' ')
 [ "$c10" = "24" ] || { echo "FAIL: cited figure moved -- p=0.10 n=267 gives $c10, chapter says 24"; fail=$((fail+1)); }

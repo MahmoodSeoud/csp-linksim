@@ -93,8 +93,13 @@ corrected.
 | E2 | RDP, reliable path | `upload` | 5431 | 3 | 3 | 3 |
 | E3 | satdeploy, recovery build | `satdeploy upload` | 5427 | 3 | 3 | 3 |
 
-Seeds 1, 2, 3. The same seed gives every build the identical drop schedule. Claims are
-existence and absence, so what is needed is unanimity across seeds, not a rate.
+Seeds 1, 2, 3. A seed is replayable WITHIN a build, not across builds: the three systems
+do not share a drop schedule. The deployed uploader runs identity-keyed on port 8, so its
+drop set is a deterministic function of the fragment index; the reliable path and satdeploy
+run plain `-L`, which draws sequentially from `rand()` over all ports. Measured at loss 0.10
+seed 1 the three captures record 24, 35 and 25 drops. Claims here are existence and absence,
+so what is needed is unanimity across seeds within a build, not a shared channel across
+builds. [VERIFY] against the threats section, which must state this.
 
 0.00 is the control and must pass before any lossy run in that experiment counts.
 

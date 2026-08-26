@@ -194,3 +194,56 @@ highest-value test groups are tracked as T8 in the eng review; only the differen
 calibrator test was built (`tests/calibrator_diff.sh`, 60 configurations).
 
 **Depends on / blocked by:** nothing. Independent of T1-T11.
+
+## Harness: remaining adversarial-review findings (P1)
+
+**Priority:** P1
+
+Found by the `/ship` adversarial pass on 2026-08-26, after the coverage audit's ten were
+fixed. These are the ones not yet addressed.
+
+- **Console canary has no per-run nonce, and `head -1` prefers stale output.**
+  `board-cmd` drains the serial buffer for only 0.2 s and then prints every line up to its
+  own sentinel, so leftover output from the previous probe comes FIRST. All three callers
+  take `head -1`. A stale canary is a well-formed 32-hex hash from the PREVIOUS
+  destination and would be recorded as this run's external verdict. `dtp-experiment`'s own
+  comment already documents that the third consecutive lossy run loses the console. Fix:
+  embed the run label inside the canary and match on it, or use `tail -1`.
+- **`crc32` is collected and then ignored.** The sweep header promises "clean crc32 AND
+  download-back sha256", but the verdict ladder branches only on claimed/sha. So
+  `crc=SUCCESS, sha=MISMATCH` records SILENT_CORRUPTION even though the board's own CRC
+  says the region is correct, and an empty `got_sha` from a failed download does the same.
+  Add crc to the ladder and size-check `$GOT`.
+- **The pre-fill gate does not detect a failed pre-fill.** It accepts any `Failure` on the
+  first crc32, and an aborted pre-fill yields CRC 0, which is a Failure. The libcolor
+  control passed this gate with the region half-written, so the run's initial state was
+  unknown rather than established.
+- **`run-satdeploy-experiment` discards the agent-relaunch confirmation.** The command
+  ends in `echo AGT_$(pidof ...)_END` but the whole call is `>/dev/null 2>&1` and
+  `board-cmd`'s exit status is unchecked. That is how `recovery_L0.30_s3` was produced,
+  leaving 0.30 at n=2.
+- **`invocations` is empty in all nine satdeploy rows.** The `(round|pass|invocation)`
+  regex never matched, so satdeploy's recovery-round count -- its distinguishing mechanism
+  and the RQ3 number -- is absent from the capture. Recover it by counting
+  `svu-server: served` lines.
+- **`add-wallclock` can pair a late START with an early DONE.** It takes `tail -1` of each
+  independently from a log that accumulates across invocations, with no ordering or
+  non-negativity check, and interpolates the label into a regex unescaped.
+- **`fill-satdeploy-verdicts` derives the reference hash from an untracked payload copy**
+  rather than from the `source_md5` already in each row. Regenerate the copy and every
+  verdict silently flips against a different artifact.
+- **Two remaining non-idempotent post-processors:** `add-wallclock` and
+  `add-dtp-ground-claim` still append columns unconditionally.
+- **`captures/evidence/**/*.bin` is still ignored** outside the two negated directories, so
+  the corrupt-download forensics `rdp-board-sweep` deliberately preserves can never be
+  committed. Silently, with no error.
+- **The calibrator test cannot see the flow-index path.** `calibrator_host` feeds
+  `ci_rule_decide` a loop counter; the injector derives its index through
+  `ci_dtp_fragment_index_ovh(off, mtu, overhead)`, which is exactly where the discarded
+  set went wrong. The `-M 8 -m 256 -O 4` runtime arguments are pinned nowhere.
+- **`python3` absent makes the calibrator test a meson SKIP** while the suite still
+  reports success and the README claims 15/15 green.
+
+**Context:** the adversarial pass verified three claims that turned out to be real and are
+now fixed (missing pacing guard in the sweep, prefill time attributed to failed runs, and
+two false statements in documents). These are what remains.

@@ -7,10 +7,17 @@ predicts the drop count and the exact drop pattern for any (p, seed, fragment co
 without touching the bench, so the instrument can be calibrated against arithmetic rather
 than against itself.
 
-It also shows a property the runs must be described by: XOR is a bijection on the index
-range, so small seeds feed splitmix64 the same multiset of inputs. The number of dropped
-fragments is therefore identical across seeds; only which fragments are dropped changes.
-Three seeds give three drop patterns at one loss rate, not three loss rates.
+It also shows a property of the seeds ACTUALLY USED. XOR with a small seed is a bijection
+on a power-of-two block, so where the fragment count aligns with that block the seeds feed
+splitmix64 the same multiset of inputs and the drop COUNT is identical while the positions
+permute. This holds for seeds 1-3 at n=267 (24 drops at p=0.10, 71 at p=0.30), which is
+the configuration reported.
+
+It does NOT hold in general, because 267 is not a power of two: indices near n map outside
+[0,n) and the counts drift. Measured with this rule at n=267: seeds 4-6 give 72 at p=0.30
+and seed 8 gives 22 at p=0.10 and 70 at p=0.30. So the correct statement is "the three
+seeds used give three drop patterns at one loss rate", not "seeds do not change the rate".
+Anything that widens the seed range must re-derive the counts rather than assume them.
 
   scripts/calibrate-injector.py [fragments] [p ...]
 """
