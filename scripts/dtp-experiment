@@ -166,7 +166,7 @@ canary=""; probe=""
 for attempt in 1 2 3; do
   probe=$(TO=60 bash "$REPO/scripts/board-cmd" \
     "sz=\$(stat -c%s $DEST 2>/dev/null); h=\$(md5sum $DEST 2>/dev/null | cut -d' ' -f1); echo PRB_\${sz}_\${h}_\${sz}_\${h}_BRP" 2>&1)
-  canary=$(echo "$probe" | grep -aoE 'PRB_[0-9]*_[0-9a-f]*_[0-9]*_[0-9a-f]*_BRP' | head -1)
+  canary=$(echo "$probe" | grep -aoE 'PRB_[0-9]+_[0-9a-f]{32}_[0-9]+_[0-9a-f]{32}_BRP' | head -1)
   [ -n "$canary" ] && break
   echo "    console      : no sentinel on attempt $attempt, settling and retrying"
   sleep 6

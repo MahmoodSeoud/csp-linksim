@@ -46,8 +46,14 @@ for entry in $1; do
   smd5=$(   printf '%s' "$out" | grep -aE  'source md5'          | head -1 | grep -aoE '[0-9a-f]{32}')
   verdict=$(printf '%s' "$out" | grep -aE  'VERDICT' | head -1 | sed 's/.*VERDICT *: *//' | awk '{print $1}')
   [ -n "$verdict" ] || verdict=NO_VERDICT
-  # apparatus check: offered must equal fragments + handshake, else the run is void
-  if [ -n "$offered" ] && [ "$offered" != "$AFRAGS" ]; then verdict="INVALID_OFFERED_${offered}_want_${AFRAGS}"; fi
+  # Apparatus check, LOWER BOUND. offered counts every frame this node transmits, so it
+  # rises under loss with extra control traffic (269 clean, 276 at 0.10, 277 at 0.30).
+  # An equality guard here marked six valid lossy runs INVALID. Artifact identity is
+  # already proven by hashing the served file, so the only thing left to catch is frames
+  # vanishing BEFORE the injector.
+  if [ -n "$offered" ] && [ "$offered" -lt "$AFRAGS" ] 2>/dev/null; then
+    verdict="INVALID_OFFERED_${offered}_below_${AFRAGS}"
+  fi
 
   echo "dtp,$loss,$seed,$label,$ANAME,$ABYTES,$AFRAGS,${offered:-},${dropped:-},${bbytes:-},${bmd5:-},${smd5:-},$verdict,$RATE_BPS,$(date -u +%FT%TZ)" >> "$CSV"
   echo "$(date -u +%FT%TZ) DONE  $label -> $verdict (offered ${offered:-?}, dropped ${dropped:-?})" | tee -a "$EVID/runner.log"

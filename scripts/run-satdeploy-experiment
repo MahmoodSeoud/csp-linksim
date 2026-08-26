@@ -77,7 +77,7 @@ for loss in 0 0.10 0.30; do for seed in 1 2 3; do
   # external hash over the console, double-framed so console garble cannot pass as a value
   p=$(TO=40 bash "$REPO/scripts/board-cmd" \
       "sz=\$(stat -c%s $DEST 2>/dev/null); h=\$(md5sum $DEST 2>/dev/null | cut -d' ' -f1); echo PRB_\${sz}_\${h}_\${sz}_\${h}_BRP" 2>&1)
-  can=$(echo "$p" | grep -aoE 'PRB_[0-9]*_[0-9a-f]*_[0-9]*_[0-9a-f]*_BRP' | head -1)
+  can=$(echo "$p" | grep -aoE 'PRB_[0-9]+_[0-9a-f]{32}_[0-9]+_[0-9a-f]{32}_BRP' | head -1)
   got=""; if [ -n "$can" ]; then IFS='_' read -r _ s1 h1 s2 h2 _ <<< "$can"
     [ -n "$h1" ] && [ "$h1" = "$h2" ] && got="$h1"; fi
 

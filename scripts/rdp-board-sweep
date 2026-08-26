@@ -57,7 +57,10 @@ for mode in $modes; do
   opt=""; [ "$mode" = tuned ] && opt="-w 5 -c 120000 -p 1000 -k 250"
   for loss in $LOSSES; do
     for s in $(seq 1 "$NSEEDS"); do
-      label="rdpcl_${mode}_L${loss}_b${BURST:-0}_s${s}"
+      # The artifact is part of the run identity. Without it, two artifacts at the same
+      # (mode, loss, burst, seed) share one /tmp log and the second overwrites the first:
+      # the libcolor runs destroyed the libjpegxl session log backing a committed row.
+      label="rdpcl_${mode}_$(basename "$PAY" .bin)_L${loss}_b${BURST:-0}_s${s}"
       if awk -F, -v m="$mode" -v l="$loss" -v sd="$s" -v b="${BURST:-0}" \
            'NR>1&&$1==m&&$2==l&&$3==sd&&$4==b{f=1}END{exit !f}' "$CSV"; then
         echo "-- $label done, skip"; continue; fi
@@ -78,7 +81,7 @@ for mode in $modes; do
         echo "apm load -p $REPO/build/apm"
         echo "apm load"
         # -- clean pre-fill + gate (region must NOT equal payload before the run)
-        echo "upload -n $NODE -v 2 -t 10000 $ZER $REGION"
+        echo "upload -n $NODE -v 2 -t $UP_TO $ZER $REGION"
         echo "sleep 3000"
         echo "crc32 -n $NODE -v 2 -f $PAY $REGION"
         echo "sleep 500"
@@ -99,13 +102,17 @@ for mode in $modes; do
         echo "sleep 12000"
         echo "crc32 -n $NODE -v 2 -f $PAY $REGION"
         echo "sleep 500"
-        echo "download -n $NODE -v 2 -t 10000 $REGION $SIZE $GOT"
+        echo "download -n $NODE -v 2 -t $UP_TO $REGION $SIZE $GOT"
         echo "sleep 1000"
         echo "exit"
       } > "$INIT"
       out=$(timeout "$SESS_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null 2>&1 | strip_ansi)
       rm -f "$INIT"
       echo "$out" > "/tmp/${label}_session.log"
+      # Retain the primary source. DTP and satdeploy archive per-run logs; RDP did not,
+      # so its evidence lived only in /tmp and was collidable.
+      mkdir -p "$REPO/captures/evidence/rdp_2026-08"
+      cp "/tmp/${label}_session.log" "$REPO/captures/evidence/rdp_2026-08/${label}.log" 2>/dev/null || true
 
       # gate: first crc32 must be Failure (zeros != payload); its Success = stale region
       gate=$(echo "$out" | grep -aE "Success|Failure" | head -1)

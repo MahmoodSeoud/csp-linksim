@@ -12,12 +12,16 @@ CONTACT_S=534                                  # 8.9-minute mean contact, Sectio
 OUT="$CSV.tmp"
 {
   IFS= read -r hdr
-  echo "$hdr,elapsed_s,theoretical_s,control_s,airtime_ratio,fits_contact"
+  echo "$hdr,elapsed_s,theoretical_s,control_s,airtime_ratio,ratio_basis,fits_contact"
   while IFS= read -r line; do
     mode=$(echo "$line" | cut -d, -f1); loss=$(echo "$line" | cut -d, -f2)
     seed=$(echo "$line" | cut -d, -f3); burst=$(echo "$line" | cut -d, -f4)
     bytes=$(echo "$line" | cut -d, -f13); rate=$(echo "$line" | cut -d, -f11)
-    log="/tmp/rdpcl_${mode}_L${loss}_b${burst}_s${seed}_session.log"
+    # Match rdp-board-sweep's label, which now carries the artifact. Fall back to the
+    # pre-artifact form for rows recorded before that fix.
+    _pay=$(echo "$line" | cut -d, -f12); _pay="${_pay%.bin}"
+    log="/tmp/rdpcl_${mode}_${_pay}_L${loss}_b${burst}_s${seed}_session.log"
+    [ -f "$log" ] || log="/tmp/rdpcl_${mode}_L${loss}_b${burst}_s${seed}_session.log"
     el=$(grep -a "Uploaded ${bytes} bytes in" "$log" 2>/dev/null | tail -1 \
          | sed -E 's/.*in ([0-9.]+) s.*/\1/')
     if [ -n "$el" ] && [ -n "$rate" ] && [ "$rate" -gt 0 ] 2>/dev/null; then
@@ -27,15 +31,20 @@ OUT="$CSV.tmp"
       # The ratio uses control_s: measured against measured, so the overhead is not
       # counted as a cost of loss.
       theo=$(awk -v b="$bytes" -v r="$rate" 'BEGIN{printf "%.1f", b*8/r}')
-      clog="/tmp/rdpcl_${mode}_L0_b${burst}_s${seed}_session.log"
+      clog="/tmp/rdpcl_${mode}_${_pay}_L0_b${burst}_s${seed}_session.log"
+      [ -f "$clog" ] || clog="/tmp/rdpcl_${mode}_L0_b${burst}_s${seed}_session.log"
       ctl=$(grep -a "Uploaded ${bytes} bytes in" "$clog" 2>/dev/null | tail -1 \
             | sed -E 's/.*in ([0-9.]+) s.*/\1/')
-      base="${ctl:-$theo}"
+      # Which denominator was used is part of the number. Falling back from measured to
+      # theoretical without saying so put 3.26 in the committed tuned row where
+      # measured-against-measured is 2.94 -- an 11% error in the column the cost
+      # argument cites. Record the basis so the two can never be compared silently.
+      if [ -n "$ctl" ]; then base="$ctl"; basis=measured; else base="$theo"; basis=theoretical; fi
       ratio=$(awk -v e="$el" -v c="$base" 'BEGIN{printf "%.2f", e/c}')
       fits=$(awk -v e="$el" -v k="$CONTACT_S" 'BEGIN{print (e<=k)?"yes":"no"}')
-      echo "$line,$el,$theo,${ctl:-},$ratio,$fits"
+      echo "$line,$el,$theo,${ctl:-},$ratio,$basis,$fits"
     else
-      echo "$line,,,,,"
+      echo "$line,,,,,,"
     fi
   done
 } < "$CSV" > "$OUT" && mv "$OUT" "$CSV"
