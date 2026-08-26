@@ -154,3 +154,43 @@ Characterisation, which does not exist yet and is marked `[VERIFY]` in the plan.
 round-trip figure (~47%) is the wrong number for a forward-only injector. Also note
 the eng review's finding that a lossless reverse channel makes R6 unevaluable
 regardless until the reverse-channel item above is addressed.
+
+## Harness hardening: the long tail from the ship coverage audit (P2)
+
+**Priority:** P2
+
+**What:** the smaller unguarded paths the 2026-08-26 coverage audit found, none of
+which produced a wrong number yet but each of which can.
+
+- `run-dtp-experiment` entry parse: an argument without a colon sets `seed:=loss`
+  silently, producing a label like `dtp_L0.30_s0.30`.
+- `gs_count` skips processes whose `/proc/PID/exe` is unreadable (a gs-server owned by
+  another user), so the "exactly one server" verdict can undercount.
+- An all-SKIP sweep writes zero CSV rows and still exits 0.
+- `add-dtp-ground-claim` couples to the `/tmp/cell_*` prefix left by the
+  `csh-loss-cell` -> `dtp-experiment` rename. Correct today (9 logs matched) but a
+  silent `claim=none` on every row if it drifts. Its `head -1` over the claim patterns
+  also makes R2's evidence ordering-dependent.
+- `add-wallclock` treats dots in labels as regex wildcards, and gives duplicate labels
+  the same START/DONE pair.
+- The `drops` regex in `rdp-board-sweep` survives only because `csp_loss_apm.c:435`
+  prints a comma between `offered` and `dropped`. Without it the leftmost alternation
+  captures **offered** as the drop count.
+- Every post-processor appends duplicate columns when re-run. `fix-dtp-verdicts` and
+  `fill-satdeploy-verdicts` were made idempotent; `add-*` and `classify-*` were not.
+- `run-satdeploy-experiment` leaks its `mktemp` init file on timeout (no trap) and
+  discards the agent-relaunch sentinel to `/dev/null` without checking it.
+
+**Why:** each is the same shape as the six faults that cost a day: a setting that is
+silently wrong, producing output that looks like a result. None is urgent on its own.
+
+**Pros:** removes the remaining ways the harness can lie quietly.
+**Cons:** eight small edits with no single failing case driving them, close to
+submission.
+
+**Context:** found by the `/ship` coverage audit on 2026-08-26, which measured 0%
+automated coverage of the harness and 34 untested branch clusters. The audit's five
+highest-value test groups are tracked as T8 in the eng review; only the differential
+calibrator test was built (`tests/calibrator_diff.sh`, 60 configurations).
+
+**Depends on / blocked by:** nothing. Independent of T1-T11.
