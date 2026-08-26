@@ -29,6 +29,7 @@ NODE=5431; REGION=0x10000000
 # DISCO-2 flight module, and SIZE must follow whatever PAY points at or the region
 # read-back compares the wrong number of bytes.
 PAY="${PAY:-$REPO/captures/payload_libjpegxl.bin}"
+[ -f "$PAY" ] || { echo "FAIL: payload $PAY not found (set PAY=)"; exit 1; }
 SIZE="${SIZE:-$(stat -c%s "$PAY")}"
 RATE_BPS="${RATE_BPS:-4800}"
 ZER="/tmp/zeros_${SIZE}.bin"
@@ -137,9 +138,23 @@ for mode in $modes; do
       sha=MISMATCH; [ "$got_sha" = "$ORIG_SHA" ] && sha=MATCH
       [ "$sha" = MATCH ] && rm -f "$GOT" || mv -f "$GOT" "/tmp/${label}_got_keep.bin" 2>/dev/null
 
-      vd=OK
-      [ "$claimed" = DELIVERED ] && [ "$sha" = MISMATCH ] && vd=SILENT_CORRUPTION
-      [ "$claimed" = FAILED ]    && [ "$sha" = MISMATCH ] && vd=LOUD_ABORT
+      # Fail closed. Enumerate what is understood; everything else is void, not OK.
+      case "$claimed/$sha" in
+        DELIVERED/MATCH)    vd=OK ;;
+        DELIVERED/MISMATCH) vd=SILENT_CORRUPTION ;;
+        FAILED/MISMATCH)    vd=LOUD_ABORT ;;
+        FAILED/MATCH)       vd=ABORT_BUT_INTACT ;;
+        NO_VERDICT/*)       vd=VOID_NO_CLAIM ;;
+        *)                  vd=VOID_UNCLASSIFIED ;;
+      esac
+      # A control that did not pass voids every lossy run in the same experiment. The
+      # libcolor set shipped a LOUD_ABORT control beside an OK 0.30 row because this
+      # was prose in the plan and nothing in the harness.
+      if [ "$loss" = 0 ]; then
+        CONTROL_VD="$vd"
+      elif [ "${CONTROL_VD:-unset}" != "OK" ]; then
+        vd="VOID_CONTROL_${CONTROL_VD:-ABSENT}"
+      fi
       ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
       echo "$mode,$loss,$s,${BURST:-0},$claimed,$crc,$sha,$drops,$vd,$ts,$RATE_BPS,$(basename "$PAY"),$SIZE" >> "$CSV"
       echo "[$label] claimed=$claimed crc=$crc sha=$sha drops=$drops -> $vd"

@@ -76,10 +76,12 @@ Provenance, sha256. The copies under `captures/` are untracked and regenerate fr
     31b50250cc4d02ba2df37e4631d7269acc21cba6b29337c300408b1816e3db89  libjpegxl.so  67256 B
     dc443182d2fa37f34a57d5343c865e888a8309f6f3c956bf86ec06081e143a63  libcolor.so  365688 B
 
-`csp_loss status` must report `offered` = 269. `csp_loss` counts every frame this node
-transmits on CAN0, so the figure is the 267 data fragments plus the two-frame port-7
-metadata handshake. The guard is fragments + 2, which for `libcolor.so` is 1454.
-Confirmed 2026-08-26 on dtp_L0_s1.
+`csp_loss status` must report `offered` at or above 269, which is the 267 data fragments
+plus the two-frame port-7 metadata handshake (1454 for `libcolor.so`). It is a lower
+bound, not an equality: `csp_loss` counts every frame this node transmits, so the figure
+rises under loss with extra control traffic. Measured 2026-08-26: 269 clean, 276 at 0.10,
+277 at 0.30. An equality guard marked six valid lossy runs invalid before this was
+corrected.
 
 ## The matrix
 
@@ -152,7 +154,10 @@ A run is invalid if and only if:
 3. the bench host's CAN interface went down
 4. a serial probe returned no canary-validated answer
 5. the harness crashed mid-run
-6. `offered` did not equal 269 (or 1454 for a size run)
+6. `offered` was BELOW the artifact's fragment count + 2 (frames vanished before
+   the injector). Not an equality: `offered` counts every frame this node transmits, so
+   it rises under loss with extra control traffic (269 clean, 276 at 0.10, 277 at 0.30).
+   Artifact identity is proven by hashing the served file, not by this count.
 7. more than one `upload_gs-server` was running
 
 Invalidity is a property of the apparatus, never of the outcome, and no invalid run is

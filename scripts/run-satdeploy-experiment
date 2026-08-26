@@ -18,7 +18,15 @@ DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
 ts(){ date -u +%FT%TZ; }
 strip_ansi(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'; }
 
-while pgrep -f "run-rdp-experiment" | grep -qv $$; do sleep 20; done
+# Bounded, and matched exactly: pgrep -f returns whole PIDs, so filter with a fixed
+# full-line match rather than a substring test (grep -qv $$ treats 123 as matching 1234).
+_waited=0
+while :; do
+  _others=$(pgrep -f "run-rdp-experiment" | grep -vx "$$" | grep -vx "$PPID" || true)
+  [ -z "$_others" ] && break
+  [ "$_waited" -ge 5400 ] && { echo "$(ts) FAIL waited 90 min for E2 to clear (pids: $_others); aborting" | tee -a "$LOG"; exit 3; }
+  sleep 20; _waited=$((_waited+20))
+done
 echo "$(ts) E2 clear, starting E3" | tee -a "$LOG"; sleep 10
 
 WANT=$(md5sum "$PAY" | cut -d' ' -f1); SIZE=$(stat -c%s "$PAY")
