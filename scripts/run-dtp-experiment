@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# run-dtp-experiment - drive a list of deployed-uploader runs and record each verdict.
+#
+#   scripts/run-dtp-experiment "<loss>:<seed> <loss>:<seed> ..."
+#
+# dtp-experiment prints a verdict but records nothing, so this wraps it: it refuses to
+# start unless exactly one ground server is up, runs each entry, and appends one row per
+# run to captures/dtp_experiment_2026-08.csv. Full per-run output goes to
+# captures/evidence/dtp_2026-08/.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+CSV="$REPO/captures/dtp_experiment_2026-08.csv"
+EVID="$REPO/captures/evidence/dtp_2026-08"
+SERVED=/home/mseo/thesis/disco/src/upload_gs-server/builddir/file.bin
+RATE_BPS="${RATE_BPS:-4800}"
+mkdir -p "$EVID"
+
+gs_count(){ local n=0 pid exe
+  for pid in $(ls /proc 2>/dev/null | grep -E '^[0-9]+$'); do
+    exe=$(readlink /proc/$pid/exe 2>/dev/null) || continue
+    [ "$(basename "$exe" 2>/dev/null)" = "upload_gs-server" ] && n=$((n+1))
+  done; echo "$n"; }
+
+[ -f "$CSV" ] || echo "build,loss,seed,label,artifact,artifact_bytes,frags_expected,offered,dropped,board_bytes,board_md5,source_md5,verdict,rate_bps,ts" > "$CSV"
+
+ABYTES=$(stat -c%s "$SERVED"); AFRAGS=$(( (ABYTES + 251) / 252 + 2 ))
+ANAME=$(basename "$(readlink -f "$SERVED")")
+
+for entry in $1; do
+  loss="${entry%%:*}"; seed="${entry##*:}"
+  label="dtp_L${loss}_s${seed}"
+  n=$(gs_count)
+  if [ "$n" -ne 1 ]; then
+    echo "$(date -u +%FT%TZ) SKIP $label: $n ground servers running (need exactly 1)" | tee -a "$EVID/runner.log"
+    continue
+  fi
+  echo "$(date -u +%FT%TZ) START $label (loss=$loss seed=$seed rate=$RATE_BPS)" | tee -a "$EVID/runner.log"
+  out=$(RATE_BPS="$RATE_BPS" timeout 600 bash "$REPO/scripts/dtp-experiment" "$loss" "$seed" "$label" 2>&1 \
+        | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g')
+  printf '%s\n' "$out" > "$EVID/${label}.log"
+
+  offered=$(printf '%s' "$out" | grep -aoE 'offered [0-9]+'      | head -1 | awk '{print $2}')
+  dropped=$(printf '%s' "$out" | grep -aoE 'dropped [0-9]+'      | head -1 | awk '{print $2}')
+  bbytes=$( printf '%s' "$out" | grep -aoE 'board bytes   : [0-9?]+' | head -1 | awk '{print $4}')
+  bmd5=$(   printf '%s' "$out" | grep -aE  'board md5'           | head -1 | grep -aoE '[0-9a-f]{32}')
+  smd5=$(   printf '%s' "$out" | grep -aE  'source md5'          | head -1 | grep -aoE '[0-9a-f]{32}')
+  verdict=$(printf '%s' "$out" | grep -aE  'VERDICT' | head -1 | sed 's/.*VERDICT *: *//' | awk '{print $1}')
+  [ -n "$verdict" ] || verdict=NO_VERDICT
+  # apparatus check: offered must equal fragments + handshake, else the run is void
+  if [ -n "$offered" ] && [ "$offered" != "$AFRAGS" ]; then verdict="INVALID_OFFERED_${offered}_want_${AFRAGS}"; fi
+
+  echo "dtp,$loss,$seed,$label,$ANAME,$ABYTES,$AFRAGS,${offered:-},${dropped:-},${bbytes:-},${bmd5:-},${smd5:-},$verdict,$RATE_BPS,$(date -u +%FT%TZ)" >> "$CSV"
+  echo "$(date -u +%FT%TZ) DONE  $label -> $verdict (offered ${offered:-?}, dropped ${dropped:-?})" | tee -a "$EVID/runner.log"
+done
+echo "$(date -u +%FT%TZ) runner finished" | tee -a "$EVID/runner.log"

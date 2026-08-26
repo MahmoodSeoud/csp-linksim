@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# run-rdp-libcolor - the median-flight-module runs that carry R4 and R5.
+#
+# Tuned RDP fits a 67 KB module inside one 8.9-minute contact at 30% loss (365.6 s), so
+# the small artifact does not support "progress must survive a contact boundary". The
+# median flight module (libcolor.so, 365688 B, 5.44x) is where the boundary is crossed,
+# and that has to be measured rather than extrapolated.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+PAY="$REPO/captures/payload_libcolor.bin"
+CSV="$REPO/captures/rdp_libcolor_2026-08.csv"
+LOG="$REPO/captures/evidence/rdp_2026-08/libcolor.log"
+ts(){ date -u +%FT%TZ; }
+mkdir -p "$(dirname "$LOG")"
+echo "$(ts) libcolor runs start: $(basename "$PAY") $(stat -c%s "$PAY") bytes @4800" | tee -a "$LOG"
+# control first: a lossy number means nothing without its own clean baseline at this size
+for spec in "stock 0" "stock 0.30" "tuned 0.30"; do
+  set -- $spec; mode="$1"; loss="$2"
+  echo "$(ts) START $mode L$loss" | tee -a "$LOG"
+  PAY="$PAY" CSV="$CSV" RATE_BPS=4800 bash "$REPO/scripts/rdp-board-sweep" "$mode" "$loss" 1 >>"$LOG" 2>&1
+  echo "$(ts) DONE  $mode L$loss" | tee -a "$LOG"
+done
+echo "$(ts) libcolor runs finished" | tee -a "$LOG"
