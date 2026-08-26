@@ -25,8 +25,8 @@ requirement.
 | R1 | The receiver must verify delivered bytes against the source, independently of the transfer's own status | DTP delivers a full-size file whose hash mismatches |
 | R2 | A transfer that did not deliver every byte must report failure | DTP reports success on a corrupt file |
 | R3 | Lost fragments must be re-requestable; one pass over the data cannot be the only chance | DTP never retransmits, so loss is unrecoverable |
-| R4 | Work completed before an abort must survive it, so the next contact resumes rather than restarts | RDP aborts under sustained loss and loses the partial transfer |
-| R5 | Completion must be reachable within a bounded number of contacts, and that number must be observable | RDP gives no completion bound |
+| R4 | Work completed before a contact ends must survive it, so the next contact resumes rather than restarts | RDP delivers intact at 0.30 but needs 594.75 s for a 67 KB module against an 8.9-minute (534 s) mean contact, and has no cross-contact resume |
+| R5 | Completion must be reachable within a bounded number of contacts, and that number must be observable | RDP's airtime at 0.30 is 4.79x its own loss-free control (594.75 s against a measured 124.28 s) with no bound stated or observable |
 | R6 | Recovery must work under correlated loss, not only isolated drops | Link Characterisation: mean burst 7.8 |
 
 R1 to R5 come from Part 1. R6 comes from the Link Characterisation chapter, which is why
@@ -39,6 +39,12 @@ rather than a gap.
 |---|---|---|---|---|---|---|
 | DTP | fail | fail | fail | fail | fail | n/a |
 | RDP | pass | pass | pass | fail | fail | untested |
+
+Measured 2026-08-26: RDP does NOT fail on integrity. At 0.30 it retransmitted through 197
+drops, sent 703 frames to deliver a 267-fragment artifact, and delivered it bit-exact
+(`crc SUCCESS`, hash MATCH, claimed DELIVERED). R4 and R5 therefore rest on cost and the
+contact boundary, not on abort. That is the stronger form of the requirement and it is
+what prices invocations against the 8.9-minute contact.
 | satdeploy | expect pass | expect pass | expect pass | expect pass | expect pass | GE runs |
 
 satdeploy differs from the deployed uploader by adding an integrity check and retry
@@ -64,7 +70,16 @@ A real flight module, byte-identical on SOM1, SOM2 and the Yocto recipe that fla
 them. It is the smallest of the 13 pipeline modules, which is the point: the systems
 fail on the artifact most favourable to them.
 
-`csp_loss status` must report `offered` = 267. That is the artifact-identity check.
+Provenance, sha256. The copies under `captures/` are untracked and regenerate from
+`disco-ii-flight-checkout/SOM1/usr/share/pipeline/`:
+
+    31b50250cc4d02ba2df37e4631d7269acc21cba6b29337c300408b1816e3db89  libjpegxl.so  67256 B
+    dc443182d2fa37f34a57d5343c865e888a8309f6f3c956bf86ec06081e143a63  libcolor.so  365688 B
+
+`csp_loss status` must report `offered` = 269. `csp_loss` counts every frame this node
+transmits on CAN0, so the figure is the 267 data fragments plus the two-frame port-7
+metadata handshake. The guard is fragments + 2, which for `libcolor.so` is 1454.
+Confirmed 2026-08-26 on dtp_L0_s1.
 
 ## The matrix
 
@@ -137,7 +152,7 @@ A run is invalid if and only if:
 3. the bench host's CAN interface went down
 4. a serial probe returned no canary-validated answer
 5. the harness crashed mid-run
-6. `offered` did not equal 267 (or 1452 for a size run)
+6. `offered` did not equal 269 (or 1454 for a size run)
 7. more than one `upload_gs-server` was running
 
 Invalidity is a property of the apparatus, never of the outcome, and no invalid run is
@@ -146,11 +161,14 @@ re-rolled or re-run in place.
 Conditions 6 and 7 are new. Both were observed on 2026-08-25 and neither was covered by
 the original five, which would have admitted three void runs as valid.
 
-## Before run 1
+## Progress
 
-One DTP run at 0.00, seed 1. `offered` must read 267. Three runs on 2026-08-25 reported
-`offered 1027` against an expected 1041 while also warning that two `upload_gs-server`
-processes were racing. That warning is the fault; exactly one server must be up.
+**E1 run 1 of 9 done, 2026-08-26.** `dtp_L0_s1`: `offered 269, dropped 0, delivered 269`, source and
+board md5 both `a2414c4e3ad4a586304c838e2b743bd1`, VERDICT MATCH. The injector's own bus check reported "1 ground server, no competing injector" before starting.
+
+The 2026-08-25 deficit is explained: three runs reported `offered 1027` against a true
+expectation of 1043 (1041 fragments + 2 handshake), a 16-frame loss caused by two
+`upload_gs-server` processes racing. With one server the deficit is zero.
 
 ## Run naming
 
@@ -162,3 +180,36 @@ written, per revision brief §12.3.
 
 The 256 KiB captures are archived, not deleted, until this matrix is complete and the
 manuscript re-points to it.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | ISSUES_OPEN | 15 issues, 6 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+**CROSS-MODEL:** the outside voice (Claude subagent, Codex not installed) found nine
+issues this review missed, three of which contradicted its findings. The three
+contradictions were resolved in the author's favour of the outside voice on two
+(headline metric, R4 unmeasured) and against it on one (the satdeploy failure is not
+interval-list overflow; the traces show a single empty gap on the first repair round).
+Highest-value outside-voice finding: the failed libcolor zero-loss control is a one-line
+harness defect (`-t 10000` hardcoded on the prefill while `UP_TO` scales), not a result.
+
+**VERDICT:** ENG REVIEW NOT CLEARED — 6 critical gaps, 11 implementation tasks (T1-T11)
+in `~/.gstack/projects/MahmoodSeoud-csp-linksim/tasks-eng-review-20260826-153006.jsonl`.
+T1 through T7 are P1 and block citing the current results.
+
+Decisions taken: schema consolidated without re-running (D2); control rule enforced in
+the harness; `offered` guard becomes a lower bound; measured requirements table in main
+text with frozen expectations to an appendix; invalid runs may be re-run at the same seed
+once the apparatus fault is fixed; four operator metrics made canonical with never-lethal
+leading RQ1/RQ2; `-d PORT` filter added so DTP gets a Gilbert-Elliott row; verdict fails
+closed; shared preflight with a first-run gate and resume; `airtime_guard.sh` extended to
+`csp_loss`; contact-interrupt experiment added, funded by cutting DTP to one seed per
+lossy level.
+
+NO UNRESOLVED DECISIONS
