@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# add-rdp-airtime - fold transfer duration into the RDP capture.
+#
+# RDP delivers the artifact intact under loss; what it costs is time. The cost is the
+# result, so it has to be a column. rdp-board-sweep records integrity but not duration,
+# and csh prints it ("Uploaded N bytes in S s at B Bps") into the per-run session log.
+# This joins that in, and derives the two numbers the cost argument uses: the ratio to a
+# clean paced transfer, and whether the transfer fits the 8.9-minute mean contact.
+set -uo pipefail
+CSV="${1:-/home/mseo/thesis/csp-linksim/captures/rdp_experiment_2026-08.csv}"
+CONTACT_S=534                                  # 8.9-minute mean contact, Section 2.1
+OUT="$CSV.tmp"
+{
+  IFS= read -r hdr
+  echo "$hdr,elapsed_s,theoretical_s,control_s,airtime_ratio,fits_contact"
+  while IFS= read -r line; do
+    mode=$(echo "$line" | cut -d, -f1); loss=$(echo "$line" | cut -d, -f2)
+    seed=$(echo "$line" | cut -d, -f3); burst=$(echo "$line" | cut -d, -f4)
+    bytes=$(echo "$line" | cut -d, -f13); rate=$(echo "$line" | cut -d, -f11)
+    log="/tmp/rdpcl_${mode}_L${loss}_b${burst}_s${seed}_session.log"
+    el=$(grep -a "Uploaded ${bytes} bytes in" "$log" 2>/dev/null | tail -1 \
+         | sed -E 's/.*in ([0-9.]+) s.*/\1/')
+    if [ -n "$el" ] && [ -n "$rate" ] && [ "$rate" -gt 0 ] 2>/dev/null; then
+      # Two denominators. theoretical_s is bytes*8/rate, the wire minimum. control_s is
+      # the MEASURED loss-free transfer at the same mode and seed, which also carries RDP
+      # header and ACK overhead (124.3 s against a theoretical 112 s for 67 KB at 4800).
+      # The ratio uses control_s: measured against measured, so the overhead is not
+      # counted as a cost of loss.
+      theo=$(awk -v b="$bytes" -v r="$rate" 'BEGIN{printf "%.1f", b*8/r}')
+      clog="/tmp/rdpcl_${mode}_L0_b${burst}_s${seed}_session.log"
+      ctl=$(grep -a "Uploaded ${bytes} bytes in" "$clog" 2>/dev/null | tail -1 \
+            | sed -E 's/.*in ([0-9.]+) s.*/\1/')
+      base="${ctl:-$theo}"
+      ratio=$(awk -v e="$el" -v c="$base" 'BEGIN{printf "%.2f", e/c}')
+      fits=$(awk -v e="$el" -v k="$CONTACT_S" 'BEGIN{print (e<=k)?"yes":"no"}')
+      echo "$line,$el,$theo,${ctl:-},$ratio,$fits"
+    else
+      echo "$line,,,,,"
+    fi
+  done
+} < "$CSV" > "$OUT" && mv "$OUT" "$CSV"
+echo "airtime folded into $CSV (contact window ${CONTACT_S}s)"

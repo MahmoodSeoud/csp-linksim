@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# add-wallclock - derive per-run duration from the runner log's START/DONE pair.
+#
+# Only the reliable path prints its own transfer time ("Uploaded N bytes in S s"). The
+# deployed uploader and satdeploy do not, so their cost was missing from the captures
+# while RDP's was present, and the three could not be compared on the metric that turned
+# out to matter. This recovers a duration for every run from the runner timestamps.
+#
+# It is WALL CLOCK, not transfer time: it includes per-run setup (client respawn for the
+# deployed uploader, the kill/wipe/relaunch cycle for satdeploy). Named wallclock_s to
+# keep it distinct from the reliable path's measured transfer_s, which is not the same
+# quantity and must not be compared to it without saying so.
+set -uo pipefail
+CSV="${1:?csv}"; LOG="${2:?runner log}"; LABELCOL="${3:-4}"
+TMP="$CSV.tmp"
+IFS= read -r hdr < "$CSV"; echo "$hdr,wallclock_s" > "$TMP"
+tail -n +2 "$CSV" | while IFS= read -r line; do
+  label=$(echo "$line" | cut -d, -f"$LABELCOL")
+  s=$(grep -aE "START ${label}( |$)" "$LOG" 2>/dev/null | tail -1 | awk '{print $1}')
+  e=$(grep -aE "DONE  ${label} " "$LOG" 2>/dev/null | tail -1 | awk '{print $1}')
+  d=""
+  if [ -n "$s" ] && [ -n "$e" ]; then
+    ss=$(date -u -d "$s" +%s 2>/dev/null); ee=$(date -u -d "$e" +%s 2>/dev/null)
+    [ -n "$ss" ] && [ -n "$ee" ] && d=$(( ee - ss ))
+  fi
+  echo "$line,${d}" >> "$TMP"
+done
+mv "$TMP" "$CSV"; echo "wallclock added to $CSV"
