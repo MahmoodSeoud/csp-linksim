@@ -1,8 +1,17 @@
 # Upload-integrity experiments (csh-operator style)
 
 Every experiment here is driven by the operator's own tool: a plain `.csh` init file
-that csh runs top to bottom. What is committed is exactly what ran. Shell prep and the
-external verdict run inside csh via the `sh` command (csp_shell APM).
+that csh runs top to bottom. Shell prep and the external verdict run inside csh via the
+`sh` command (csp_shell APM).
+
+**What is committed is not always literally what ran.** These files are the operator-facing
+form and stay accurate as a description. The August 2026 runs were driven by the wrappers in
+`../scripts/` (`run-dtp-experiment`, `run-rdp-experiment`, `run-satdeploy-experiment`,
+`run-rdp-libcolor`), which generate a per-run init file under `/tmp` from the same commands
+plus the loss level, seed and rate for that run. The generated file is what csh executed.
+Per-run transcripts are retained under `../captures/evidence/<system>_2026-08/`, and those
+are the primary source. If a committed `.csh` here and a transcript there disagree, the
+transcript is what happened.
 
 ```
 ~/thesis/csh/builddir/csh -i experiments/<file>.csh
