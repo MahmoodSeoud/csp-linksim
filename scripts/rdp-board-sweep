@@ -24,18 +24,31 @@
 set -uo pipefail
 REPO=/home/mseo/thesis/csp-linksim
 CSH="${CSH:-/home/mseo/thesis/csh/builddir/csh}"
-NODE=5431; REGION=0x10000000; SIZE=262144
-PAY="$REPO/captures/payload_256k.bin"
-ZER=/tmp/zeros_256k.bin
-CSV="${CSV:-$REPO/captures/rdp_csploss_sweep.csv}"
+NODE=5431; REGION=0x10000000
+# The artifact is a parameter, not a constant: the August 2026 experiments upload a real
+# DISCO-2 flight module, and SIZE must follow whatever PAY points at or the region
+# read-back compares the wrong number of bytes.
+PAY="${PAY:-$REPO/captures/payload_libjpegxl.bin}"
+SIZE="${SIZE:-$(stat -c%s "$PAY")}"
+RATE_BPS="${RATE_BPS:-4800}"
+ZER="/tmp/zeros_${SIZE}.bin"
+CSV="${CSV:-$REPO/captures/rdp_experiment_2026-08.csv}"
 MODE="${1:-stock}"; LOSSES="${2:-0 0.10 0.20 0.30}"; NSEEDS="${3:-3}"
 BURST="${BURST:-}"
-UP_TO="${UP_TO:-120000}"
+# Both timeouts must scale with artifact and rate. A clean paced transfer of SIZE bytes
+# needs SIZE*8/RATE seconds on the wire (112 s for 67 KB at 4800), so a fixed 120 s upload
+# timeout expires during the transfer itself once pacing is real, and RDP retransmitting
+# under loss needs several multiples of that. A truncated session yields no claim, no drop
+# count and no read-back, which reads as a result but is a harness artifact.
+SER_S=$(( SIZE * 8 / RATE_BPS ))
+UP_TO="${UP_TO:-$(( SER_S * 6 * 1000 ))}"          # csh upload timeout, ms
+SESS_TO="${SESS_TO:-$(( SER_S * 8 + 180 ))}"       # whole csh session, s
+# Pacing must match the deployed-uploader experiment or the two are not comparable.
 
 ORIG_SHA=$(sha256sum "$PAY" | cut -d' ' -f1)
 [ -s "$ZER" ] && [ "$(stat -c%s "$ZER")" = "$SIZE" ] || head -c "$SIZE" /dev/zero > "$ZER"
 [ -x "$CSH" ] || { echo "FAIL: no csh at $CSH"; exit 1; }
-[ -f "$CSV" ] || echo "mode,loss,seed,burst,claimed,crc,sha,loss_drops,verdict,ts" > "$CSV"
+[ -f "$CSV" ] || echo "mode,loss,seed,burst,claimed,crc,sha,loss_drops,verdict,ts,rate_bps,artifact,artifact_bytes" > "$CSV"
 
 strip_ansi(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'; }
 
@@ -54,6 +67,15 @@ for mode in $modes; do
       {
         echo "csp init"
         echo "csp add can -c can0 -b 0 -d 20"
+        # Both loads are required. Bare `apm load` takes the installed APM path only, which
+        # does NOT contain csp_loss: it is built in-project. Without the second load
+        # `csp_loss start` is an unknown command, csh carries on, and the transfer runs
+        # clean at line rate with no drops and no pacing while still reporting DELIVERED.
+        # ORDER IS LOAD-BEARING. `apm load` takes ~/.local first and the second load then
+        # SKIPS csp_loss as "already loaded". The ~/.local copy predates the -R pacing
+        # patch, so `csp_loss start -R ...` is rejected outright and the link stays clean:
+        # no drops, no pacing, and every run reports DELIVERED/MATCH. Build path first.
+        echo "apm load -p $REPO/build/apm"
         echo "apm load"
         # -- clean pre-fill + gate (region must NOT equal payload before the run)
         echo "upload -n $NODE -v 2 -t 10000 $ZER $REGION"
@@ -62,14 +84,17 @@ for mode in $modes; do
         echo "sleep 500"
         # -- the lossy transfer (channel on, seeded)
         [ -n "$opt" ] && echo "rdp opt $opt"
+        # The control is armed too, at -L 0. Skipping csp_loss at zero loss would leave the
+        # control running at can0 line rate while every lossy run is paced, so the control
+        # would not be a control of the same channel.
         if [ "$loss" != 0 ] || [ -n "$BURST" ]; then
-          echo "csp_loss start -L $loss ${BURST:+-B $BURST} -S $s"
+          echo "csp_loss start -L $loss ${BURST:+-B $BURST} -S $s ${RATE_BPS:+-R $RATE_BPS}"
+        else
+          echo "csp_loss start -L 0.0 ${RATE_BPS:+-R $RATE_BPS}"
         fi
         echo "upload -n $NODE -v 2 -t $UP_TO $PAY $REGION"
         echo "sleep 6000"
-        if [ "$loss" != 0 ] || [ -n "$BURST" ]; then
-          echo "csp_loss status"; echo "csp_loss stop"
-        fi
+        echo "csp_loss status"; echo "csp_loss stop"
         # -- wait out RDP conn_timeout, then clean verify on the clean link
         echo "sleep 12000"
         echo "crc32 -n $NODE -v 2 -f $PAY $REGION"
@@ -78,7 +103,7 @@ for mode in $modes; do
         echo "sleep 1000"
         echo "exit"
       } > "$INIT"
-      out=$(timeout 500 script -qec "$CSH -i $INIT" /dev/null </dev/null 2>&1 | strip_ansi)
+      out=$(timeout "$SESS_TO" script -qec "$CSH -i $INIT" /dev/null </dev/null 2>&1 | strip_ansi)
       rm -f "$INIT"
       echo "$out" > "/tmp/${label}_session.log"
 
@@ -109,7 +134,7 @@ for mode in $modes; do
       [ "$claimed" = DELIVERED ] && [ "$sha" = MISMATCH ] && vd=SILENT_CORRUPTION
       [ "$claimed" = FAILED ]    && [ "$sha" = MISMATCH ] && vd=LOUD_ABORT
       ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-      echo "$mode,$loss,$s,${BURST:-0},$claimed,$crc,$sha,$drops,$vd,$ts" >> "$CSV"
+      echo "$mode,$loss,$s,${BURST:-0},$claimed,$crc,$sha,$drops,$vd,$ts,$RATE_BPS,$(basename "$PAY"),$SIZE" >> "$CSV"
       echo "[$label] claimed=$claimed crc=$crc sha=$sha drops=$drops -> $vd"
       sleep 3
     done

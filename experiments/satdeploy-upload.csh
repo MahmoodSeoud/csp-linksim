@@ -10,8 +10,8 @@
 # Check with scripts/deploy-agent, or ping 5427 below.
 csp init
 csp add can -c can0 -b 0 -d 20
-apm load
 apm load -p /home/mseo/thesis/csp-linksim/build/apm
+apm load
 # Both paths are needed: `satdeploy upload` lives in the installed APM
 # (~/.local/lib/csh/libcsh_satdeploy_apm.so) while csp_loss is built here.
 
