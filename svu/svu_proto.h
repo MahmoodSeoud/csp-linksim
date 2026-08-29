@@ -4,7 +4,7 @@
  * This is DTP's transfer shape with the one thing DTP lacks bolted on: an
  * integrity manifest and a verified-completion handshake. Two ports, mirroring
  * DTP's split:
- *   SVU_CTRL_PORT - reliable meta handshake (RDP + CRC32): request -> manifest.
+ *   SVU_CTRL_PORT - meta handshake (plain CSP + CRC32, no RDP): request -> manifest.
  *   SVU_DATA_PORT - connectionless, fire-and-forget bulk data (no per-packet CRC),
  *                   so we keep DTP's throughput on a lossy half-duplex link.
  *
