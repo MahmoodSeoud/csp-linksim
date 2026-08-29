@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# fill-satdeploy-verdicts - read the external hash for every satdeploy destination in one
+# console pass and fill the verdict column.
+#
+# The runner probes the console once per run with no retry, and the board's console drops
+# a probe often enough that runs land UNVERIFIED while the transfer itself succeeded. The
+# destination files persist (the per-run wipe only removes that run's own destination), so
+# the authoritative external hash can be read afterwards. The verdict is a property of the
+# hash, not of when it was read.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+CSV="${1:-$REPO/captures/satdeploy_experiment_2026-08.csv}"
+PAY="$REPO/captures/payload_libjpegxl.bin"
+export DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
+WANT=$(md5sum "$PAY" | cut -d' ' -f1)
+TMP="$CSV.tmp"; : > "$TMP"
+IFS= read -r hdr < "$CSV"; echo "$hdr" >> "$TMP"
+tail -n +2 "$CSV" | while IFS= read -r line; do
+  label=$(echo "$line" | cut -d, -f4)
+  # satdeploy prints a display name with dots replaced by dashes ("sd_recovery_L0-10_s1")
+  # but writes the file with the dots intact. Verified against the board listing; do not
+  # translate. A missing file is itself the result: a transfer that did not verify left
+  # nothing at the destination.
+  dest="/home/root/sd_${label}.bin"
+  got=""
+  for a in 1 2 3; do
+    p=$(TO=60 bash "$REPO/scripts/board-cmd" \
+        "h=\$(md5sum $dest 2>/dev/null | cut -d' ' -f1); s=\$(stat -c%s $dest 2>/dev/null); echo PRB_\${s}_\${h}_\${s}_\${h}_BRP" 2>&1)
+    c=$(echo "$p" | grep -aoE 'PRB_[0-9]+_[0-9a-f]{32}_[0-9]+_[0-9a-f]{32}_BRP' | head -1)
+    if [ -n "$c" ]; then IFS='_' read -r _ s1 h1 s2 h2 _ <<< "$c"
+      [ -n "$h1" ] && [ "$h1" = "$h2" ] && { got="$h1"; break; }; fi
+    sleep 5
+  done
+  prev_hash=$(echo "$line" | cut -d, -f11); prev_vd=$(echo "$line" | cut -d, -f13)
+  if [ -z "$got" ]; then
+    # Never downgrade an established verdict because the console did not answer NOW.
+    # A powered-down board must not turn yesterday's MATCH into UNVERIFIED.
+    if [ -n "$prev_hash" ]; then
+      echo "  $label -> kept $prev_vd (console silent, existing hash preserved)"
+      echo "$line" >> "$TMP"; continue
+    fi
+    vd=UNVERIFIED
+  elif [ "$got" = "$WANT" ]; then vd=MATCH
+  else                            vd=MISMATCH; fi
+  echo "$line" | awk -F, -v OFS=, -v g="$got" -v v="$vd" '{$11=g; $13=v; print}' >> "$TMP"
+  echo "  $label -> $vd"
+done
+mv "$TMP" "$CSV"; echo "verdicts filled in $CSV"

@@ -18,7 +18,7 @@ LOSS="${1:?loss, e.g. 0.30 or 0}"; SEED="${2:?seed}"; LABEL="${3:?label}"
 REPO=/home/mseo/thesis/csp-linksim
 CSH=/home/mseo/thesis/csh/builddir/csh
 APM="$REPO/build/apm"
-SRC="$REPO/captures/payload_256k.bin"
+
 DEST="/home/root/csp_${LABEL}.bin"
 RATE_BPS="${RATE_BPS:-9600}"
 CLIENT=5424; SERVER=5426   # mng_util sets the client's own address; the server is what it pulls from
@@ -33,6 +33,9 @@ export DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port
 # operator passes.
 SERVED="${SERVED:-/home/mseo/thesis/disco/src/upload_gs-server/builddir/file.bin}"
 [ -f "$SERVED" ] || { echo "FAIL: served artifact $SERVED not found (set SERVED=)"; exit 1; }
+# -f is trigger metadata only (the server hardcodes file.bin), but the recorded command
+# must name what actually shipped or the committed evidence is misleading.
+SRC="${SRC:-$SERVED}"
 SERVED_BYTES=$(stat -c%s "$SERVED")
 FRAGS=$(( (SERVED_BYTES + 251) / 252 ))
 DRAIN_S=$(( FRAGS * 264 * 8 / RATE_BPS ))
@@ -95,7 +98,12 @@ if [ "$LOSS" = "0" ] || [ "$LOSS" = "0.0" ]; then
 else
   # -M 8 keys drops to the DTP data port, leaving the RDP metadata handshake on port 7
   # intact, so a failure is attributable to loss on the file body.
-  LOSS_CMD="csp_loss start -i CAN0 -L $LOSS -S $SEED -R $RATE_BPS -M 8"
+  # -m/-O MUST match the real dipp session (MTU 256, 4-byte header -> payload 252).
+  # csp_loss defaults to mtu 1024 / overhead 8, which is satDeploy's libdtp variant, not
+  # dipp's. With those defaults frag = offset/1016 while real offsets step by 252, so four
+  # consecutive fragments collapse to one index and share a single drop decision: the
+  # channel becomes bursty in runs of 4 while still reporting "independent".
+  LOSS_CMD="csp_loss start -i CAN0 -L $LOSS -S $SEED -R $RATE_BPS -M 8 -m 256 -O 4"
 fi
 {
   echo "csp init"
@@ -145,9 +153,32 @@ done
 
 # --- 5. external verdict over the serial console ----------------------------------
 WANT=$(md5sum "$SERVED" | cut -d' ' -f1)
-probe=$(TO=40 bash "$REPO/scripts/board-cmd" "echo SZ=\$(stat -c%s $DEST 2>/dev/null); md5sum $DEST 2>/dev/null" 2>&1)
-size=$(echo "$probe" | grep -aoE 'SZ=[0-9]+' | head -1 | cut -d= -f2)
-got=$(echo "$probe" | grep -aoE '[0-9a-f]{32}' | head -1)
+# The console garbles characters, and single-framed values lose digits silently. Both the
+# size and the hash are emitted TWICE inside a canary and accepted only if the two copies
+# agree. This matters most in the lossy runs: there the board hash is SUPPOSED to differ
+# from the source, so a garbled hash cannot be caught by comparing it against the source
+# and would read as corruption that never happened.
+# Retry the read, do not retry the transfer. After a lossy run the on-board client logs
+# its bail-out, and that spew buries the probe sentinel: the third consecutive lossy run
+# loses the console every time. The board file is not changing between attempts, so
+# re-reading its hash is idempotent and is not a re-run of the experiment.
+canary=""; probe=""
+for attempt in 1 2 3; do
+  probe=$(TO=60 bash "$REPO/scripts/board-cmd" \
+    "sz=\$(stat -c%s $DEST 2>/dev/null); h=\$(md5sum $DEST 2>/dev/null | cut -d' ' -f1); echo PRB_\${sz}_\${h}_\${sz}_\${h}_BRP" 2>&1)
+  canary=$(echo "$probe" | grep -aoE 'PRB_[0-9]+_[0-9a-f]{32}_[0-9]+_[0-9a-f]{32}_BRP' | head -1)
+  [ -n "$canary" ] && break
+  echo "    console      : no sentinel on attempt $attempt, settling and retrying"
+  sleep 6
+done
+size=""; got=""
+if [ -n "$canary" ]; then
+  IFS='_' read -r _ s1 h1 s2 h2 _ <<< "$canary"
+  [ -n "$s1" ] && [ "$s1" = "$s2" ] && size="$s1"
+  [ -n "$h1" ] && [ "$h1" = "$h2" ] && got="$h1"
+  [ "$s1" != "$s2" ] && echo "    console      : size copies disagree ($s1 vs $s2), discarded"
+  [ "$h1" != "$h2" ] && echo "    console      : hash copies disagree ($h1 vs $h2), discarded"
+fi
 
 echo "[$LABEL] ---------------- verdict ----------------"
 echo "    injected loss : $LOSS (seed $SEED), paced $RATE_BPS bit/s"

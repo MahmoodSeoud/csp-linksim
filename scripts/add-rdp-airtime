@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# add-rdp-airtime - fold transfer duration into the RDP capture.
+#
+# RDP delivers the artifact intact under loss; what it costs is time. The cost is the
+# result, so it has to be a column. rdp-board-sweep records integrity but not duration,
+# and csh prints it ("Uploaded N bytes in S s at B Bps") into the per-run session log.
+# This joins that in, and derives the two numbers the cost argument uses: the ratio to a
+# clean paced transfer, and whether the transfer fits the 8.9-minute mean contact.
+set -uo pipefail
+CSV="${1:-/home/mseo/thesis/csp-linksim/captures/rdp_experiment_2026-08.csv}"
+CONTACT_S=534                                  # 8.9-minute mean contact, Section 2.1
+OUT="$CSV.tmp"
+{
+  # The stock zero-loss control at this artifact, used as the fallback denominator.
+  stock_ctl=$(awk -F, 'NR>1 && $1=="stock" && $2=="0" && $9=="OK"{print $14; exit}' "$CSV")
+  IFS= read -r hdr
+  echo "$hdr,elapsed_s,theoretical_s,control_s,airtime_ratio,ratio_basis,fits_contact"
+  while IFS= read -r line; do
+    mode=$(echo "$line" | cut -d, -f1); loss=$(echo "$line" | cut -d, -f2)
+    seed=$(echo "$line" | cut -d, -f3); burst=$(echo "$line" | cut -d, -f4)
+    bytes=$(echo "$line" | cut -d, -f13); rate=$(echo "$line" | cut -d, -f11)
+    # Match rdp-board-sweep's label, which now carries the artifact. Fall back to the
+    # pre-artifact form for rows recorded before that fix.
+    _pay=$(echo "$line" | cut -d, -f12); _pay="${_pay%.bin}"
+    log="/tmp/rdpcl_${mode}_${_pay}_L${loss}_b${burst}_s${seed}_session.log"
+    [ -f "$log" ] || log="/tmp/rdpcl_${mode}_L${loss}_b${burst}_s${seed}_session.log"
+    # The PAYLOAD upload is the SECOND "Uploaded" line; the first is the unpaced
+    # zero-fill prefill (~2 s). tail -1 silently returns the prefill when the payload
+    # aborted, which reads as a 2-second transfer that fits the contact.
+    el=$(grep -a "Uploaded ${bytes} bytes in" "$log" 2>/dev/null | sed -n '2p' \
+         | sed -E 's/.*in ([0-9.]+) s.*/\1/')
+    # And a row that did not complete has no airtime to report at all.
+    _vd=$(echo "$line" | cut -d, -f9)
+    case "$_vd" in OK) ;; *) el="" ;; esac
+    if [ -n "$el" ] && [ -n "$rate" ] && [ "$rate" -gt 0 ] 2>/dev/null; then
+      # Two denominators. theoretical_s is bytes*8/rate, the wire minimum. control_s is
+      # the MEASURED loss-free transfer at the same mode and seed, which also carries RDP
+      # header and ACK overhead (124.3 s against a theoretical 112 s for 67 KB at 4800).
+      # The ratio uses control_s: measured against measured, so the overhead is not
+      # counted as a cost of loss.
+      theo=$(awk -v b="$bytes" -v r="$rate" 'BEGIN{printf "%.1f", b*8/r}')
+      clog="/tmp/rdpcl_${mode}_${_pay}_L0_b${burst}_s${seed}_session.log"
+      [ -f "$clog" ] || clog="/tmp/rdpcl_${mode}_L0_b${burst}_s${seed}_session.log"
+      ctl=$(grep -a "Uploaded ${bytes} bytes in" "$clog" 2>/dev/null | sed -n '2p' \
+            | sed -E 's/.*in ([0-9.]+) s.*/\1/')
+      # Which denominator was used is part of the number. Falling back from measured to
+      # theoretical without saying so put 3.26 in the committed tuned row where
+      # measured-against-measured is 2.94 -- an 11% error in the column the cost
+      # argument cites. Record the basis so the two can never be compared silently.
+      # Denominator precedence: this row's own measured control, else the STOCK measured
+      # control at the same artifact (tuned has no zero-loss run of its own, and borrowing
+      # across modes is right -- measured against measured -- but must be labelled), else
+      # the theoretical wire minimum. The basis column records which, so the three can
+      # never be silently compared. A hand-edited ratio is not reproducible; this is.
+      if [ -n "$ctl" ]; then base="$ctl"; basis=measured
+      elif [ -n "$stock_ctl" ]; then base="$stock_ctl"; basis=measured_stock_control
+      else base="$theo"; basis=theoretical; fi
+      ratio=$(awk -v e="$el" -v c="$base" 'BEGIN{printf "%.2f", e/c}')
+      fits=$(awk -v e="$el" -v k="$CONTACT_S" 'BEGIN{print (e<=k)?"yes":"no"}')
+      echo "$line,$el,$theo,${ctl:-},$ratio,$basis,$fits"
+    else
+      echo "$line,,,,,,"
+    fi
+  done
+} < "$CSV" > "$OUT" && mv "$OUT" "$CSV"
+echo "airtime folded into $CSV (contact window ${CONTACT_S}s)"

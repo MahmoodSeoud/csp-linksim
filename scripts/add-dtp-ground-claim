@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# add-dtp-ground-claim - record what the ground-side operator tool claimed, per run.
+#
+# R2 is that a transfer which did not deliver every byte must report failure. Proving the
+# deployed uploader violates it needs its claim recorded, not inferred: on a run where 71
+# of 267 fragments were dropped and the board hash was wrong, the operator tool printed
+# "File uploaded." with no error. That string is the evidence, so it becomes a column.
+set -uo pipefail
+CSV="${1:-/home/mseo/thesis/csp-linksim/captures/dtp_experiment_2026-08.csv}"
+TMP="$CSV.tmp"
+IFS= read -r hdr < "$CSV"; echo "$hdr,ground_claim,ground_error" > "$TMP"
+tail -n +2 "$CSV" | while IFS= read -r line; do
+  label=$(echo "$line" | cut -d, -f4)
+  log="/tmp/cell_${label}_trigger.log"
+  claim=none; err=none
+  if [ -f "$log" ]; then
+    c=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$log" | grep -aoE "File uploaded\.|upload failed|Failed" | head -1)
+    [ -n "$c" ] && claim=$(echo "$c" | tr ' ' '_' | tr -d '.')
+    e=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$log" | grep -aciE "error|fail|abort|timeout" || true)
+    err="${e:-0}"
+  fi
+  echo "$line,$claim,$err" >> "$TMP"
+done
+mv "$TMP" "$CSV"; echo "ground claim recorded in $CSV"

@@ -90,7 +90,7 @@ meson, ninja, a C toolchain):
 git submodule update --init --recursive
 meson setup build -Dfrontends=true
 meson compile -C build
-meson test -C build --print-errorlogs        # expect 14/14 green
+meson test -C build --print-errorlogs        # expect 15/15 green
 ```
 
 ### 1. Run one instrumented transfer
@@ -248,6 +248,6 @@ diagnostic, named for what it does. **Provenance note:** the committed CSVs in
 
 ## Build status
 
-Test suite: **14/14 green** (`scripts/bench test`, or `meson test -C build` on Linux).
+Test suite: **15/15 green** (`scripts/bench test`, or `meson test -C build` on Linux).
 Instrument validated on the real flatsat;
 the empirical findings above are measured, not simulated.

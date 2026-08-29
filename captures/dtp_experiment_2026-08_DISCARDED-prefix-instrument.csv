@@ -1,0 +1,5 @@
+build,loss,seed,label,artifact,artifact_bytes,frags_expected,offered,dropped,board_bytes,board_md5,source_md5,verdict,rate_bps,ts
+dtp,0,3,dtp_L0_s3,file.bin,67256,269,269,0,67256,a2414c4e3ad4a586304c838e2b743bd1,a2414c4e3ad4a586304c838e2b743bd1,MATCH,4800,2026-08-26T09:19:36Z
+dtp,0.10,1,dtp_L0.10_s1,file.bin,67256,269,269,20,67256,7b4ce2f3ffcc3d111828326d3387f8e0,a2414c4e3ad4a586304c838e2b743bd1,MISMATCH,4800,2026-08-26T09:23:23Z
+dtp,0.10,2,dtp_L0.10_s2,file.bin,67256,269,269,20,67256,50c44454644f2f4503ab01cc79976729,a2414c4e3ad4a586304c838e2b743bd1,MISMATCH,4800,2026-08-26T09:27:10Z
+dtp,0.10,3,dtp_L0.10_s3,file.bin,67256,269,269,20,?,,a2414c4e3ad4a586304c838e2b743bd1,UNVERIFIED,4800,2026-08-26T09:30:57Z

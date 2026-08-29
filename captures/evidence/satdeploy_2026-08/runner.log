@@ -1,0 +1,52 @@
+2026-08-26T10:33:36Z E2 clear, starting E3
+2026-08-26T10:33:51Z FAIL no satdeploy-agent answering at 5427; launch it on the board:
+2026-08-26T10:33:51Z   /home/root/satdeploy-agent-smart-bk -c can0 -a 5427 &
+2026-08-26T11:47:20Z E2 clear, starting E3
+2026-08-26T11:47:35Z FAIL no satdeploy-agent answering at 5427; launch it on the board:
+2026-08-26T11:47:35Z   /home/root/satdeploy-agent-smart-bk -c can0 -a 5427 &
+2026-08-26T11:52:52Z E2 clear, starting E3
+2026-08-26T11:53:02Z agent 5427 alive
+2026-08-26T11:53:02Z START recovery_L0_s1
+2026-08-26T11:53:12Z DONE  recovery_L0_s1 -> UNVERIFIED (offered ?, dropped ?, invocations ?)
+2026-08-26T11:53:12Z START recovery_L0_s2
+2026-08-26T11:53:21Z DONE  recovery_L0_s2 -> UNVERIFIED (offered ?, dropped ?, invocations ?)
+2026-08-26T11:53:21Z START recovery_L0_s3
+2026-08-26T11:53:31Z DONE  recovery_L0_s3 -> UNVERIFIED (offered ?, dropped ?, invocations ?)
+2026-08-26T11:53:31Z START recovery_L0.10_s1
+2026-08-26T11:57:31Z E2 clear, starting E3
+2026-08-26T11:57:41Z agent 5427 alive
+2026-08-26T11:57:41Z START recovery_L0_s1
+2026-08-26T11:57:44Z DONE  recovery_L0_s1 -> UNVERIFIED (offered 1, dropped 0, invocations ?)
+2026-08-26T11:57:44Z START recovery_L0_s2
+2026-08-26T11:57:47Z DONE  recovery_L0_s2 -> UNVERIFIED (offered 1, dropped 0, invocations ?)
+2026-08-26T11:57:47Z START recovery_L0_s3
+2026-08-26T11:57:51Z DONE  recovery_L0_s3 -> UNVERIFIED (offered 1, dropped 0, invocations ?)
+2026-08-26T11:57:51Z START recovery_L0.10_s1
+2026-08-26T11:57:54Z DONE  recovery_L0.10_s1 -> UNVERIFIED (offered 1, dropped 0, invocations ?)
+2026-08-26T11:57:54Z START recovery_L0.10_s2
+2026-08-26T11:58:41Z E2 clear, starting E3
+2026-08-26T11:58:51Z agent 5427 alive
+2026-08-26T11:58:51Z START recovery_L0_s1
+2026-08-26T11:59:09Z DONE  recovery_L0_s1 -> UNVERIFIED (offered 1, dropped 0, invocations ?)
+2026-08-26T11:59:09Z START recovery_L0_s2
+2026-08-26T12:10:17Z E2 clear, starting E3
+2026-08-26T12:10:27Z agent 5427 alive
+2026-08-26T12:10:30Z START recovery_L0_s1
+2026-08-26T12:12:39Z DONE  recovery_L0_s1 -> UNVERIFIED (offered 278, dropped 0, invocations ?)
+2026-08-26T12:12:42Z START recovery_L0_s2
+2026-08-26T12:14:52Z DONE  recovery_L0_s2 -> UNVERIFIED (offered 278, dropped 0, invocations ?)
+2026-08-26T12:14:55Z START recovery_L0_s3
+2026-08-26T12:17:04Z DONE  recovery_L0_s3 -> UNVERIFIED (offered 278, dropped 0, invocations ?)
+2026-08-26T12:17:07Z START recovery_L0.10_s1
+2026-08-26T12:19:34Z DONE  recovery_L0.10_s1 -> UNVERIFIED (offered 310, dropped 25, invocations ?)
+2026-08-26T12:19:37Z START recovery_L0.10_s2
+2026-08-26T12:21:51Z DONE  recovery_L0.10_s2 -> UNVERIFIED (offered 306, dropped 29, invocations ?)
+2026-08-26T12:21:54Z START recovery_L0.10_s3
+2026-08-26T12:24:31Z DONE  recovery_L0.10_s3 -> UNVERIFIED (offered 328, dropped 36, invocations ?)
+2026-08-26T12:24:34Z START recovery_L0.30_s1
+2026-08-26T12:26:49Z DONE  recovery_L0.30_s1 -> UNVERIFIED (offered 306, dropped 88, invocations ?)
+2026-08-26T12:26:52Z START recovery_L0.30_s2
+2026-08-26T12:29:06Z DONE  recovery_L0.30_s2 -> UNVERIFIED (offered 306, dropped 83, invocations ?)
+2026-08-26T12:29:09Z START recovery_L0.30_s3
+2026-08-26T12:35:15Z DONE  recovery_L0.30_s3 -> UNVERIFIED (offered 2, dropped 1, invocations ?)
+2026-08-26T12:35:15Z E3 finished

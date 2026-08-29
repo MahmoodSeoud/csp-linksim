@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# fix-dtp-verdicts - recompute the verdict column from the recorded hashes.
+#
+# The first guard compared csp_loss `offered` against fragments+2, a figure measured on
+# clean runs. `offered` counts every frame the node transmits, and under loss extra
+# control frames legitimately appear, so the total is not fixed and valid runs were
+# marked INVALID_OFFERED_*. The artifact-identity check belongs on the port-8 DATA frame
+# count (which must equal 267), not on the total.
+#
+# The verdict is a property of the hashes, which are recorded, so it is recomputed here:
+#   no board hash            -> UNVERIFIED (apparatus, exclusion condition 4)
+#   board hash == source     -> MATCH
+#   board hash != source     -> MISMATCH
+set -uo pipefail
+CSV="${1:-/home/mseo/thesis/csp-linksim/captures/dtp_experiment_2026-08.csv}"
+# Idempotent: the -2 correction runs only while the header still says frags_expected.
+# Unguarded arithmetic here turns 267 into 265 on a second invocation.
+if ! head -1 "$CSV" | grep -q 'frags_expected'; then
+  echo "already migrated (header says data_frags) -- recomputing verdicts only"
+  awk -F, -v OFS=, 'NR==1{print;next}{b=$11;s=$12; $13=(b==""?"UNVERIFIED":(b==s?"MATCH":"MISMATCH")); print}' "$CSV" > "$CSV.tmp" && mv "$CSV.tmp" "$CSV"
+  echo "verdicts recomputed from hashes in $CSV"; exit 0
+fi
+awk -F, -v OFS=, 'NR==1{sub(/frags_expected/,"data_frags"); print; next}
+{ bmd5=$11; smd5=$12;
+  $7 = $7 - 2;   # the column held fragments+2 (the old total-frame guard); the meaningful
+                 # number is the port-8 DATA fragment count
+  if (bmd5 == "") $13="UNVERIFIED";
+  else if (bmd5 == smd5) $13="MATCH";
+  else $13="MISMATCH";
+  print }' "$CSV" > "$CSV.tmp" && mv "$CSV.tmp" "$CSV"
+echo "verdicts recomputed from hashes in $CSV"

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# run-rdp-experiment - E2, the reliable path. Waits for E1 to clear the bus, brings up the
+# vmem_node receiver, then runs the stock experiment plus one tuned run.
+#
+# The tuned run exists to close an objection: if stock RDP is declared inadequate without
+# ever being tuned, R4 and R5 rest on a badly configured transport rather than on a
+# property of reliable transport. One run at 0.30 settles it either way.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+LOG="$REPO/captures/evidence/rdp_2026-08/runner.log"
+mkdir -p "$(dirname "$LOG")"
+ts(){ date -u +%FT%TZ; }
+
+# 1. do not touch the bus while E1 is still running
+# Bounded, and matched exactly: pgrep -f returns whole PIDs, so filter with a fixed
+# full-line match rather than a substring test (grep -qv $$ treats 123 as matching 1234).
+_waited=0
+while :; do
+  _others=$(pgrep -f "run-dtp-experiment" | grep -vx "$$" | grep -vx "$PPID" || true)
+  [ -z "$_others" ] && break
+  [ "$_waited" -ge 5400 ] && { echo "$(ts) FAIL waited 90 min for E1 to clear (pids: $_others); aborting" | tee -a "$LOG"; exit 3; }
+  sleep 20; _waited=$((_waited+20))
+done
+echo "$(ts) E1 clear, starting E2" | tee -a "$LOG"
+sleep 10
+
+# 2. receiver up
+bash "$REPO/scripts/bringup-vmem-node" 5431 >>"$LOG" 2>&1
+sleep 5
+if ! pgrep -f "vmem_node -c can0 -a 5431" >/dev/null; then
+  echo "$(ts) FAIL vmem_node 5431 did not start; E2 aborted" | tee -a "$LOG"; exit 2
+fi
+echo "$(ts) vmem_node 5431 up" | tee -a "$LOG"
+
+# 3. stock experiment: 3 levels x 3 seeds, paced to match E1
+echo "$(ts) START stock 0/0.10/0.30 x3 seeds @4800" | tee -a "$LOG"
+RATE_BPS=4800 bash "$REPO/scripts/rdp-board-sweep" stock "0 0.10 0.30" 3 >>"$LOG" 2>&1
+echo "$(ts) DONE stock" | tee -a "$LOG"
+
+# 4. tuned control run at the level where the systems separate
+echo "$(ts) START tuned 0.30 x1 seed @4800" | tee -a "$LOG"
+RATE_BPS=4800 bash "$REPO/scripts/rdp-board-sweep" tuned "0.30" 1 >>"$LOG" 2>&1
+echo "$(ts) DONE tuned" | tee -a "$LOG"
+echo "$(ts) E2 finished" | tee -a "$LOG"

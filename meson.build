@@ -86,6 +86,18 @@ svu_loop_host = executable('svu_loop_host', 'tests/svu_loop_host.c',
   override_options: ci_strict)
 test('self-verifying uploader resume loop', svu_loop_host)
 
+# Injector calibration: the drop vector this C rule produces must match the offline
+# Python reimplementation the thesis calibrates against (scripts/calibrate-injector.py).
+# Nothing enforced that before: a change to ci_draw() or to the threshold arithmetic would
+# silently invalidate every predicted drop count in the evaluation while both sides kept
+# running happily.
+calibrator_host = executable('calibrator_host', 'tests/calibrator_host.c',
+  dependencies: ci_dep,
+  override_options: ci_strict)
+test('injector calibration matches the offline reimplementation',
+  find_program('tests/calibrator_diff.sh'),
+  args: [calibrator_host, files('scripts/calibrate-injector.py')])
+
 # Front-ends: the vendored lossy proxy and the monitor APM. Gated behind the
 # `frontends` option so the pure lib above stays buildable with zero dependencies.
 #

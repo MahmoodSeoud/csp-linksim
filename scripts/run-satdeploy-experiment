@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# run-satdeploy-experiment - E3, satdeploy recovery build. Chains after E2.
+#
+# Loss goes in with plain -L: satdeploy recovers by re-requesting missing blocks, so
+# identity-keyed drops (-M) would re-drop the same block every round and recovery could
+# never converge. The monitor is pinned to -m 256 -O 8: SVU bulk rides port 9 with an
+# 8-byte libdtp header, NOT the 4-byte dipp header the deployed uploader uses. The
+# compiled default is 1024/8 and silently changes the fragmentation layout.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+CSH=/home/mseo/thesis/csh/builddir/csh
+PAY="$REPO/captures/payload_libjpegxl.bin"
+NODE=5427; RATE_BPS="${RATE_BPS:-4800}"
+CSV="$REPO/captures/satdeploy_experiment_2026-08.csv"
+EVID="$REPO/captures/evidence/satdeploy_2026-08"; mkdir -p "$EVID"
+LOG="$EVID/runner.log"
+DEV="${DEV:-/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0}"
+ts(){ date -u +%FT%TZ; }
+strip_ansi(){ sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' | tr -d '\r'; }
+
+# Bounded, and matched exactly: pgrep -f returns whole PIDs, so filter with a fixed
+# full-line match rather than a substring test (grep -qv $$ treats 123 as matching 1234).
+_waited=0
+while :; do
+  _others=$(pgrep -f "run-rdp-experiment" | grep -vx "$$" | grep -vx "$PPID" || true)
+  [ -z "$_others" ] && break
+  [ "$_waited" -ge 5400 ] && { echo "$(ts) FAIL waited 90 min for E2 to clear (pids: $_others); aborting" | tee -a "$LOG"; exit 3; }
+  sleep 20; _waited=$((_waited+20))
+done
+echo "$(ts) E2 clear, starting E3" | tee -a "$LOG"; sleep 10
+
+WANT=$(md5sum "$PAY" | cut -d' ' -f1); SIZE=$(stat -c%s "$PAY")
+[ -f "$CSV" ] || echo "build,loss,seed,label,artifact,artifact_bytes,offered,dropped,invocations,result,board_md5,source_md5,verdict,rate_bps,ts" > "$CSV"
+
+# agent liveness: a dead agent makes every run below meaningless
+probe=$(printf 'csp init\ncsp add can -c can0 -b 0 -d 20\nping -n %s -t 5000\nexit\n' "$NODE" > /tmp/sd_ping.csh; \
+        timeout 60 script -qec "$CSH -i /tmp/sd_ping.csh" /dev/null </dev/null 2>&1 | strip_ansi)
+if ! echo "$probe" | grep -qaE "Reply|reply in"; then
+  echo "$(ts) FAIL no satdeploy-agent answering at $NODE; launch it on the board:" | tee -a "$LOG"
+  echo "$(ts)   /home/root/satdeploy-agent-smart-bk -c can0 -a $NODE &" | tee -a "$LOG"
+  exit 2
+fi
+echo "$(ts) agent $NODE alive" | tee -a "$LOG"
+
+for loss in 0 0.10 0.30; do for seed in 1 2 3; do
+  label="recovery_L${loss}_s${seed}"; DEST="/home/root/sd_${label}.bin"
+  INIT=$(mktemp /tmp/sd_XXXX.csh)
+  # build/apm FIRST. ~/.local holds a csp_loss predating the -R pacing patch, and the
+  # first load of a given module name wins ("Skipping ... already loaded"). Wrong order
+  # means `csp_loss start -R` is rejected and the run proceeds unpaced and lossless.
+  { echo "csp init"; echo "csp add can -c can0 -b 0 -d 20"
+    echo "apm load -p $REPO/build/apm"; echo "apm load"
+    echo "ping -n $NODE -t 5000"
+    if [ "$loss" != 0 ]; then echo "csp_loss start -L $loss -S $seed -R $RATE_BPS"
+    else echo "csp_loss start -L 0.0 -R $RATE_BPS"; fi
+    echo "csp_monitor start -d 9 -m 256 -O 8 -o /tmp/${label}_mon.csv"
+    echo "satdeploy upload -f $PAY -r $DEST -n $NODE -m 256"
+    echo "sleep 3000"; echo "csp_loss status"; echo "csp_loss stop"; echo "csp_monitor stop"
+    echo "exit"; } > "$INIT"
+  # satdeploy is content-addressed: if the board already holds this SHA it reports
+  # "Already deployed" and does nothing, so a repeat run is a silent no-op (offered 1,
+  # 3 seconds). Wipe the deployed state and the destination before every run, the same
+  # way scripts/satdeploy-board-external-sweep does.
+  # Full cycle, in this order. satdeploy is content-addressed, so a repeat SHA is a
+  # silent no-op ("Already deployed", 3 s, one frame) and the state must be wiped. But
+  # wiping /opt/satdeploy and the state dir UNDER a running agent wedges it: it keeps
+  # answering CSP ping while failing satdeploy's own pre-flight check. So: kill, wipe,
+  # relaunch, confirm. This is what scripts/satdeploy-board-external-sweep does.
+  TO=40 bash "$REPO/scripts/board-cmd" \
+    "for p in \$(pidof satdeploy-agent-smart-bk); do kill \$p; done; sleep 2; \
+     rm -f $DEST; rm -rf /var/lib/satdeploy/state /opt/satdeploy; \
+     mkdir -p /var/lib/satdeploy/state; \
+     cd /home/root && nohup ./satdeploy-agent-smart-bk -i CAN -p can0 -a $NODE >>/tmp/agent_recovery.log 2>&1 & \
+     sleep 4; echo AGT_\$(pidof satdeploy-agent-smart-bk)_END" >/dev/null 2>&1
+  sleep 3
+  echo "$(ts) START $label" | tee -a "$LOG"
+  out=$(timeout 900 script -qec "$CSH -i $INIT" /dev/null </dev/null 2>&1 | strip_ansi)
+  printf '%s\n' "$out" > "$EVID/${label}.log"
+
+  offered=$(printf '%s' "$out" | grep -aoE 'offered [0-9]+' | head -1 | awk '{print $2}')
+  dropped=$(printf '%s' "$out" | grep -aoE 'dropped [0-9]+' | head -1 | awk '{print $2}')
+  inv=$(printf '%s' "$out" | grep -aoiE '(round|pass|invocation)[s]?[ :=]+[0-9]+' | tail -1 | grep -oE '[0-9]+')
+  result=$(printf '%s' "$out" | grep -aoiE 'DEPLOYED|INCOMPLETE|FAILED|verified|unfinished' | tail -1)
+
+  # external hash over the console, double-framed so console garble cannot pass as a value
+  p=$(TO=40 bash "$REPO/scripts/board-cmd" \
+      "sz=\$(stat -c%s $DEST 2>/dev/null); h=\$(md5sum $DEST 2>/dev/null | cut -d' ' -f1); echo PRB_\${sz}_\${h}_\${sz}_\${h}_BRP" 2>&1)
+  can=$(echo "$p" | grep -aoE 'PRB_[0-9]+_[0-9a-f]{32}_[0-9]+_[0-9a-f]{32}_BRP' | head -1)
+  got=""; if [ -n "$can" ]; then IFS='_' read -r _ s1 h1 s2 h2 _ <<< "$can"
+    [ -n "$h1" ] && [ "$h1" = "$h2" ] && got="$h1"; fi
+
+  # Injector guard. Every silent fault today produced plausible output: the injector not
+  # loading, the wrong header size, a stale APM winning the load. csp_loss prints one line
+  # per active feature, so require them. No pacing line means the run was neither paced nor
+  # lossy whatever it reported.
+  if ! printf '%s' "$out" | grep -qa "pacing egress at ${RATE_BPS} bit/s"; then
+    vd=VOID_NOT_PACED
+  elif [ "$loss" != 0 ] && ! printf '%s' "$out" | grep -qaE "csp_loss: .*loss on CAN0"; then
+    vd=VOID_NO_LOSS_INJECTED
+  elif [ -z "$got" ]; then vd=UNVERIFIED
+  elif [ "$got" = "$WANT" ]; then vd=MATCH
+  else vd=MISMATCH; fi
+  echo "recovery,$loss,$seed,$label,$(basename "$PAY"),$SIZE,${offered:-},${dropped:-},${inv:-},${result:-},${got:-},$WANT,$vd,$RATE_BPS,$(ts)" >> "$CSV"
+  echo "$(ts) DONE  $label -> $vd (offered ${offered:-?}, dropped ${dropped:-?}, invocations ${inv:-?})" | tee -a "$LOG"
+  rm -f "$INIT"
+done; done
+echo "$(ts) E3 finished" | tee -a "$LOG"

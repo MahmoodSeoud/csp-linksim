@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# classify-satdeploy-outcomes - separate an honest reported failure from an apparatus fault.
+#
+# Reading no hash has two causes that must never share a label:
+#   - satdeploy reported "did not verify" and left nothing at the destination. That is a
+#     RESULT, and it is the evidence for R2: the tool refuses to claim success on an
+#     incomplete transfer, unlike the deployed uploader.
+#   - the agent stopped answering. That is the apparatus, exclusion condition 2, invalid.
+set -uo pipefail
+REPO=/home/mseo/thesis/csp-linksim
+CSV="${1:-$REPO/captures/satdeploy_experiment_2026-08.csv}"
+EVID="$REPO/captures/evidence/satdeploy_2026-08"
+TMP="$CSV.tmp"
+IFS= read -r hdr < "$CSV"; echo "$hdr,zero_byte_rounds" > "$TMP"
+tail -n +2 "$CSV" | while IFS= read -r line; do
+  label=$(echo "$line" | cut -d, -f4); vd=$(echo "$line" | cut -d, -f13)
+  log="$EVID/${label}.log"
+  # grep -c already prints 0 when there are no matches AND exits 1, so a `|| echo 0`
+  # fallback appends a SECOND value and embeds a newline in the CSV field.
+  z=$(sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$log" 2>/dev/null | grep -acE '(^|[^0-9])0 bytes blasted'); z=${z:-0}
+  if [ "$vd" = "UNVERIFIED" ]; then
+    if grep -qa "No response from agent" "$log" 2>/dev/null; then vd=INVALID_AGENT_DOWN
+    elif grep -qa "did not verify" "$log" 2>/dev/null; then vd=INCOMPLETE_REPORTED
+    fi
+  fi
+  echo "$line" | awk -F, -v OFS=, -v v="$vd" -v z="$z" '{$13=v; print $0 "," z}' >> "$TMP"
+done
+mv "$TMP" "$CSV"; echo "outcomes classified in $CSV"
