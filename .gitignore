@@ -93,3 +93,4 @@ __pycache__/
 
 # default csp_monitor output filename (stray runs at repo root)
 /csp-intercept.csv
+.gbrain-source
