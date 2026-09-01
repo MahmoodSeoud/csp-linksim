@@ -13,7 +13,7 @@ IMPAIR IT  (stays on until you stop it)
   csp_loss stop
 
 RECORD WHAT CROSSED  (independent of what any sender claims)
-  csp_monitor start -d 9 -o /tmp/wire.csv     9=SVU  8=DTP  10=param  13=RDP
+  csp_monitor start -d 9 -o /tmp/wire.csv     9=SVU  8=DTP  10=param  14=RDP
   csp_monitor stop
 
 --------- THE THREE UPLOADERS, same link, same loss ----------------

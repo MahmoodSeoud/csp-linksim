@@ -57,6 +57,6 @@ rule
 bold "Suite complete."
 echo "  The transfer-mechanism measurements are board-only (FlatSat payload board over"
 echo "  CAN) and are reported from committed data:"
-awk -F, 'NR>1{n++; if($8=="yes") s++} END{printf "  %-30s %2d lossy cells, %d silent corruption (captures/rq3_corruption.csv)\n","DTP deployed, payload board",n+0,s+0}' "$REPO/captures/rq3_corruption.csv" 2>/dev/null
+echo "  DTP / RDP / satdeploy comparison (4800 bit/s)   captures/{dtp,rdp,satdeploy}_experiment_2026-08.csv"
 [ -d "$REPO/captures/board_external_full" ] && echo "  satdeploy + naive, payload board          captures/board_external_full/ (externally judged)"
 rule
