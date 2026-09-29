@@ -1,4 +1,4 @@
-# csp-intercept
+# csp-linksim
 
 **A fault-injection instrument for satellite file upload.** It sits in the path of a real
 CSP file transfer, drops a known, repeatable fraction of packets, paces the link to the real
